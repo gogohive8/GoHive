@@ -55,7 +55,8 @@ dev_dependencies:
 # The following section is specific to Flutter packages.
 flutter:
   assets:
-      - assets/logo_background.png
-      - assets/facebook_icon.png
-      - assets/google_icon.png
-      - assets/apple_icon.png
+    - assets/logo_background.png
+    - assets/facebook_icon.png
+    - assets/google_icon.png
+    - assets/apple_icon.png
+    - assets/email_icon.png

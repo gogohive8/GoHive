@@ -1,27 +1,38 @@
 import 'package:flutter/material.dart';
 
-void main() {
-  runApp(const MyApp());
-}
-
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+class SignInScreen extends StatefulWidget {
+  const SignInScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Sign In App',
-      theme: ThemeData(
-        primarySwatch: Colors.purple,
-        visualDensity: VisualDensity.adaptivePlatformDensity,
-      ),
-      home: const SignInScreen(),
-    );
-  }
+  _SignInScreenState createState() => _SignInScreenState();
 }
 
-class SignInScreen extends StatelessWidget {
-  const SignInScreen({super.key});
+class _SignInScreenState extends State<SignInScreen> {
+  final _phoneController = TextEditingController();
+
+  // Заготовки для API (будут заполнены позже)
+  final String apiUrl = 'https://api.example.com/auth';
+  final String apiKey = 'your_api_key_here';
+
+  @override
+  void dispose() {
+    _phoneController.dispose();
+    super.dispose();
+  }
+
+  void _signInWithPhone() {
+    if (_phoneController.text.isNotEmpty) {
+      Navigator.pushNamed(context, '/email-sign-in');
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Введите номер телефона')),
+      );
+    }
+  }
+
+  void _navigateToSocialSignIn(String provider) {
+    Navigator.pushNamed(context, '/social-sign-in', arguments: provider);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -36,51 +47,36 @@ class SignInScreen extends StatelessWidget {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                // Логотип и декоративные элементы
                 Stack(
                   alignment: Alignment.center,
                   children: [
                     Image.asset(
-                      'assets/logo_background.png', // Замените на путь к вашему изображению
+                      'assets/logo_background.png',
                       height: size.height * 0.3,
                       fit: BoxFit.contain,
-                    ),
-                    Text(
-                      'A2B',
-                      style: TextStyle(
-                        fontSize: size.width * 0.1,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                      ),
                     ),
                   ],
                 ),
                 SizedBox(height: size.height * 0.05),
-
-                // Поле для номера телефона
                 TextField(
+                  controller: _phoneController,
                   decoration: InputDecoration(
                     labelText: 'Your phone number',
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(10),
-                      borderSide: BorderSide(color: Colors.blue),
                     ),
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(10),
-                      borderSide: BorderSide(color: Colors.blue),
+                      borderSide: BorderSide(color: Colors.purple),
                     ),
                   ),
                   keyboardType: TextInputType.phone,
                 ),
                 SizedBox(height: size.height * 0.03),
-
-                // Кнопка Sign In
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
-                    onPressed: () {
-                      // Логика входа
-                    },
+                    onPressed: _signInWithPhone,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.purple,
                       padding:
@@ -99,78 +95,85 @@ class SignInScreen extends StatelessWidget {
                   ),
                 ),
                 SizedBox(height: size.height * 0.03),
-
-                // Текст "Or"
-                Text(
+                const Text(
                   'Or',
-                  style: TextStyle(fontSize: size.width * 0.04),
+                  style: TextStyle(fontSize: 16),
                 ),
                 SizedBox(height: size.height * 0.03),
-
-                // Варианты входа
                 Column(
                   children: [
-                    OutlinedButton.icon(
-                      onPressed: () {
-                        // Логика входа через email
-                      },
-                      icon: Icon(Icons.email, color: Colors.black),
-                      label: Text('Sign in with E-mail'),
-                      style: OutlinedButton.styleFrom(
-                        side: BorderSide(color: Colors.grey),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        onPressed: () => _navigateToSocialSignIn('email'),
+                        icon: Image.asset(
+                          'assets/email_icon.png',
+                          height: 24,
+                        ),
+                        label: const Text('Sign in with E-mail'),
+                        style: OutlinedButton.styleFrom(
+                          side: const BorderSide(color: Colors.grey),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          minimumSize: Size(double.infinity, 50),
                         ),
                       ),
                     ),
                     SizedBox(height: size.height * 0.01),
-                    OutlinedButton.icon(
-                      onPressed: () {
-                        // Логика входа через Facebook
-                      },
-                      icon: Image.asset(
-                        'assets/facebook_icon.png', // Замените на путь к иконке
-                        height: 24,
-                      ),
-                      label: Text('Sign in with Facebook'),
-                      style: OutlinedButton.styleFrom(
-                        side: BorderSide(color: Colors.grey),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        onPressed: () => _navigateToSocialSignIn('facebook'),
+                        icon: Image.asset(
+                          'assets/facebook_icon.png',
+                          height: 24,
+                        ),
+                        label: const Text('Sign in with Facebook'),
+                        style: OutlinedButton.styleFrom(
+                          side: const BorderSide(color: Colors.grey),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          minimumSize: Size(double.infinity, 50),
                         ),
                       ),
                     ),
                     SizedBox(height: size.height * 0.01),
-                    OutlinedButton.icon(
-                      onPressed: () {
-                        // Логика входа через Google
-                      },
-                      icon: Image.asset(
-                        'assets/google_icon.png', // Замените на путь к иконке
-                        height: 24,
-                      ),
-                      label: Text('Sign in with Google'),
-                      style: OutlinedButton.styleFrom(
-                        side: BorderSide(color: Colors.grey),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        onPressed: () => _navigateToSocialSignIn('google'),
+                        icon: Image.asset(
+                          'assets/google_icon.png',
+                          height: 24,
+                        ),
+                        label: const Text('Sign in with Google'),
+                        style: OutlinedButton.styleFrom(
+                          side: const BorderSide(color: Colors.grey),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          minimumSize: Size(double.infinity, 50),
                         ),
                       ),
                     ),
                     SizedBox(height: size.height * 0.01),
-                    OutlinedButton.icon(
-                      onPressed: () {
-                        // Логика входа через Apple
-                      },
-                      icon: Image.asset(
-                        'assets/apple_icon.png', // Замените на путь к иконке
-                        height: 24,
-                      ),
-                      label: Text('Sign in with Apple'),
-                      style: OutlinedButton.styleFrom(
-                        side: BorderSide(color: Colors.grey),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        onPressed: () => _navigateToSocialSignIn('apple'),
+                        icon: Image.asset(
+                          'assets/apple_icon.png',
+                          height: 24,
+                        ),
+                        label: const Text('Sign in with Apple'),
+                        style: OutlinedButton.styleFrom(
+                          side: const BorderSide(color: Colors.grey),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          minimumSize: Size(double.infinity, 50),
                         ),
                       ),
                     ),
