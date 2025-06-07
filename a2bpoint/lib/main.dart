@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'screens/sign_in_screen.dart';
-import 'screens/email_sign_in_screen.dart';
+import 'screens/sign_up_screen.dart';
 import 'screens/social_sign_in_screen.dart';
 import 'screens/home_screen.dart';
 
@@ -23,7 +23,7 @@ class MyApp extends StatelessWidget {
       initialRoute: '/sign-in',
       routes: {
         '/sign-in': (context) => const SignInScreen(),
-        '/email-sign-in': (context) => const EmailSignInScreen(),
+        '/sign-up': (context) => const SignUpScreen(),
         '/social-sign-in': (context) => const SocialSignInScreen(),
         '/home': (context) => const HomeScreen(),
       },

@@ -22,7 +22,7 @@ class _SignInScreenState extends State<SignInScreen> {
 
   void _signInWithPhone() {
     if (_phoneController.text.isNotEmpty) {
-      Navigator.pushNamed(context, '/email-sign-in');
+      Navigator.pushNamed(context, '/sign-up');
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Введите номер телефона')),
