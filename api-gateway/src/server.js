@@ -13,7 +13,7 @@ redisClient.connect().then(() => console.log('Redis connected'));
 
 // Middleware to verify JWT
 const verifyToken = async (req, res, next) => {
-  const publicPaths = ['/api/login', '/api/users'];
+  const publicPaths = ['/api/register/email', '/api/register/oauth', '/api/login'];
   if (publicPaths.includes(req.path)) return next();
 
   const token = req.headers['authorization']?.split(' ')[1];
@@ -33,6 +33,10 @@ const verifyToken = async (req, res, next) => {
 app.use(verifyToken);
 
 // Proxy routes to microservices
+app.use('/api/register/email', createProxyMiddleware({ target: 'http://localhost:3001', changeOrigin: true }));
+app.use('/api/register/oauth', createProxyMiddleware({ target: 'http://localhost:3001', changeOrigin: true }));
+app.use('/api/login', createProxyMiddleware({ target: 'http://localhost:3001', changeOrigin: true }));
+app.use('/api/logout', createProxyMiddleware({ target: 'http://localhost:3001', changeOrigin: true }));
 app.use('/api/users', createProxyMiddleware({ target: 'http://localhost:3001', changeOrigin: true }));
 
 const PORT = process.env.PORT || 3000;
