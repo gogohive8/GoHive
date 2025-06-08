@@ -1,5 +1,5 @@
 const express = require('express');
-const { Sequelize } = require('sequelize');
+const { createClient } = require('@supabase/supabase-js');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const redis = require('redis');
@@ -9,20 +9,14 @@ require('dotenv').config({ path: __dirname + '/../.env'});
 const app = express();
 app.use(express.json());
 
-// PostgreSQL connection
-const sequelize = new Sequelize(process.env.DATABASE_URL, { dialect: 'postgres' });
+// Connect to supabase client
+const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
 
 // Redis connection
 const redisClient = redis.createClient({ url: process.env.REDIS_URL });
 redisClient.connect().then(() => console.log('Redis connected'));
 
-// Initialize db models
 
-//#TODO:
-// initialize models for each table
-
-// Sync database
-sequelize.sync().then(() => console.log('PostgreSQL connected'));
 
 // Middleware to verify JWT
 const verifyToken = async (req, res, next) => {
