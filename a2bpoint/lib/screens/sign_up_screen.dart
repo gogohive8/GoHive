@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../providers/auth_provider.dart'; // Предполагаем, что он существует
 import '../services/api_services.dart';
 
 class SignUpScreen extends StatefulWidget {
@@ -19,7 +21,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
   final _ageController = TextEditingController();
   final _usernameController = TextEditingController();
   final ApiService _apiService = ApiService();
-  final bool useDummyAuth = true; // Переключатель для заглушки
+  final bool useDummyAuth = true;
 
   @override
   void dispose() {
@@ -44,26 +46,29 @@ class _SignUpScreenState extends State<SignUpScreen> {
               const Center(child: CircularProgressIndicator()),
         );
         if (useDummyAuth) {
-          await Future.delayed(const Duration(seconds: 1)); // Имитация запроса
-          _apiService.setToken('dummy_token');
+          await Future.delayed(const Duration(seconds: 1));
+          Provider.of<AuthProvider>(context, listen: false)
+              .setAuthData('dummy_token', 'dummy_user');
           if (mounted) {
-            Navigator.pop(context); // Закрываем индикатор
+            Navigator.pop(context);
             Navigator.pushReplacementNamed(context, '/home');
           }
         } else {
-          await _apiService.signUp(
+          final authData = await _apiService.signUp(
             _usernameController.text,
             _emailController.text,
             _passwordController.text,
           );
-          if (mounted) {
-            Navigator.pop(context); // Закрываем индикатор
+          if (authData != null && mounted) {
+            Provider.of<AuthProvider>(context, listen: false)
+                .setAuthData(authData['token'] ?? '', authData['userId'] ?? '');
+            Navigator.pop(context);
             Navigator.pushReplacementNamed(context, '/home');
           }
         }
       } catch (e) {
         if (mounted) {
-          Navigator.pop(context); // Закрываем индикатор
+          Navigator.pop(context);
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('Ошибка регистрации: $e')),
           );
@@ -81,11 +86,8 @@ class _SignUpScreenState extends State<SignUpScreen> {
       appBar: AppBar(
         title: const Text('Sign up with E-mail'),
         leading: IconButton(
-          icon: const Icon(
-            Icons.arrow_back_ios,
-            color: Colors.purple,
-            size: 30,
-          ),
+          icon:
+              const Icon(Icons.arrow_back_ios, color: Colors.purple, size: 30),
           onPressed: () => Navigator.of(context).pop(),
           splashColor: Colors.purple.withOpacity(0.2),
           highlightColor: Colors.purple.withOpacity(0.4),
@@ -102,159 +104,182 @@ class _SignUpScreenState extends State<SignUpScreen> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  TextField(
+                  TextFormField(
                     controller: _firstNameController,
                     decoration: InputDecoration(
                       labelText: 'First Name',
                       border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
+                          borderRadius: BorderRadius.circular(10)),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(10),
-                        borderSide: BorderSide(color: Colors.purple),
+                        borderSide: const BorderSide(color: Colors.purple),
                       ),
                       prefixIcon: const Icon(Icons.person),
                     ),
+                    validator: (value) =>
+                        value?.isEmpty ?? true ? 'Введите имя' : null,
                     textInputAction: TextInputAction.next,
-                    onSubmitted: (value) {
-                      FocusScope.of(context).nextFocus();
-                    },
+                    onFieldSubmitted: (_) => FocusScope.of(context).nextFocus(),
                   ),
                   SizedBox(height: size.height * 0.02),
-                  TextField(
+                  TextFormField(
                     controller: _lastNameController,
                     decoration: InputDecoration(
                       labelText: 'Last Name',
                       border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
+                          borderRadius: BorderRadius.circular(10)),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(10),
-                        borderSide: BorderSide(color: Colors.purple),
+                        borderSide: const BorderSide(color: Colors.purple),
                       ),
                       prefixIcon: const Icon(Icons.person_outline),
                     ),
+                    validator: (value) =>
+                        value?.isEmpty ?? true ? 'Введите фамилию' : null,
                     textInputAction: TextInputAction.next,
-                    onSubmitted: (value) {
-                      FocusScope.of(context).nextFocus();
-                    },
+                    onFieldSubmitted: (_) => FocusScope.of(context).nextFocus(),
                   ),
                   SizedBox(height: size.height * 0.02),
-                  TextField(
+                  TextFormField(
                     controller: _ageController,
                     decoration: InputDecoration(
                       labelText: 'Age',
                       border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
+                          borderRadius: BorderRadius.circular(10)),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(10),
-                        borderSide: BorderSide(color: Colors.purple),
+                        borderSide: const BorderSide(color: Colors.purple),
                       ),
                       prefixIcon: const Icon(Icons.calendar_today),
                     ),
                     keyboardType: TextInputType.number,
-                    textInputAction: TextInputAction.next,
-                    onSubmitted: (value) {
-                      FocusScope.of(context).nextFocus();
+                    validator: (value) {
+                      if (value == null || value.isEmpty)
+                        return 'Введите возраст';
+                      final age = int.tryParse(value);
+                      if (age == null || age < 0 || age > 150)
+                        return 'Неверный возраст';
+                      return null;
                     },
+                    textInputAction: TextInputAction.next,
+                    onFieldSubmitted: (_) => FocusScope.of(context).nextFocus(),
                   ),
                   SizedBox(height: size.height * 0.02),
-                  TextField(
+                  TextFormField(
                     controller: _usernameController,
                     decoration: InputDecoration(
                       labelText: 'Username',
                       border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
+                          borderRadius: BorderRadius.circular(10)),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(10),
-                        borderSide: BorderSide(color: Colors.purple),
+                        borderSide: const BorderSide(color: Colors.purple),
                       ),
                       prefixIcon: const Icon(Icons.account_circle),
                     ),
+                    validator: (value) => value?.isEmpty ?? true
+                        ? 'Введите имя пользователя'
+                        : (value!.length < 3 ? 'Минимум 3 символа' : null),
                     textInputAction: TextInputAction.next,
-                    onSubmitted: (value) {
-                      FocusScope.of(context).nextFocus();
-                    },
+                    onFieldSubmitted: (_) => FocusScope.of(context).nextFocus(),
                   ),
                   SizedBox(height: size.height * 0.02),
-                  TextField(
+                  TextFormField(
                     controller: _phoneController,
                     decoration: InputDecoration(
                       labelText: 'Phone Number',
                       border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
+                          borderRadius: BorderRadius.circular(10)),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(10),
-                        borderSide: BorderSide(color: Colors.purple),
+                        borderSide: const BorderSide(color: Colors.purple),
                       ),
                       prefixIcon: const Icon(Icons.phone),
                     ),
                     keyboardType: TextInputType.phone,
-                    textInputAction: TextInputAction.next,
-                    onSubmitted: (value) {
-                      FocusScope.of(context).nextFocus();
+                    validator: (value) {
+                      if (value == null || value.isEmpty)
+                        return 'Введите номер';
+                      final clean =
+                          value.replaceAll(RegExp(r'[\s\-\+\(\)]'), '');
+                      if (clean.length > 11) return 'Слишком длинный номер';
+                      if (!RegExp(r'^\+?\d{10,11}$').hasMatch(clean))
+                        return 'Неверный формат';
+                      return null;
                     },
+                    textInputAction: TextInputAction.next,
+                    onFieldSubmitted: (_) => FocusScope.of(context).nextFocus(),
                   ),
                   SizedBox(height: size.height * 0.02),
-                  TextField(
+                  TextFormField(
                     controller: _emailController,
                     decoration: InputDecoration(
                       labelText: 'Email',
                       border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
+                          borderRadius: BorderRadius.circular(10)),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(10),
-                        borderSide: BorderSide(color: Colors.purple),
+                        borderSide: const BorderSide(color: Colors.purple),
                       ),
                       prefixIcon: const Icon(Icons.email),
                     ),
                     keyboardType: TextInputType.emailAddress,
-                    textInputAction: TextInputAction.next,
-                    onSubmitted: (value) {
-                      FocusScope.of(context).nextFocus();
+                    validator: (value) {
+                      if (value == null || value.isEmpty)
+                        return 'Введите email';
+                      if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$')
+                          .hasMatch(value)) return 'Неверный email';
+                      return null;
                     },
+                    textInputAction: TextInputAction.next,
+                    onFieldSubmitted: (_) => FocusScope.of(context).nextFocus(),
                   ),
                   SizedBox(height: size.height * 0.02),
-                  TextField(
+                  TextFormField(
                     controller: _passwordController,
                     decoration: InputDecoration(
                       labelText: 'Password',
                       border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
+                          borderRadius: BorderRadius.circular(10)),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(10),
-                        borderSide: BorderSide(color: Colors.purple),
+                        borderSide: const BorderSide(color: Colors.purple),
                       ),
                       prefixIcon: const Icon(Icons.lock),
                     ),
                     obscureText: true,
-                    textInputAction: TextInputAction.next,
-                    onSubmitted: (value) {
-                      FocusScope.of(context).nextFocus();
+                    validator: (value) {
+                      if (value == null || value.isEmpty)
+                        return 'Введите пароль';
+                      if (value.length < 6) return 'Минимум 6 символов';
+                      return null;
                     },
+                    textInputAction: TextInputAction.next,
+                    onFieldSubmitted: (_) => FocusScope.of(context).nextFocus(),
                   ),
                   SizedBox(height: size.height * 0.02),
-                  TextField(
+                  TextFormField(
                     controller: _confirmPasswordController,
                     decoration: InputDecoration(
                       labelText: 'Confirm Password',
                       border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
+                          borderRadius: BorderRadius.circular(10)),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(10),
-                        borderSide: BorderSide(color: Colors.purple),
+                        borderSide: const BorderSide(color: Colors.purple),
                       ),
                       prefixIcon: const Icon(Icons.lock_outline),
                     ),
                     obscureText: true,
+                    validator: (value) {
+                      if (value == null || value.isEmpty)
+                        return 'Подтвердите пароль';
+                      if (value != _passwordController.text)
+                        return 'Пароли не совпадают';
+                      return null;
+                    },
                     textInputAction: TextInputAction.done,
-                    onSubmitted: (value) => _signUp(),
+                    onFieldSubmitted: (_) => _signUp(),
                   ),
                   SizedBox(height: size.height * 0.03),
                   SizedBox(

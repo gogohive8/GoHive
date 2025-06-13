@@ -13,6 +13,7 @@ dependencies:
   intl_phone_number_input: ^0.7.3
   cupertino_icons: ^1.0.6
   supabase_flutter: ^2.0.0
+  intl: ^0.18.0  # Add this line for intl package
 
 dev_dependencies:
   flutter_test:

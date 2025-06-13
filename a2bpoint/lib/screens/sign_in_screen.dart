@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl_phone_number_input/intl_phone_number_input.dart';
+import 'package:provider/provider.dart';
+import '../providers/auth_provider.dart';
 import '../services/api_services.dart';
 
 class SignInScreen extends StatefulWidget {
@@ -14,9 +16,9 @@ class _SignInScreenState extends State<SignInScreen> {
   final _phoneController = TextEditingController();
   final _passwordController = TextEditingController();
   final ApiService _apiService = ApiService();
-  final bool useDummyAuth = true; // Переключатель для заглушки
-  String? _phoneNumber; // Для хранения отформатированного номера
-  PhoneNumber? _initialPhoneNumber; // Для начального значения
+  final bool useDummyAuth = true;
+  String? _phoneNumber;
+  PhoneNumber? _initialPhoneNumber;
 
   @override
   void initState() {
@@ -41,38 +43,38 @@ class _SignInScreenState extends State<SignInScreen> {
               const Center(child: CircularProgressIndicator()),
         );
         if (useDummyAuth) {
-          await Future.delayed(const Duration(seconds: 1)); // Имитация запроса
-          print('Phone number checked: $_phoneNumber'); // Для отладки
-          // Проверка с отформатированным номером
+          await Future.delayed(const Duration(seconds: 1));
           if (_phoneNumber == '+77777777777' &&
               _passwordController.text == 'password123') {
-            _apiService.setToken('dummy_token');
+            Provider.of<AuthProvider>(context, listen: false)
+                .setAuthData('dummy_token', 'dummy_user');
             if (mounted) {
-              Navigator.pop(context); // Закрываем индикатор
+              Navigator.pop(context);
               Navigator.pushReplacementNamed(context, '/home');
             }
           } else {
             if (mounted) {
-              Navigator.pop(context); // Закрываем индикатор
+              Navigator.pop(context);
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
-                  content:
-                      Text('У вас нет такого аккаунта. Пройдите регистрацию.'),
-                ),
+                    content: Text(
+                        'У вас нет такого аккаунта. Пройдите регистрацию.')),
               );
             }
           }
         } else {
-          final token = await _apiService.login(
+          final authData = await _apiService.login(
               _phoneNumber ?? '', _passwordController.text);
-          if (mounted) {
-            Navigator.pop(context); // Закрываем индикатор
+          if (authData != null && mounted) {
+            Provider.of<AuthProvider>(context, listen: false)
+                .setAuthData(authData['token'] ?? '', authData['userId'] ?? '');
+            Navigator.pop(context);
             Navigator.pushReplacementNamed(context, '/home');
           }
         }
       } catch (e) {
         if (mounted) {
-          Navigator.pop(context); // Закрываем индикатор
+          Navigator.pop(context);
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('Ошибка входа: $e')),
           );
@@ -110,22 +112,12 @@ class _SignInScreenState extends State<SignInScreen> {
                   InternationalPhoneNumberInput(
                     initialValue: _initialPhoneNumber,
                     onInputChanged: (PhoneNumber number) {
-                      _phoneNumber = number
-                          .phoneNumber; // Обновляем с отформатированным номером
-                      print(
-                          'Phone number updated: $_phoneNumber'); // Для отладки
-                    },
-                    onInputValidated: (bool value) {
-                      if (!value && _phoneNumber != null) {
-                        setState(() {
-                          _phoneNumber = null;
-                        });
-                      }
+                      _phoneNumber = number.phoneNumber;
                     },
                     selectorConfig: const SelectorConfig(
                       selectorType: PhoneInputSelectorType.DIALOG,
                       useEmoji: true,
-                      trailingSpace: false, // Эмодзи в конце поля
+                      trailingSpace: false,
                     ),
                     ignoreBlank: false,
                     autoValidateMode: AutovalidateMode.onUserInteraction,
@@ -137,50 +129,47 @@ class _SignInScreenState extends State<SignInScreen> {
                     inputDecoration: InputDecoration(
                       labelText: 'Your phone number',
                       border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
+                          borderRadius: BorderRadius.circular(10)),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(10),
-                        borderSide: BorderSide(color: Colors.purple),
+                        borderSide: const BorderSide(color: Colors.purple),
                       ),
-                      prefixIcon: const Icon(Icons.phone,
-                          color: Colors.purple), // Иконка внутри поля
+                      prefixIcon: const Icon(Icons.phone, color: Colors.purple),
                     ),
                     textStyle: const TextStyle(fontSize: 16),
                     validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return 'Пожалуйста, введите номер телефона';
-                      }
+                      if (value == null || value.isEmpty)
+                        return 'Введите номер телефона';
                       final cleanValue =
                           value.replaceAll(RegExp(r'[\s\-\+\(\)]'), '');
-                      if (cleanValue.length > 11) {
+                      if (cleanValue.length > 11)
                         return 'Номер не должен превышать 11 символов';
-                      }
-                      if (!RegExp(r'^(8|7|\+7)?\d{10}$').hasMatch(cleanValue)) {
-                        return 'Введите корректный номер (например, +7 777 777 77 77)';
-                      }
+                      if (!RegExp(r'^(8|7|\+7)?\d{10}$').hasMatch(cleanValue))
+                        return 'Неверный формат номера';
                       return null;
-                    },
-                    onSaved: (PhoneNumber number) {
-                      _phoneNumber = number.phoneNumber;
                     },
                   ),
                   SizedBox(height: size.height * 0.02),
-                  TextField(
+                  TextFormField(
                     controller: _passwordController,
                     decoration: InputDecoration(
                       labelText: 'Password',
                       border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
+                          borderRadius: BorderRadius.circular(10)),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(10),
-                        borderSide: BorderSide(color: Colors.purple),
+                        borderSide: const BorderSide(color: Colors.purple),
                       ),
                     ),
                     obscureText: true,
                     textInputAction: TextInputAction.done,
-                    onSubmitted: (value) => _signInWithPhone(),
+                    validator: (value) {
+                      if (value == null || value.isEmpty)
+                        return 'Введите пароль';
+                      if (value.length < 6) return 'Минимум 6 символов';
+                      return null;
+                    },
+                    onFieldSubmitted: (_) => _signInWithPhone(),
                   ),
                   SizedBox(height: size.height * 0.03),
                   SizedBox(
@@ -205,10 +194,7 @@ class _SignInScreenState extends State<SignInScreen> {
                     ),
                   ),
                   SizedBox(height: size.height * 0.03),
-                  const Text(
-                    'Or',
-                    style: TextStyle(fontSize: 16),
-                  ),
+                  const Text('Or', style: TextStyle(fontSize: 16)),
                   SizedBox(height: size.height * 0.03),
                   Column(
                     children: [
@@ -223,21 +209,19 @@ class _SignInScreenState extends State<SignInScreen> {
                               borderRadius: BorderRadius.circular(10),
                             ),
                             minimumSize: Size(double.infinity, 50),
-                            backgroundColor: Colors.purple
-                                .withOpacity(0.1), // Лёгкий фиолетовый фон
+                            backgroundColor: Colors.purple.withOpacity(0.1),
                           ),
-                          child: const Text(
-                            'Sign up',
-                            style: TextStyle(color: Colors.purple),
-                          ),
+                          child: const Text('Sign up',
+                              style: TextStyle(color: Colors.purple)),
                         ),
                       ),
                       SizedBox(height: size.height * 0.01),
                       SizedBox(
                         width: double.infinity,
                         child: OutlinedButton.icon(
-                          onPressed: () =>
-                              Navigator.pushNamed(context, '/sign-up'),
+                          onPressed: () => Navigator.pushNamed(
+                              context, '/social-sign-in',
+                              arguments: 'email'),
                           icon: const Icon(Icons.email, color: Colors.black),
                           label: const Text('Sign in with E-mail'),
                           style: OutlinedButton.styleFrom(
@@ -256,10 +240,8 @@ class _SignInScreenState extends State<SignInScreen> {
                           onPressed: () => Navigator.pushNamed(
                               context, '/social-sign-in',
                               arguments: 'facebook'),
-                          icon: Image.asset(
-                            'assets/facebook_icon.png',
-                            height: 24,
-                          ),
+                          icon: Image.asset('assets/facebook_icon.png',
+                              height: 24),
                           label: const Text('Sign in with Facebook'),
                           style: OutlinedButton.styleFrom(
                             side: const BorderSide(color: Colors.grey),
@@ -277,10 +259,8 @@ class _SignInScreenState extends State<SignInScreen> {
                           onPressed: () => Navigator.pushNamed(
                               context, '/social-sign-in',
                               arguments: 'google'),
-                          icon: Image.asset(
-                            'assets/google_icon.png',
-                            height: 24,
-                          ),
+                          icon:
+                              Image.asset('assets/google_icon.png', height: 24),
                           label: const Text('Sign in with Google'),
                           style: OutlinedButton.styleFrom(
                             side: const BorderSide(color: Colors.grey),
@@ -298,10 +278,8 @@ class _SignInScreenState extends State<SignInScreen> {
                           onPressed: () => Navigator.pushNamed(
                               context, '/social-sign-in',
                               arguments: 'apple'),
-                          icon: Image.asset(
-                            'assets/apple_icon.png',
-                            height: 24,
-                          ),
+                          icon:
+                              Image.asset('assets/apple_icon.png', height: 24),
                           label: const Text('Sign in with Apple'),
                           style: OutlinedButton.styleFrom(
                             side: const BorderSide(color: Colors.grey),
