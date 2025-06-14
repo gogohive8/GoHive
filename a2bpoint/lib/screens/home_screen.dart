@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/post.dart';
 import '../services/api_services.dart';
-import '../data/dummy_data.dart'; // Import dummy data
+import '../data/dummy_data.dart';
 import '../providers/auth_provider.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -221,16 +221,33 @@ class _HomeScreenState extends State<HomeScreen>
         ],
       ),
       bottomNavigationBar: BottomNavigationBar(
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
-          BottomNavigationBarItem(icon: Icon(Icons.search), label: 'Search'),
-          BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
+        items: [
           BottomNavigationBarItem(
-              icon: Icon(Icons.smart_toy), label: 'AI Mentor'),
+            icon: Image.asset('assets/images/home.png', height: 24),
+            label: 'Home',
+          ),
+          BottomNavigationBarItem(
+            icon: Image.asset('assets/images/search.png', height: 24),
+            label: 'Search',
+          ),
+          BottomNavigationBarItem(
+            icon: Image.asset('assets/images/add.png', height: 24),
+            label: 'Add',
+          ),
+          BottomNavigationBarItem(
+            icon: Image.asset('assets/images/profile.png', height: 24),
+            label: 'Profile',
+          ),
+          BottomNavigationBarItem(
+            icon: Image.asset('assets/images/ai_mentor.png', height: 24),
+            label: 'AI Mentor',
+          ),
         ],
         currentIndex: _selectedIndex,
         selectedItemColor: Colors.purple,
         onTap: _onItemTapped,
+        backgroundColor: Colors.white, // Базовый цвет фона
+        elevation: 5,
       ),
     );
   }

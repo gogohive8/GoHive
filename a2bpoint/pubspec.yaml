@@ -26,3 +26,8 @@ flutter:
     - assets/google_icon.png
     - assets/apple_icon.png
     - assets/email_icon.png
+    - assets/images/home.png
+    - assets/images/search.png
+    - assets/images/add.png
+    - assets/images/profile.png
+    - assets/images/ai_mentor.png
