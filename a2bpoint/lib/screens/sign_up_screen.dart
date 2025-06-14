@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../providers/auth_provider.dart'; // Предполагаем, что он существует
+import '../providers/auth_provider.dart';
 import '../services/api_services.dart';
 
 class SignUpScreen extends StatefulWidget {
@@ -114,7 +114,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
                         borderRadius: BorderRadius.circular(10),
                         borderSide: const BorderSide(color: Colors.purple),
                       ),
-                      prefixIcon: const Icon(Icons.person),
                     ),
                     validator: (value) =>
                         value?.isEmpty ?? true ? 'Введите имя' : null,
@@ -132,7 +131,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
                         borderRadius: BorderRadius.circular(10),
                         borderSide: const BorderSide(color: Colors.purple),
                       ),
-                      prefixIcon: const Icon(Icons.person_outline),
                     ),
                     validator: (value) =>
                         value?.isEmpty ?? true ? 'Введите фамилию' : null,
@@ -150,7 +148,8 @@ class _SignUpScreenState extends State<SignUpScreen> {
                         borderRadius: BorderRadius.circular(10),
                         borderSide: const BorderSide(color: Colors.purple),
                       ),
-                      prefixIcon: const Icon(Icons.calendar_today),
+                      prefixIcon:
+                          Image.asset('assets/age_icon.png', height: 24),
                     ),
                     keyboardType: TextInputType.number,
                     validator: (value) {
@@ -175,7 +174,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
                         borderRadius: BorderRadius.circular(10),
                         borderSide: const BorderSide(color: Colors.purple),
                       ),
-                      prefixIcon: const Icon(Icons.account_circle),
                     ),
                     validator: (value) => value?.isEmpty ?? true
                         ? 'Введите имя пользователя'
@@ -194,7 +192,8 @@ class _SignUpScreenState extends State<SignUpScreen> {
                         borderRadius: BorderRadius.circular(10),
                         borderSide: const BorderSide(color: Colors.purple),
                       ),
-                      prefixIcon: const Icon(Icons.phone),
+                      prefixIcon:
+                          Image.asset('assets/phone_icon.png', height: 24),
                     ),
                     keyboardType: TextInputType.phone,
                     validator: (value) {
@@ -221,7 +220,8 @@ class _SignUpScreenState extends State<SignUpScreen> {
                         borderRadius: BorderRadius.circular(10),
                         borderSide: const BorderSide(color: Colors.purple),
                       ),
-                      prefixIcon: const Icon(Icons.email),
+                      prefixIcon:
+                          Image.asset('assets/email_icon.png', height: 24),
                     ),
                     keyboardType: TextInputType.emailAddress,
                     validator: (value) {
@@ -245,7 +245,8 @@ class _SignUpScreenState extends State<SignUpScreen> {
                         borderRadius: BorderRadius.circular(10),
                         borderSide: const BorderSide(color: Colors.purple),
                       ),
-                      prefixIcon: const Icon(Icons.lock),
+                      prefixIcon:
+                          Image.asset('assets/password_icon.png', height: 24),
                     ),
                     obscureText: true,
                     validator: (value) {
@@ -268,7 +269,8 @@ class _SignUpScreenState extends State<SignUpScreen> {
                         borderRadius: BorderRadius.circular(10),
                         borderSide: const BorderSide(color: Colors.purple),
                       ),
-                      prefixIcon: const Icon(Icons.lock_outline),
+                      prefixIcon:
+                          Image.asset('assets/password_icon.png', height: 24),
                     ),
                     obscureText: true,
                     validator: (value) {

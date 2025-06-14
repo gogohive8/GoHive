@@ -222,27 +222,11 @@ class _SignInScreenState extends State<SignInScreen> {
                           onPressed: () => Navigator.pushNamed(
                               context, '/social-sign-in',
                               arguments: 'email'),
-                          icon: const Icon(Icons.email, color: Colors.black),
-                          label: const Text('Sign in with E-mail'),
-                          style: OutlinedButton.styleFrom(
-                            side: const BorderSide(color: Colors.grey),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            minimumSize: Size(double.infinity, 50),
+                          icon: Image.asset(
+                            'assets/email_icon.png',
+                            height: 24,
                           ),
-                        ),
-                      ),
-                      SizedBox(height: size.height * 0.01),
-                      SizedBox(
-                        width: double.infinity,
-                        child: OutlinedButton.icon(
-                          onPressed: () => Navigator.pushNamed(
-                              context, '/social-sign-in',
-                              arguments: 'facebook'),
-                          icon: Image.asset('assets/facebook_icon.png',
-                              height: 24),
-                          label: const Text('Sign in with Facebook'),
+                          label: const Text('Sign in with E-mail'),
                           style: OutlinedButton.styleFrom(
                             side: const BorderSide(color: Colors.grey),
                             shape: RoundedRectangleBorder(
@@ -262,25 +246,6 @@ class _SignInScreenState extends State<SignInScreen> {
                           icon:
                               Image.asset('assets/google_icon.png', height: 24),
                           label: const Text('Sign in with Google'),
-                          style: OutlinedButton.styleFrom(
-                            side: const BorderSide(color: Colors.grey),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            minimumSize: Size(double.infinity, 50),
-                          ),
-                        ),
-                      ),
-                      SizedBox(height: size.height * 0.01),
-                      SizedBox(
-                        width: double.infinity,
-                        child: OutlinedButton.icon(
-                          onPressed: () => Navigator.pushNamed(
-                              context, '/social-sign-in',
-                              arguments: 'apple'),
-                          icon:
-                              Image.asset('assets/apple_icon.png', height: 24),
-                          label: const Text('Sign in with Apple'),
                           style: OutlinedButton.styleFrom(
                             side: const BorderSide(color: Colors.grey),
                             shape: RoundedRectangleBorder(

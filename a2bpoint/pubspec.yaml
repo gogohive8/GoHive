@@ -20,6 +20,7 @@ dev_dependencies:
     sdk: flutter
 
 flutter:
+  uses-material-design: true
   assets:
     - assets/logo_background.png
     - assets/facebook_icon.png
@@ -31,3 +32,6 @@ flutter:
     - assets/images/add.png
     - assets/images/profile.png
     - assets/images/ai_mentor.png
+    - assets/age_icon.png
+    - assets/phone_icon.png
+    - assets/password_icon.png
