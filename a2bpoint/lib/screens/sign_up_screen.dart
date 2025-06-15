@@ -1,3 +1,4 @@
+// SignUpScreen.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
@@ -21,7 +22,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
   final _ageController = TextEditingController();
   final _usernameController = TextEditingController();
   final ApiService _apiService = ApiService();
-  final bool useDummyAuth = true;
 
   @override
   void dispose() {
@@ -45,26 +45,24 @@ class _SignUpScreenState extends State<SignUpScreen> {
           builder: (context) =>
               const Center(child: CircularProgressIndicator()),
         );
-        if (useDummyAuth) {
-          await Future.delayed(const Duration(seconds: 1));
+        final authData = await _apiService.signUp(
+          _usernameController.text,
+          _emailController.text,
+          _passwordController.text,
+          _firstNameController.text,
+          _lastNameController.text,
+          _ageController.text,
+          _phoneController.text,
+        );
+        if (authData != null && mounted) {
+          // Данные успешно отправлены в Supabase
+          // Второму разработчику: После успешной регистрации проверьте,
+          // что поля first_name, last_name, age, phone_number сохранены в таблице auth.users
+          // или создайте отдельный запрос для таблицы profiles, если требуется.
           Provider.of<AuthProvider>(context, listen: false)
-              .setAuthData('dummy_token', 'dummy_user');
-          if (mounted) {
-            Navigator.pop(context);
-            Navigator.pushReplacementNamed(context, '/home');
-          }
-        } else {
-          final authData = await _apiService.signUp(
-            _usernameController.text,
-            _emailController.text,
-            _passwordController.text,
-          );
-          if (authData != null && mounted) {
-            Provider.of<AuthProvider>(context, listen: false)
-                .setAuthData(authData['token'] ?? '', authData['userId'] ?? '');
-            Navigator.pop(context);
-            Navigator.pushReplacementNamed(context, '/home');
-          }
+              .setAuthData(authData['token'] ?? '', authData['userId'] ?? '');
+          Navigator.pop(context);
+          Navigator.pushReplacementNamed(context, '/home');
         }
       } catch (e) {
         if (mounted) {

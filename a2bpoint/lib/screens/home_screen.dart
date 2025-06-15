@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/post.dart';
 import '../services/api_services.dart';
-import '../data/dummy_data.dart';
 import '../providers/auth_provider.dart';
 import 'navbar.dart';
 
@@ -21,17 +20,15 @@ class _HomeScreenState extends State<HomeScreen>
   final ApiService _apiService = ApiService();
   late TabController _tabController;
   late Future<List<Post>> _postsFuture;
-  final bool useDummyData = true;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
     _tabController.addListener(_handleTabSelection);
-    _postsFuture =
-        useDummyData ? Future.value(dummyPosts) : _apiService.getPosts();
+    _fetchPosts(); // Инициализация с реальными данными
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    if (!authProvider.isAuthenticated && !useDummyData) {
+    if (!authProvider.isAuthenticated) {
       _postsFuture = Future.value([]);
     }
   }
@@ -48,7 +45,14 @@ class _HomeScreenState extends State<HomeScreen>
       setState(() {
         _selectedTabIndex = _tabController.index;
       });
+      _fetchPosts(); // Обновляем данные при смене вкладки
     }
+  }
+
+  void _fetchPosts() {
+    _postsFuture = _apiService.getPosts();
+    // Второму разработчику: Замените getPosts() на getGoals() для вкладки Goals
+    // и getEvents() для вкладки Events, если данные хранятся в разных таблицах.
   }
 
   void _onItemTapped(int index) {
@@ -61,16 +65,14 @@ class _HomeScreenState extends State<HomeScreen>
 
   void _likePost(String postId, int currentLikes, int index) async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    if (!authProvider.isAuthenticated && !useDummyData) {
+    if (!authProvider.isAuthenticated) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Требуется авторизация')),
       );
       return;
     }
     try {
-      if (!useDummyData) {
-        await _apiService.likePost(postId);
-      }
+      await _apiService.likePost(postId);
       setState(() {
         _postsFuture.then((posts) {
           if (index >= 0 && index < posts.length) {
@@ -152,84 +154,116 @@ class _HomeScreenState extends State<HomeScreen>
         controller: _tabController,
         children: [
           // Goals Tab
-          SingleChildScrollView(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const SizedBox(height: 16), // Пространство после AppBar
-                ListView.builder(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: dummyGoals.length,
-                  itemBuilder: (context, index) {
-                    final goal = dummyGoals[index];
-                    return Card(
-                      color: Colors.purple.withOpacity(0.1),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      margin: const EdgeInsets.symmetric(vertical: 8),
-                      child: ListTile(
-                        leading: const CircleAvatar(
-                          backgroundColor: Colors.grey,
-                        ),
-                        title: Text(goal['title']),
-                        subtitle: Text(goal['description']),
-                        trailing: IconButton(
-                          icon: const Icon(Icons.favorite_border),
-                          onPressed: () {
-                            _likePost('', 0,
-                                index); // Пример, замените на реальный postId
-                          },
-                        ),
-                      ),
-                    );
-                  },
+          FutureBuilder<List<Post>>(
+            future: _postsFuture,
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              }
+              if (snapshot.hasError) {
+                return Center(child: Text('Ошибка: ${snapshot.error}'));
+              }
+              final posts = snapshot.data ?? [];
+              return SingleChildScrollView(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const SizedBox(height: 16),
+                    ListView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: posts.length,
+                      itemBuilder: (context, index) {
+                        final post = posts[index];
+                        return Card(
+                          color: Colors.purple.withOpacity(0.1),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          margin: const EdgeInsets.symmetric(vertical: 8),
+                          child: ListTile(
+                            leading: CircleAvatar(
+                              backgroundImage:
+                                  NetworkImage(post.user.avatarUrl),
+                              backgroundColor: Colors.grey,
+                            ),
+                            title: Text(post.text ?? 'No Text'),
+                            subtitle: Text(
+                              'by ${post.user.username} • ${post.createdAt.toLocal().toString().split(' ')[0]}',
+                            ),
+                            trailing: IconButton(
+                              icon: const Icon(Icons.favorite_border),
+                              onPressed: () {
+                                _likePost(post.id, post.likes, index);
+                              },
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ],
                 ),
-              ],
-            ),
+              );
+            },
           ),
           // Events Tab
-          SingleChildScrollView(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const SizedBox(height: 16), // Пространство после AppBar
-                ListView.builder(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: dummyEvents.length,
-                  itemBuilder: (context, index) {
-                    final event = dummyEvents[index];
-                    return Card(
-                      color: Colors.purple.withOpacity(0.1),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      margin: const EdgeInsets.symmetric(vertical: 8),
-                      child: ListTile(
-                        leading: const CircleAvatar(
-                          backgroundColor: Colors.grey,
-                        ),
-                        title: Text(event['title']),
-                        subtitle: Text(event['description']),
-                        trailing: ElevatedButton(
-                          onPressed: () {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                  content: Text('Joined ${event['title']}')),
-                            );
-                          },
-                          child: const Text('Join'),
-                        ),
-                      ),
-                    );
-                  },
+          FutureBuilder<List<Post>>(
+            future: _postsFuture,
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              }
+              if (snapshot.hasError) {
+                return Center(child: Text('Ошибка: ${snapshot.error}'));
+              }
+              final posts = snapshot.data ?? [];
+              return SingleChildScrollView(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const SizedBox(height: 16),
+                    ListView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: posts.length,
+                      itemBuilder: (context, index) {
+                        final post = posts[index];
+                        return Card(
+                          color: Colors.purple.withOpacity(0.1),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          margin: const EdgeInsets.symmetric(vertical: 8),
+                          child: ListTile(
+                            leading: CircleAvatar(
+                              backgroundImage:
+                                  NetworkImage(post.user.avatarUrl),
+                              backgroundColor: Colors.grey,
+                            ),
+                            title: Text(post.text ?? 'No Text'),
+                            subtitle: Text(
+                              'by ${post.user.username} • ${post.createdAt.toLocal().toString().split(' ')[0]}',
+                            ),
+                            trailing: ElevatedButton(
+                              onPressed: () {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                      content:
+                                          Text('Joined ${post.text ?? ''}')),
+                                );
+                              },
+                              child: const Text('Join'),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ],
                 ),
-              ],
-            ),
+              );
+            },
           ),
         ],
       ),

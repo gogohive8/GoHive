@@ -5,6 +5,9 @@ import '../models/post.dart';
 class ApiService {
   final SupabaseClient _supabase = Supabase.instance.client;
 
+  // Геттер для доступа к _supabase
+  SupabaseClient get supabase => _supabase;
+
   Future<Map<String, String>?> login(String email, String password) async {
     try {
       final response = await _supabase.auth.signInWithPassword(
@@ -22,12 +25,24 @@ class ApiService {
   }
 
   Future<Map<String, String>?> signUp(
-      String username, String email, String password) async {
+      String username,
+      String email,
+      String password,
+      String firstName,
+      String lastName,
+      String age,
+      String phoneNumber) async {
     try {
       final response = await _supabase.auth.signUp(
         email: email,
         password: password,
-        data: {'username': username},
+        data: {
+          'username': username,
+          'first_name': firstName,
+          'last_name': lastName,
+          'age': age,
+          'phone_number': phoneNumber,
+        },
       );
       return {
         'token': response.session?.accessToken ?? '',
@@ -101,7 +116,9 @@ class ApiService {
 
   Future<List<Post>> getPosts() async {
     try {
-      final response = await _supabase.from('posts').select();
+      final response = await _supabase
+          .from('posts')
+          .select('*, user(id, username, avatar_url)');
       return (response as List).map((json) => Post.fromJson(json)).toList();
     } catch (e) {
       print('Get posts error: $e');
@@ -121,12 +138,11 @@ class ApiService {
 
   Future<void> createGoal(
       String userId, String description, String location, String interest,
-      {String? pointA, String? pointB, List<String>? tasks}) async {
+      {String? pointA,
+      String? pointB,
+      List<String>? tasks,
+      List<String>? imageUrls}) async {
     try {
-      // Второму разработчику: Перед сохранением данных в таблицу goals,
-      // загрузите изображения из _images в Supabase Storage (например, в папку 'goals_images')
-      // и сохраните URL изображений в отдельном поле (например, 'image_urls' типа JSONB).
-      // Пример: await _supabase.storage.from('goals_images').upload('image_name.jpg', file);
       await _supabase.from('goals').insert({
         'user_id': userId,
         'description': description,
@@ -135,11 +151,34 @@ class ApiService {
         'point_a': pointA,
         'point_b': pointB,
         'tasks': tasks ?? [],
+        'image_urls': imageUrls ?? [],
         'created_at': DateTime.now().toIso8601String(),
       });
     } catch (e) {
       print('Create goal error: $e');
       throw Exception('Failed to create goal: $e');
+    }
+  }
+
+  Future<void> createEvent(String userId, String description, String location,
+      {String? pointA,
+      String? pointB,
+      List<String>? tasks,
+      List<String>? imageUrls}) async {
+    try {
+      await _supabase.from('events').insert({
+        'user_id': userId,
+        'description': description,
+        'location': location,
+        'point_a': pointA,
+        'point_b': pointB,
+        'tasks': tasks ?? [],
+        'image_urls': imageUrls ?? [],
+        'created_at': DateTime.now().toIso8601String(),
+      });
+    } catch (e) {
+      print('Create event error: $e');
+      throw Exception('Failed to create event: $e');
     }
   }
 }

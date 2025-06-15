@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
+import 'package:supabase_flutter/supabase_flutter.dart'; // Импортируем для FileOptions
 import '../providers/auth_provider.dart';
 import '../services/api_services.dart';
 import 'navbar.dart';
@@ -74,10 +75,34 @@ class _AddScreenState extends State<AddScreen> {
     });
   }
 
-  Future<void> _saveGoal() async {
+  Future<List<String>> _uploadImages() async {
+    List<String> imageUrls = [];
+    for (var image in _images) {
+      final fileName = DateTime.now().millisecondsSinceEpoch.toString();
+      try {
+        await _apiService.supabase.storage.from('images').uploadBinary(
+              fileName,
+              await image.readAsBytes(),
+              fileOptions: FileOptions(
+                contentType: 'image/jpeg',
+                upsert: true,
+              ),
+            );
+        final url =
+            _apiService.supabase.storage.from('images').getPublicUrl(fileName);
+        imageUrls.add(url);
+      } catch (e) {
+        print('Error uploading image: $e');
+        // Продолжаем, даже если одно изображение не загрузилось
+      }
+    }
+    return imageUrls;
+  }
+
+  Future<void> _saveData() async {
     if (_formKey.currentState!.validate()) {
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
-      if (!authProvider.isAuthenticated) {
+      if (!authProvider.isAuthenticated || authProvider.userId == null) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Требуется авторизация')),
         );
@@ -91,29 +116,37 @@ class _AddScreenState extends State<AddScreen> {
               const Center(child: CircularProgressIndicator()),
         );
 
-        // Данные для отправки в БД
-        // - userId: Получается из authProvider.userId!
-        // - description: _descriptionController.text
-        // - location: _locationController.text
-        // - interest: _selectedInterest ?? 'Health'
-        // - pointA: _pointAController.text
-        // - pointB: _pointBController.text
-        // - tasks: _tasks (список задач)
-        // - images: _images (список файлов, требует преобразования в URL или бинарные данные для БД)
-        // Второму разработчику: Реализуйте логику загрузки изображений в Supabase Storage
-        // и сохраните URL в таблице goals. Например, используйте _supabase.storage.from('images').upload()
-        await _apiService.createGoal(
-          authProvider.userId!,
-          _descriptionController.text,
-          _locationController.text,
-          _selectedInterest ?? 'Health',
-          pointA: _pointAController.text,
-          pointB: _pointBController.text,
-          tasks: _tasks,
-        );
+        final imageUrls = await _uploadImages();
+        final userId = authProvider.userId!;
+
+        if (_selectedTabIndex == 0) {
+          // Save as Goal
+          await _apiService.createGoal(
+            userId,
+            _descriptionController.text,
+            _locationController.text,
+            _selectedInterest ?? 'Health',
+            pointA: _pointAController.text,
+            pointB: _pointBController.text,
+            tasks: _tasks,
+            imageUrls: imageUrls,
+          );
+        } else {
+          // Save as Event
+          await _apiService.createEvent(
+            userId,
+            _descriptionController.text,
+            _locationController.text,
+            pointA: _pointAController.text,
+            pointB: _pointBController.text,
+            tasks: _tasks,
+            imageUrls: imageUrls,
+          );
+        }
+
         Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Цель сохранена')),
+          const SnackBar(content: Text('Данные сохранены')),
         );
         _descriptionController.clear();
         _locationController.clear();
@@ -271,7 +304,7 @@ class _AddScreenState extends State<AddScreen> {
                     TextFormField(
                       controller: _descriptionController,
                       decoration: InputDecoration(
-                        labelText: 'Description goal',
+                        labelText: 'Description',
                         border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(10)),
                         focusedBorder: OutlineInputBorder(
@@ -298,32 +331,34 @@ class _AddScreenState extends State<AddScreen> {
                           value?.isEmpty ?? true ? 'Введите локацию' : null,
                     ),
                     SizedBox(height: size.height * 0.02),
-                    Wrap(
-                      spacing: 8,
-                      children: [
-                        'Health',
-                        'Yoga',
-                        'Sport',
-                        'Music',
-                        'Science',
-                        'Book',
-                        'Swimming'
-                      ].map((interest) {
-                        return ElevatedButton(
-                          onPressed: () =>
-                              setState(() => _selectedInterest = interest),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: _selectedInterest == interest
-                                ? Colors.purple
-                                : Colors.grey[200],
-                            foregroundColor: _selectedInterest == interest
-                                ? Colors.white
-                                : Colors.black,
-                          ),
-                          child: Text(interest),
-                        );
-                      }).toList(),
-                    ),
+                    if (_selectedTabIndex ==
+                        0) // Показываем интересы только для Goals
+                      Wrap(
+                        spacing: 8,
+                        children: [
+                          'Health',
+                          'Yoga',
+                          'Sport',
+                          'Music',
+                          'Science',
+                          'Book',
+                          'Swimming'
+                        ].map((interest) {
+                          return ElevatedButton(
+                            onPressed: () =>
+                                setState(() => _selectedInterest = interest),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: _selectedInterest == interest
+                                  ? Colors.purple
+                                  : Colors.grey[200],
+                              foregroundColor: _selectedInterest == interest
+                                  ? Colors.white
+                                  : Colors.black,
+                            ),
+                            child: Text(interest),
+                          );
+                        }).toList(),
+                      ),
                     SizedBox(height: size.height * 0.02),
                     TextFormField(
                       controller: _pointAController,
@@ -406,7 +441,7 @@ class _AddScreenState extends State<AddScreen> {
                     SizedBox(
                       width: double.infinity,
                       child: ElevatedButton(
-                        onPressed: _saveGoal,
+                        onPressed: _saveData,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.purple,
                           padding: EdgeInsets.symmetric(
