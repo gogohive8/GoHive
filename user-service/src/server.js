@@ -3,11 +3,17 @@ const { createClient } = require('@supabase/supabase-js');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const redis = require('redis');
+const cors = require('cors');
 
 require('dotenv').config({ path: __dirname + '/../.env'});
 
 const app = express();
 app.use(express.json());
+app.use(cors({
+  origin: 'http://localhost:40723', // Replace with your Flutter web app's URL
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+}));
 
 // Connect to supabase client
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);

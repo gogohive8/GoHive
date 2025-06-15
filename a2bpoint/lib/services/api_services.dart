@@ -41,19 +41,21 @@ class ApiService {
       int age,
       String phoneNumber) async {
     try {
-      final response = await _client.post(
-        Uri.parse('$_baseUrl/api/register/email'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'username': username,
-          'email': email,
-          'password': password,
-          'firstName': firstName,
-          'lastName': lastName,
-          'age': age,
-          'phoneNumber': phoneNumber,
-        }),
-      );
+      final response = await _client
+          .post(
+            Uri.parse('$_baseUrl/api/register/email'),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({
+              'firstName': firstName,
+              'lastName': lastName,
+              'username': username,
+              'age': age,
+              'email': email,
+              'phoneNumber': phoneNumber,
+              'password': password,
+            }),
+          )
+          .timeout(Duration(seconds: 30));
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         return {'token': data['token'] ?? '', 'userId': data['userId'] ?? ''};
