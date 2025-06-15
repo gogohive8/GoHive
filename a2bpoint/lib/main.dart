@@ -1,10 +1,11 @@
+// main.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'screens/sign_in_screen.dart';
 import 'screens/sign_up_screen.dart';
-import 'screens/social_sign_in_screen.dart';
 import 'screens/home_screen.dart';
+import 'screens/add_screen.dart';
 import 'providers/auth_provider.dart';
 import 'services/api_services.dart';
 
@@ -42,12 +43,15 @@ class MyApp extends StatelessWidget {
         visualDensity: VisualDensity.adaptivePlatformDensity,
         useMaterial3: true,
       ),
-      initialRoute: '/sign-in',
+      initialRoute: '/home',
       routes: {
         '/sign-in': (context) => SignInScreen(),
         '/sign-up': (context) => SignUpScreen(),
-        '/social-sign-in': (context) => SocialSignInScreen(),
         '/home': (context) => HomeScreen(),
+        '/add': (context) => AddScreen(),
+        // '/search': (context) => SearchScreen(),
+        // '/profile': (context) => ProfileScreen(),
+        // '/ai-mentor': (context) => AIMentorScreen(),
       },
     );
   }

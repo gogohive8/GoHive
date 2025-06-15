@@ -1,9 +1,11 @@
+// home_screen.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/post.dart';
 import '../services/api_services.dart';
 import '../data/dummy_data.dart';
 import '../providers/auth_provider.dart';
+import 'navbar.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -14,7 +16,8 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen>
     with SingleTickerProviderStateMixin {
-  int _selectedIndex = 0;
+  int _selectedIndex = 0; // Индекс по умолчанию для Home
+  int _selectedTabIndex = 0; // Для отслеживания выбранной вкладки
   final ApiService _apiService = ApiService();
   late TabController _tabController;
   late Future<List<Post>> _postsFuture;
@@ -23,7 +26,8 @@ class _HomeScreenState extends State<HomeScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 2, vsync: this);
+    _tabController.addListener(_handleTabSelection);
     _postsFuture =
         useDummyData ? Future.value(dummyPosts) : _apiService.getPosts();
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
@@ -34,14 +38,25 @@ class _HomeScreenState extends State<HomeScreen>
 
   @override
   void dispose() {
+    _tabController.removeListener(_handleTabSelection);
     _tabController.dispose();
     super.dispose();
+  }
+
+  void _handleTabSelection() {
+    if (_tabController.index != _selectedTabIndex) {
+      setState(() {
+        _selectedTabIndex = _tabController.index;
+      });
+    }
   }
 
   void _onItemTapped(int index) {
     setState(() {
       _selectedIndex = index;
     });
+    final routes = ['/home', '/search', '/add', '/profile', '/ai-mentor'];
+    Navigator.pushReplacementNamed(context, routes[index]);
   }
 
   void _likePost(String postId, int currentLikes, int index) async {
@@ -70,184 +85,157 @@ class _HomeScreenState extends State<HomeScreen>
     }
   }
 
-  void _logout() {
-    Provider.of<AuthProvider>(context, listen: false).clearAuth();
-    Navigator.pushReplacementNamed(context, '/sign-in');
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('A2B Social'),
+        elevation: 0,
+        backgroundColor: Colors.white,
+        title: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            GestureDetector(
+              onTap: () => _tabController.animateTo(0),
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: _selectedTabIndex == 0
+                      ? Colors.purple.withOpacity(0.1)
+                      : Colors.transparent,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  'Goals',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: _selectedTabIndex == 0 ? Colors.purple : Colors.grey,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            GestureDetector(
+              onTap: () => _tabController.animateTo(1),
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: _selectedTabIndex == 1
+                      ? Colors.purple.withOpacity(0.1)
+                      : Colors.transparent,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  'Events',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: _selectedTabIndex == 1 ? Colors.purple : Colors.grey,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.add),
-            onPressed: () {},
-          ),
-          IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: _logout,
+            icon: Image.asset('assets/images/messages_icon.png', height: 24),
+            onPressed: () {
+              // Логика сообщений
+            },
           ),
         ],
-        bottom: TabBar(
-          controller: _tabController,
-          tabs: const [
-            Tab(text: 'Goals'),
-            Tab(text: 'Events'),
-            Tab(text: 'Feed'),
-          ],
-          indicatorColor: Colors.white,
-          labelColor: Colors.purple,
-          unselectedLabelColor: Colors.grey,
-        ),
       ),
       body: TabBarView(
         controller: _tabController,
         children: [
           // Goals Tab
-          ListView.builder(
-            padding: const EdgeInsets.all(8.0),
-            itemCount: dummyGoals.length,
-            itemBuilder: (context, index) {
-              final goal = dummyGoals[index];
-              return Card(
-                margin: const EdgeInsets.symmetric(vertical: 8),
-                child: ListTile(
-                  leading: CircleAvatar(
-                      backgroundImage: NetworkImage(goal['avatarUrl'])),
-                  title: Text(goal['title']),
-                  subtitle: Text(goal['description']),
-                  trailing: IconButton(
-                    icon: const Icon(Icons.favorite_border),
-                    onPressed: () {
-                      // Add goal like logic if needed
-                    },
-                  ),
+          SingleChildScrollView(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const SizedBox(height: 16), // Пространство после AppBar
+                ListView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: dummyGoals.length,
+                  itemBuilder: (context, index) {
+                    final goal = dummyGoals[index];
+                    return Card(
+                      color: Colors.purple.withOpacity(0.1),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      margin: const EdgeInsets.symmetric(vertical: 8),
+                      child: ListTile(
+                        leading: const CircleAvatar(
+                          backgroundColor: Colors.grey,
+                        ),
+                        title: Text(goal['title']),
+                        subtitle: Text(goal['description']),
+                        trailing: IconButton(
+                          icon: const Icon(Icons.favorite_border),
+                          onPressed: () {
+                            _likePost('', 0,
+                                index); // Пример, замените на реальный postId
+                          },
+                        ),
+                      ),
+                    );
+                  },
                 ),
-              );
-            },
+              ],
+            ),
           ),
           // Events Tab
-          ListView.builder(
-            padding: const EdgeInsets.all(8.0),
-            itemCount: dummyEvents.length,
-            itemBuilder: (context, index) {
-              final event = dummyEvents[index];
-              return Card(
-                margin: const EdgeInsets.symmetric(vertical: 8),
-                child: ListTile(
-                  leading: CircleAvatar(
-                      backgroundImage: NetworkImage(event['avatarUrl'])),
-                  title: Text(event['title']),
-                  subtitle: Text(event['description']),
-                  trailing: ElevatedButton(
-                    onPressed: () {
-                      // Add event join logic if needed
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Joined ${event['title']}')),
-                      );
-                    },
-                    child: const Text('Join'),
-                  ),
+          SingleChildScrollView(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const SizedBox(height: 16), // Пространство после AppBar
+                ListView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: dummyEvents.length,
+                  itemBuilder: (context, index) {
+                    final event = dummyEvents[index];
+                    return Card(
+                      color: Colors.purple.withOpacity(0.1),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      margin: const EdgeInsets.symmetric(vertical: 8),
+                      child: ListTile(
+                        leading: const CircleAvatar(
+                          backgroundColor: Colors.grey,
+                        ),
+                        title: Text(event['title']),
+                        subtitle: Text(event['description']),
+                        trailing: ElevatedButton(
+                          onPressed: () {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                  content: Text('Joined ${event['title']}')),
+                            );
+                          },
+                          child: const Text('Join'),
+                        ),
+                      ),
+                    );
+                  },
                 ),
-              );
-            },
-          ),
-          // Feed Tab
-          FutureBuilder<List<Post>>(
-            future: _postsFuture,
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return const Center(child: CircularProgressIndicator());
-              } else if (snapshot.hasError) {
-                return Center(child: Text('Ошибка: ${snapshot.error}'));
-              } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                return const Center(child: Text('Нет постов'));
-              }
-              final posts = snapshot.data!;
-              return ListView.builder(
-                itemCount: posts.length,
-                itemBuilder: (context, index) {
-                  final post = posts[index];
-                  return Card(
-                    margin:
-                        const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        ListTile(
-                          leading: CircleAvatar(
-                            backgroundImage: NetworkImage(post.user.avatarUrl),
-                          ),
-                          title: Text(post.user.username),
-                          subtitle: Text(post.createdAt.toString()),
-                        ),
-                        Image.network(
-                          post.imageUrl,
-                          height: 200,
-                          width: double.infinity,
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) =>
-                              const Center(child: Text('Ошибка изображения')),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.all(8.0),
-                          child: Text(post.text),
-                        ),
-                        Row(
-                          children: [
-                            IconButton(
-                              icon: const Icon(Icons.favorite_border),
-                              onPressed: () =>
-                                  _likePost(post.id, post.likes, index),
-                            ),
-                            Text('${post.likes}'),
-                            const SizedBox(width: 16),
-                            IconButton(
-                              icon: const Icon(Icons.comment),
-                              onPressed: () {},
-                            ),
-                            Text('${post.comments}'),
-                          ],
-                        ),
-                      ],
-                    ),
-                  );
-                },
-              );
-            },
+              ],
+            ),
           ),
         ],
       ),
-      bottomNavigationBar: BottomNavigationBar(
-        items: [
-          BottomNavigationBarItem(
-            icon: Image.asset('assets/images/home.png', height: 24),
-            label: 'Home',
-          ),
-          BottomNavigationBarItem(
-            icon: Image.asset('assets/images/search.png', height: 24),
-            label: 'Search',
-          ),
-          BottomNavigationBarItem(
-            icon: Image.asset('assets/images/add.png', height: 24),
-            label: 'Add',
-          ),
-          BottomNavigationBarItem(
-            icon: Image.asset('assets/images/profile.png', height: 24),
-            label: 'Profile',
-          ),
-          BottomNavigationBarItem(
-            icon: Image.asset('assets/images/ai_mentor.png', height: 24),
-            label: 'AI Mentor',
-          ),
-        ],
-        currentIndex: _selectedIndex,
-        selectedItemColor: Colors.purple,
+      bottomNavigationBar: Navbar(
+        selectedIndex: _selectedIndex,
         onTap: _onItemTapped,
-        backgroundColor: Colors.white, // Базовый цвет фона
-        elevation: 5,
       ),
     );
   }

@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:intl_phone_number_input/intl_phone_number_input.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../services/api_services.dart';
@@ -13,27 +12,19 @@ class SignInScreen extends StatefulWidget {
 
 class _SignInScreenState extends State<SignInScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _phoneController = TextEditingController();
+  final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final ApiService _apiService = ApiService();
-  final bool useDummyAuth = true;
-  String? _phoneNumber;
-  PhoneNumber? _initialPhoneNumber;
-
-  @override
-  void initState() {
-    super.initState();
-    _initialPhoneNumber = PhoneNumber(isoCode: 'KZ', dialCode: '+7');
-  }
+  String? _email;
 
   @override
   void dispose() {
-    _phoneController.dispose();
+    _emailController.dispose();
     _passwordController.dispose();
     super.dispose();
   }
 
-  Future<void> _signInWithPhone() async {
+  Future<void> _signInWithEmail() async {
     if (_formKey.currentState!.validate()) {
       try {
         showDialog(
@@ -42,35 +33,13 @@ class _SignInScreenState extends State<SignInScreen> {
           builder: (context) =>
               const Center(child: CircularProgressIndicator()),
         );
-        if (useDummyAuth) {
-          await Future.delayed(const Duration(seconds: 1));
-          if (_phoneNumber == '+77777777777' &&
-              _passwordController.text == 'password123') {
-            Provider.of<AuthProvider>(context, listen: false)
-                .setAuthData('dummy_token', 'dummy_user');
-            if (mounted) {
-              Navigator.pop(context);
-              Navigator.pushReplacementNamed(context, '/home');
-            }
-          } else {
-            if (mounted) {
-              Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                    content: Text(
-                        'У вас нет такого аккаунта. Пройдите регистрацию.')),
-              );
-            }
-          }
-        } else {
-          final authData = await _apiService.login(
-              _phoneNumber ?? '', _passwordController.text);
-          if (authData != null && mounted) {
-            Provider.of<AuthProvider>(context, listen: false)
-                .setAuthData(authData['token'] ?? '', authData['userId'] ?? '');
-            Navigator.pop(context);
-            Navigator.pushReplacementNamed(context, '/home');
-          }
+        final authData = await _apiService.login(
+            _emailController.text, _passwordController.text);
+        if (authData != null && mounted) {
+          Provider.of<AuthProvider>(context, listen: false)
+              .setAuthData(authData['token'] ?? '', authData['userId'] ?? '');
+          Navigator.pop(context);
+          Navigator.pushReplacementNamed(context, '/home');
         }
       } catch (e) {
         if (mounted) {
@@ -79,6 +48,41 @@ class _SignInScreenState extends State<SignInScreen> {
             SnackBar(content: Text('Ошибка входа: $e')),
           );
         }
+      }
+    }
+  }
+
+  Future<void> _signInWithGoogle() async {
+    // Комментарий для второго разработчика:
+    // Для работы Google-авторизации через Supabase необходимо:
+    // 1. Убедиться, что пакет 'supabase_flutter' добавлен в pubspec.yaml.
+    // 2. Настроить OAuth в Supabase Dashboard (раздел Authentication -> Providers -> Google):
+    //    - Включить Google Provider.
+    //    - Указать Client ID и Client Secret из Google Cloud Console.
+    // 3. Настроить redirect URL в Supabase и приложении:
+    //    - В Supabase: Authentication -> Settings -> Redirect URLs (например, 'io.supabase.flutterquickstart://callback').
+    //    - В Android: android/app/src/main/AndroidManifest.xml добавить <intent-filter> с scheme='io.supabase.flutterquickstart'.
+    //    - В iOS: ios/Runner/Info.plist добавить CFBundleURLSchemes с 'io.supabase.flutterquickstart'.
+    // 4. Проверить, что Supabase клиент инициализирован в main.dart (Supabase.initialize).
+    try {
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(child: CircularProgressIndicator()),
+      );
+      final authData = await _apiService.signInWithGoogle();
+      if (authData != null && mounted) {
+        Provider.of<AuthProvider>(context, listen: false)
+            .setAuthData(authData['token'] ?? '', authData['userId'] ?? '');
+        Navigator.pop(context);
+        Navigator.pushReplacementNamed(context, '/home');
+      }
+    } catch (e) {
+      if (mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Ошибка Google входа: $e')),
+        );
       }
     }
   }
@@ -109,43 +113,26 @@ class _SignInScreenState extends State<SignInScreen> {
                     ],
                   ),
                   SizedBox(height: size.height * 0.05),
-                  InternationalPhoneNumberInput(
-                    initialValue: _initialPhoneNumber,
-                    onInputChanged: (PhoneNumber number) {
-                      _phoneNumber = number.phoneNumber;
-                    },
-                    selectorConfig: const SelectorConfig(
-                      selectorType: PhoneInputSelectorType.DIALOG,
-                      useEmoji: true,
-                      trailingSpace: false,
-                    ),
-                    ignoreBlank: false,
-                    autoValidateMode: AutovalidateMode.onUserInteraction,
-                    selectorTextStyle: const TextStyle(color: Colors.black),
-                    textFieldController: _phoneController,
-                    formatInput: true,
-                    keyboardType: const TextInputType.numberWithOptions(
-                        signed: true, decimal: false),
-                    inputDecoration: InputDecoration(
-                      labelText: 'Your phone number',
+                  TextFormField(
+                    controller: _emailController,
+                    onChanged: (value) => _email = value,
+                    decoration: InputDecoration(
+                      labelText: 'Your email',
                       border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(10)),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(10),
                         borderSide: const BorderSide(color: Colors.purple),
                       ),
-                      prefixIcon: const Icon(Icons.phone, color: Colors.purple),
+                      prefixIcon:
+                          Image.asset('assets/email_icon.png', height: 24),
                     ),
-                    textStyle: const TextStyle(fontSize: 16),
+                    keyboardType: TextInputType.emailAddress,
                     validator: (value) {
                       if (value == null || value.isEmpty)
-                        return 'Введите номер телефона';
-                      final cleanValue =
-                          value.replaceAll(RegExp(r'[\s\-\+\(\)]'), '');
-                      if (cleanValue.length > 11)
-                        return 'Номер не должен превышать 11 символов';
-                      if (!RegExp(r'^(8|7|\+7)?\d{10}$').hasMatch(cleanValue))
-                        return 'Неверный формат номера';
+                        return 'Введите email';
+                      if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$')
+                          .hasMatch(value!)) return 'Неверный формат email';
                       return null;
                     },
                   ),
@@ -162,20 +149,20 @@ class _SignInScreenState extends State<SignInScreen> {
                       ),
                     ),
                     obscureText: true,
-                    textInputAction: TextInputAction.done,
                     validator: (value) {
                       if (value == null || value.isEmpty)
                         return 'Введите пароль';
                       if (value.length < 6) return 'Минимум 6 символов';
                       return null;
                     },
-                    onFieldSubmitted: (_) => _signInWithPhone(),
+                    textInputAction: TextInputAction.done,
+                    onFieldSubmitted: (_) => _signInWithEmail(),
                   ),
                   SizedBox(height: size.height * 0.03),
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(
-                      onPressed: _signInWithPhone,
+                      onPressed: _signInWithEmail,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.purple,
                         padding:
@@ -219,30 +206,7 @@ class _SignInScreenState extends State<SignInScreen> {
                       SizedBox(
                         width: double.infinity,
                         child: OutlinedButton.icon(
-                          onPressed: () => Navigator.pushNamed(
-                              context, '/social-sign-in',
-                              arguments: 'email'),
-                          icon: Image.asset(
-                            'assets/email_icon.png',
-                            height: 24,
-                          ),
-                          label: const Text('Sign in with E-mail'),
-                          style: OutlinedButton.styleFrom(
-                            side: const BorderSide(color: Colors.grey),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            minimumSize: Size(double.infinity, 50),
-                          ),
-                        ),
-                      ),
-                      SizedBox(height: size.height * 0.01),
-                      SizedBox(
-                        width: double.infinity,
-                        child: OutlinedButton.icon(
-                          onPressed: () => Navigator.pushNamed(
-                              context, '/social-sign-in',
-                              arguments: 'google'),
+                          onPressed: _signInWithGoogle,
                           icon:
                               Image.asset('assets/google_icon.png', height: 24),
                           label: const Text('Sign in with Google'),
