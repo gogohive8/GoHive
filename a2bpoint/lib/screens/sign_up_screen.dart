@@ -1,4 +1,3 @@
-// SignUpScreen.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
@@ -21,6 +20,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
   final _firstNameController = TextEditingController();
   final _ageController = TextEditingController();
   final _usernameController = TextEditingController();
+  int? _age; // Состояние для хранения возраста как int
   final ApiService _apiService = ApiService();
 
   @override
@@ -37,7 +37,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
   }
 
   Future<void> _signUp() async {
-    if (_formKey.currentState!.validate()) {
+    if (_formKey.currentState!.validate() && _age != null) {
       try {
         showDialog(
           context: context,
@@ -51,13 +51,13 @@ class _SignUpScreenState extends State<SignUpScreen> {
           _passwordController.text,
           _firstNameController.text,
           _lastNameController.text,
-          _ageController.text as int,
+          _age!, // Используем сохранённое значение _age
           _phoneController.text,
         );
         if (authData != null && mounted) {
-          // Данные успешно отправлены в Supabase
+          // Данные успешно отправлены в API Gateway
           // Второму разработчику: После успешной регистрации проверьте,
-          // что поля first_name, last_name, age, phone_number сохранены в таблице auth.users
+          // что поля first_name, last_name, age, phone_number сохранены в таблице users
           // или создайте отдельный запрос для таблицы profiles, если требуется.
           Provider.of<AuthProvider>(context, listen: false)
               .setAuthData(authData['token'] ?? '', authData['userId'] ?? '');
@@ -156,6 +156,9 @@ class _SignUpScreenState extends State<SignUpScreen> {
                       final age = int.tryParse(value);
                       if (age == null || age < 0 || age > 150)
                         return 'Неверный возраст';
+                      setState(() {
+                        _age = age; // Сохраняем преобразованный возраст
+                      });
                       return null;
                     },
                     textInputAction: TextInputAction.next,

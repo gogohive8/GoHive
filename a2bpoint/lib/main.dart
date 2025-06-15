@@ -6,6 +6,7 @@ import 'screens/sign_up_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/add_screen.dart';
 import 'screens/profile_screen.dart';
+import 'screens/ai_mentor_screen.dart';
 import 'providers/auth_provider.dart';
 import 'services/api_services.dart';
 
@@ -52,15 +53,15 @@ class MyApp extends StatelessWidget {
         visualDensity: VisualDensity.adaptivePlatformDensity,
         useMaterial3: true,
       ),
-      initialRoute: '/home',
+      initialRoute: '/sign-in',
       routes: {
         '/sign-in': (context) => SignInScreen(),
         '/sign-up': (context) => SignUpScreen(),
         '/home': (context) => HomeScreen(),
         '/add': (context) => AddScreen(),
         '/profile': (context) => ProfileScreen(),
+        '/ai-mentor': (context) => AIMentorScreen(),
         // '/search': (context) => SearchScreen(),
-        // '/ai-mentor': (context) => AIMentorScreen(),
       },
     );
   }

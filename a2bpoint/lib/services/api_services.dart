@@ -1,21 +1,31 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+import 'package:flutter/material.dart';
 import '../models/post.dart';
+import '../providers/auth_provider.dart';
 
 class ApiService {
   final SupabaseClient _supabase = Supabase.instance.client;
 
   SupabaseClient get supabase => _supabase;
+  static const String _baseUrl = 'http://localhost:3000'; // API Gateway URL
+  final http.Client _client = http.Client();
 
   Future<Map<String, String>?> login(String email, String password) async {
     try {
-      final response = await _supabase.auth.signInWithPassword(
-        email: email,
-        password: password,
+      final response = await _client.post(
+        Uri.parse('$_baseUrl/api/login'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'email': email, 'password': password}),
       );
-      return {
-        'token': response.session?.accessToken ?? '',
-        'userId': response.user?.id ?? ''
-      };
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return {'token': data['token'] ?? '', 'userId': data['userId'] ?? ''};
+      } else {
+        print('Login error: ${response.body}');
+        return null;
+      }
     } catch (e) {
       print('Login error: $e');
       return null;
@@ -31,21 +41,26 @@ class ApiService {
       int age,
       String phoneNumber) async {
     try {
-      final response = await _supabase.auth.signUp(
-        email: email,
-        password: password,
-        data: {
+      final response = await _client.post(
+        Uri.parse('$_baseUrl/api/register/email'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
           'username': username,
-          'first_name': firstName,
-          'last_name': lastName,
+          'email': email,
+          'password': password,
+          'firstName': firstName,
+          'lastName': lastName,
           'age': age,
-          'phone_number': phoneNumber,
-        },
+          'phoneNumber': phoneNumber,
+        }),
       );
-      return {
-        'token': response.session?.accessToken ?? '',
-        'userId': response.user?.id ?? ''
-      };
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return {'token': data['token'] ?? '', 'userId': data['userId'] ?? ''};
+      } else {
+        print('Sign up error: ${response.body}');
+        return null;
+      }
     } catch (e) {
       print('Sign up error: $e');
       return null;

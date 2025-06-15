@@ -33,11 +33,101 @@ const verifyToken = async (req, res, next) => {
 app.use(verifyToken);
 
 // Proxy routes to microservices
-app.use('/api/register/email', createProxyMiddleware({ target: 'http://localhost:3001', changeOrigin: true }));
-app.use('/api/register/oauth', createProxyMiddleware({ target: 'http://localhost:3001', changeOrigin: true }));
-app.use('/api/login', createProxyMiddleware({ target: 'http://localhost:3001', changeOrigin: true }));
-app.use('/api/logout', createProxyMiddleware({ target: 'http://localhost:3001', changeOrigin: true }));
-app.use('/api/users', createProxyMiddleware({ target: 'http://localhost:3001', changeOrigin: true }));
+// Proxy routes to microservices with path rewriting
+app.use('/api/register/email', createProxyMiddleware({
+  target: 'http://localhost:3001',
+  changeOrigin: true,
+  logLevel: 'debug',
+  pathRewrite: {
+    '^/api/register/email': '/api/register/email', // Переписываем путь
+  },
+  onProxyReq: (proxyReq, req, res) => {
+    console.log(`Proxying request to ${proxyReq.path} on user-service`);
+  },
+  onProxyRes: (proxyRes, req, res) => {
+    console.log(`Received response from user-service for ${req.path}: ${proxyRes.statusCode}`);
+  },
+  onError: (err, req, res) => {
+    console.error(`Proxy error for ${req.path}: ${err.message}`);
+    res.status(500).json({ error: 'Proxy error' });
+  },
+}));
+
+app.use('/api/register/oauth', createProxyMiddleware({
+  target: 'http://localhost:3001',
+  changeOrigin: true,
+  logLevel: 'debug',
+  pathRewrite: {
+    '^/api/register/oauth': '/register/oauth', // Переписываем путь
+  },
+  onProxyReq: (proxyReq, req, res) => {
+    console.log(`Proxying request to ${proxyReq.path} on user-service`);
+  },
+  onProxyRes: (proxyRes, req, res) => {
+    console.log(`Received response from user-service for ${req.path}: ${proxyRes.statusCode}`);
+  },
+  onError: (err, req, res) => {
+    console.error(`Proxy error for ${req.path}: ${err.message}`);
+    res.status(500).json({ error: 'Proxy error' });
+  },
+}));
+
+app.use('/api/login', createProxyMiddleware({
+  target: 'http://localhost:3001',
+  changeOrigin: true,
+  logLevel: 'debug',
+  pathRewrite: {
+    '^/api/login': '/login', // Переписываем путь, если нужно
+  },
+  onProxyReq: (proxyReq, req, res) => {
+    console.log(`Proxying request to ${proxyReq.path} on user-service`);
+  },
+  onProxyRes: (proxyRes, req, res) => {
+    console.log(`Received response from user-service for ${req.path}: ${proxyRes.statusCode}`);
+  },
+  onError: (err, req, res) => {
+    console.error(`Proxy error for ${req.path}: ${err.message}`);
+    res.status(500).json({ error: 'Proxy error' });
+  },
+}));
+
+app.use('/api/logout', createProxyMiddleware({
+  target: 'http://localhost:3001',
+  changeOrigin: true,
+  logLevel: 'debug',
+  pathRewrite: {
+    '^/api/logout': '/logout', // Переписываем путь, если нужно
+  },
+  onProxyReq: (proxyReq, req, res) => {
+    console.log(`Proxying request to ${proxyReq.path} on user-service`);
+  },
+  onProxyRes: (proxyRes, req, res) => {
+    console.log(`Received response from user-service for ${req.path}: ${proxyRes.statusCode}`);
+  },
+  onError: (err, req, res) => {
+    console.error(`Proxy error for ${req.path}: ${err.message}`);
+    res.status(500).json({ error: 'Proxy error' });
+  },
+}));
+
+app.use('/api/users', createProxyMiddleware({
+  target: 'http://localhost:3001',
+  changeOrigin: true,
+  logLevel: 'debug',
+  pathRewrite: {
+    '^/api/users': '/users', // Переписываем путь, если нужно
+  },
+  onProxyReq: (proxyReq, req, res) => {
+    console.log(`Proxying request to ${proxyReq.path} on user-service`);
+  },
+  onProxyRes: (proxyRes, req, res) => {
+    console.log(`Received response from user-service for ${req.path}: ${proxyRes.statusCode}`);
+  },
+  onError: (err, req, res) => {
+    console.error(`Proxy error for ${req.path}: ${err.message}`);
+    res.status(500).json({ error: 'Proxy error' });
+  },
+}));
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`API Gateway running on port ${PORT}`));
