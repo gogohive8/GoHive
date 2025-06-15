@@ -1,9 +1,8 @@
-// add_screen.dart
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
-import 'package:supabase_flutter/supabase_flutter.dart'; // Импортируем для FileOptions
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../providers/auth_provider.dart';
 import '../services/api_services.dart';
 import 'navbar.dart';
@@ -23,10 +22,10 @@ class _AddScreenState extends State<AddScreen> {
   final _pointAController = TextEditingController();
   final _pointBController = TextEditingController();
   final ImagePicker _picker = ImagePicker();
-  List<File> _images = []; // Список загруженных изображений
-  int _selectedTabIndex = 0; // 0 for Goals, 1 for Events
+  List<File> _images = [];
+  int _selectedTabIndex = 0;
   String? _selectedInterest;
-  List<String> _tasks = []; // Список задач
+  List<String> _tasks = [];
   final _taskController = TextEditingController();
 
   @override
@@ -83,23 +82,29 @@ class _AddScreenState extends State<AddScreen> {
         await _apiService.supabase.storage.from('images').uploadBinary(
               fileName,
               await image.readAsBytes(),
-              fileOptions: FileOptions(
-                contentType: 'image/jpeg',
-                upsert: true,
-              ),
+              fileOptions: FileOptions(contentType: 'image/jpeg', upsert: true),
             );
         final url =
             _apiService.supabase.storage.from('images').getPublicUrl(fileName);
         imageUrls.add(url);
       } catch (e) {
-        print('Error uploading image: $e');
-        // Продолжаем, даже если одно изображение не загрузилось
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Ошибка загрузки изображения: $e')),
+          );
+        }
       }
     }
     return imageUrls;
   }
 
   Future<void> _saveData() async {
+    if (_selectedTabIndex == 0 && _selectedInterest == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Выберите интерес')),
+      );
+      return;
+    }
     if (_formKey.currentState!.validate()) {
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
       if (!authProvider.isAuthenticated || authProvider.userId == null) {
@@ -120,19 +125,17 @@ class _AddScreenState extends State<AddScreen> {
         final userId = authProvider.userId!;
 
         if (_selectedTabIndex == 0) {
-          // Save as Goal
           await _apiService.createGoal(
             userId,
             _descriptionController.text,
             _locationController.text,
-            _selectedInterest ?? 'Health',
+            _selectedInterest!,
             pointA: _pointAController.text,
             pointB: _pointBController.text,
             tasks: _tasks,
             imageUrls: imageUrls,
           );
         } else {
-          // Save as Event
           await _apiService.createEvent(
             userId,
             _descriptionController.text,
@@ -179,8 +182,7 @@ class _AddScreenState extends State<AddScreen> {
         ),
         elevation: 0,
         backgroundColor: Colors.white,
-        toolbarHeight:
-            0, // Убираем лишнее пространство, оставляя только leading
+        toolbarHeight: 0,
       ),
       body: Column(
         children: [
@@ -331,8 +333,7 @@ class _AddScreenState extends State<AddScreen> {
                           value?.isEmpty ?? true ? 'Введите локацию' : null,
                     ),
                     SizedBox(height: size.height * 0.02),
-                    if (_selectedTabIndex ==
-                        0) // Показываем интересы только для Goals
+                    if (_selectedTabIndex == 0)
                       Wrap(
                         spacing: 8,
                         children: [
@@ -428,15 +429,16 @@ class _AddScreenState extends State<AddScreen> {
                       ],
                     ),
                     SizedBox(height: size.height * 0.03),
-                    ElevatedButton.icon(
-                      onPressed: () {},
-                      icon: const Icon(Icons.smart_toy),
-                      label: const Text('Edit with AI Mentor'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.purple[100],
-                        foregroundColor: Colors.black,
-                      ),
-                    ),
+                    // Скрыто, пока не реализовано
+                    // ElevatedButton.icon(
+                    //   onPressed: () {},
+                    //   icon: const Icon(Icons.smart_toy),
+                    //   label: const Text('Edit with AI Mentor'),
+                    //   style: ElevatedButton.styleFrom(
+                    //     backgroundColor: Colors.purple[100],
+                    //     foregroundColor: Colors.black,
+                    //   ),
+                    // ),
                     SizedBox(height: size.height * 0.02),
                     SizedBox(
                       width: double.infinity,

@@ -1,4 +1,3 @@
-// main.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -6,6 +5,7 @@ import 'screens/sign_in_screen.dart';
 import 'screens/sign_up_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/add_screen.dart';
+import 'screens/profile_screen.dart';
 import 'providers/auth_provider.dart';
 import 'services/api_services.dart';
 
@@ -36,6 +36,15 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Подписываемся на изменения состояния аутентификации
+    Supabase.instance.client.auth.onAuthStateChange.listen((data) {
+      final session = data.session;
+      if (session != null) {
+        Provider.of<AuthProvider>(context, listen: false)
+            .setAuthData(session.accessToken, session.user.id);
+      }
+    });
+
     return MaterialApp(
       title: 'A2B Sign In',
       theme: ThemeData(
@@ -49,8 +58,8 @@ class MyApp extends StatelessWidget {
         '/sign-up': (context) => SignUpScreen(),
         '/home': (context) => HomeScreen(),
         '/add': (context) => AddScreen(),
+        '/profile': (context) => ProfileScreen(),
         // '/search': (context) => SearchScreen(),
-        // '/profile': (context) => ProfileScreen(),
         // '/ai-mentor': (context) => AIMentorScreen(),
       },
     );

@@ -1,11 +1,9 @@
-// api_services.dart
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/post.dart';
 
 class ApiService {
   final SupabaseClient _supabase = Supabase.instance.client;
 
-  // Геттер для доступа к _supabase
   SupabaseClient get supabase => _supabase;
 
   Future<Map<String, String>?> login(String email, String password) async {
@@ -30,7 +28,7 @@ class ApiService {
       String password,
       String firstName,
       String lastName,
-      String age,
+      int age,
       String phoneNumber) async {
     try {
       final response = await _supabase.auth.signUp(
@@ -54,11 +52,6 @@ class ApiService {
     }
   }
 
-  Future<Map<String, String>?> signInWithEmail(
-      String email, String password) async {
-    return await login(email, password);
-  }
-
   Future<Map<String, String>?> signInWithGoogle() async {
     try {
       await _supabase.auth.signInWithOAuth(
@@ -76,63 +69,54 @@ class ApiService {
     }
   }
 
-  Future<Map<String, String>?> signInWithFacebook() async {
-    try {
-      await _supabase.auth.signInWithOAuth(
-        OAuthProvider.facebook,
-        redirectTo: 'io.supabase.flutterquickstart://callback',
-      );
-      final session = _supabase.auth.currentSession;
-      return {
-        'token': session?.accessToken ?? '',
-        'userId': session?.user.id ?? ''
-      };
-    } catch (e) {
-      print('Facebook sign in error: $e');
-      return null;
-    }
-  }
-
-  Future<Map<String, String>?> signInWithApple() async {
-    try {
-      await _supabase.auth.signInWithOAuth(
-        OAuthProvider.apple,
-        redirectTo: 'io.supabase.flutterquickstart://callback',
-      );
-      final session = _supabase.auth.currentSession;
-      return {
-        'token': session?.accessToken ?? '',
-        'userId': session?.user.id ?? ''
-      };
-    } catch (e) {
-      print('Apple sign in error: $e');
-      return null;
-    }
-  }
-
-  void setToken(String token) {
-    print('Token set: $token');
-  }
-
-  Future<List<Post>> getPosts() async {
+  Future<List<Post>> getGoals() async {
     try {
       final response = await _supabase
-          .from('posts')
+          .from('goals')
           .select('*, user(id, username, avatar_url)');
-      return (response as List).map((json) => Post.fromJson(json)).toList();
+      return (response as List)
+          .map((json) => Post.fromJson({...json, 'type': 'goal'}))
+          .toList();
     } catch (e) {
-      print('Get posts error: $e');
+      print('Get goals error: $e');
       return [];
     }
   }
 
-  Future<void> likePost(String postId) async {
+  Future<List<Post>> getEvents() async {
+    try {
+      final response = await _supabase
+          .from('events')
+          .select('*, user(id, username, avatar_url)');
+      return (response as List)
+          .map((json) => Post.fromJson({...json, 'type': 'event'}))
+          .toList();
+    } catch (e) {
+      print('Get events error: $e');
+      return [];
+    }
+  }
+
+  Future<void> likePost(String postId, String type) async {
     try {
       await _supabase
-          .from('posts')
+          .from(type == 'goal' ? 'goals' : 'events')
           .update({'likes': 'likes + 1'}).eq('id', postId);
     } catch (e) {
       print('Like post error: $e');
+      throw Exception('Failed to like post: $e');
+    }
+  }
+
+  Future<void> joinEvent(String eventId, String userId) async {
+    try {
+      await _supabase.from('event_participants').insert({
+        'event_id': eventId,
+        'user_id': userId,
+      });
+    } catch (e) {
+      print('Join event error: $e');
+      throw Exception('Failed to join event: $e');
     }
   }
 
@@ -150,9 +134,14 @@ class ApiService {
         'interest': interest,
         'point_a': pointA,
         'point_b': pointB,
-        'tasks': tasks ?? [],
+        'tasks': tasks
+                ?.map((task) => {'title': task, 'completed': false})
+                .toList() ??
+            [],
         'image_urls': imageUrls ?? [],
         'created_at': DateTime.now().toIso8601String(),
+        'likes': 0,
+        'comments': 0,
       });
     } catch (e) {
       print('Create goal error: $e');
@@ -172,9 +161,14 @@ class ApiService {
         'location': location,
         'point_a': pointA,
         'point_b': pointB,
-        'tasks': tasks ?? [],
+        'tasks': tasks
+                ?.map((task) => {'title': task, 'completed': false})
+                .toList() ??
+            [],
         'image_urls': imageUrls ?? [],
         'created_at': DateTime.now().toIso8601String(),
+        'likes': 0,
+        'comments': 0,
       });
     } catch (e) {
       print('Create event error: $e');

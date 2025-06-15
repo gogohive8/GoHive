@@ -51,7 +51,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
           _passwordController.text,
           _firstNameController.text,
           _lastNameController.text,
-          _ageController.text,
+          _ageController.text as int,
           _phoneController.text,
         );
         if (authData != null && mounted) {

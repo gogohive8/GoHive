@@ -15,7 +15,6 @@ class _SignInScreenState extends State<SignInScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final ApiService _apiService = ApiService();
-  String? _email;
 
   @override
   void dispose() {
@@ -53,17 +52,6 @@ class _SignInScreenState extends State<SignInScreen> {
   }
 
   Future<void> _signInWithGoogle() async {
-    // Комментарий для второго разработчика:
-    // Для работы Google-авторизации через Supabase необходимо:
-    // 1. Убедиться, что пакет 'supabase_flutter' добавлен в pubspec.yaml.
-    // 2. Настроить OAuth в Supabase Dashboard (раздел Authentication -> Providers -> Google):
-    //    - Включить Google Provider.
-    //    - Указать Client ID и Client Secret из Google Cloud Console.
-    // 3. Настроить redirect URL в Supabase и приложении:
-    //    - В Supabase: Authentication -> Settings -> Redirect URLs (например, 'io.supabase.flutterquickstart://callback').
-    //    - В Android: android/app/src/main/AndroidManifest.xml добавить <intent-filter> с scheme='io.supabase.flutterquickstart'.
-    //    - В iOS: ios/Runner/Info.plist добавить CFBundleURLSchemes с 'io.supabase.flutterquickstart'.
-    // 4. Проверить, что Supabase клиент инициализирован в main.dart (Supabase.initialize).
     try {
       showDialog(
         context: context,
@@ -115,7 +103,6 @@ class _SignInScreenState extends State<SignInScreen> {
                   SizedBox(height: size.height * 0.05),
                   TextFormField(
                     controller: _emailController,
-                    onChanged: (value) => _email = value,
                     decoration: InputDecoration(
                       labelText: 'Your email',
                       border: OutlineInputBorder(
@@ -132,7 +119,7 @@ class _SignInScreenState extends State<SignInScreen> {
                       if (value == null || value.isEmpty)
                         return 'Введите email';
                       if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$')
-                          .hasMatch(value!)) return 'Неверный формат email';
+                          .hasMatch(value)) return 'Неверный формат email';
                       return null;
                     },
                   ),

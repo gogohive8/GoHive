@@ -1,4 +1,3 @@
-// home_screen.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/post.dart';
@@ -15,8 +14,8 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen>
     with SingleTickerProviderStateMixin {
-  int _selectedIndex = 0; // Индекс по умолчанию для Home
-  int _selectedTabIndex = 0; // Для отслеживания выбранной вкладки
+  int _selectedIndex = 0;
+  int _selectedTabIndex = 0;
   final ApiService _apiService = ApiService();
   late TabController _tabController;
   late Future<List<Post>> _postsFuture;
@@ -26,7 +25,7 @@ class _HomeScreenState extends State<HomeScreen>
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
     _tabController.addListener(_handleTabSelection);
-    _fetchPosts(); // Инициализация с реальными данными
+    _fetchPosts();
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     if (!authProvider.isAuthenticated) {
       _postsFuture = Future.value([]);
@@ -45,14 +44,14 @@ class _HomeScreenState extends State<HomeScreen>
       setState(() {
         _selectedTabIndex = _tabController.index;
       });
-      _fetchPosts(); // Обновляем данные при смене вкладки
+      _fetchPosts();
     }
   }
 
   void _fetchPosts() {
-    _postsFuture = _apiService.getPosts();
-    // Второму разработчику: Замените getPosts() на getGoals() для вкладки Goals
-    // и getEvents() для вкладки Events, если данные хранятся в разных таблицах.
+    _postsFuture = _selectedTabIndex == 0
+        ? _apiService.getGoals()
+        : _apiService.getEvents();
   }
 
   void _onItemTapped(int index) {
@@ -63,7 +62,8 @@ class _HomeScreenState extends State<HomeScreen>
     Navigator.pushReplacementNamed(context, routes[index]);
   }
 
-  void _likePost(String postId, int currentLikes, int index) async {
+  void _likePost(
+      String postId, int currentLikes, int index, String type) async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     if (!authProvider.isAuthenticated) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -72,7 +72,7 @@ class _HomeScreenState extends State<HomeScreen>
       return;
     }
     try {
-      await _apiService.likePost(postId);
+      await _apiService.likePost(postId, type);
       setState(() {
         _postsFuture.then((posts) {
           if (index >= 0 && index < posts.length) {
@@ -83,6 +83,26 @@ class _HomeScreenState extends State<HomeScreen>
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Ошибка лайка: $e')),
+      );
+    }
+  }
+
+  void _joinEvent(String eventId, String eventText) async {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    if (!authProvider.isAuthenticated || authProvider.userId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Требуется авторизация')),
+      );
+      return;
+    }
+    try {
+      await _apiService.joinEvent(eventId, authProvider.userId!);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Joined $eventText')),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Ошибка присоединения: $e')),
       );
     }
   }
@@ -153,7 +173,6 @@ class _HomeScreenState extends State<HomeScreen>
       body: TabBarView(
         controller: _tabController,
         children: [
-          // Goals Tab
           FutureBuilder<List<Post>>(
             future: _postsFuture,
             builder: (context, snapshot) {
@@ -195,7 +214,7 @@ class _HomeScreenState extends State<HomeScreen>
                             trailing: IconButton(
                               icon: const Icon(Icons.favorite_border),
                               onPressed: () {
-                                _likePost(post.id, post.likes, index);
+                                _likePost(post.id, post.likes, index, 'goal');
                               },
                             ),
                           ),
@@ -207,7 +226,6 @@ class _HomeScreenState extends State<HomeScreen>
               );
             },
           ),
-          // Events Tab
           FutureBuilder<List<Post>>(
             future: _postsFuture,
             builder: (context, snapshot) {
@@ -248,11 +266,7 @@ class _HomeScreenState extends State<HomeScreen>
                             ),
                             trailing: ElevatedButton(
                               onPressed: () {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                      content:
-                                          Text('Joined ${post.text ?? ''}')),
-                                );
+                                _joinEvent(post.id, post.text ?? '');
                               },
                               child: const Text('Join'),
                             ),

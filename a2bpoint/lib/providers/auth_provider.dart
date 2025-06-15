@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 
 class AuthProvider with ChangeNotifier {
   String? _token;
@@ -6,6 +6,7 @@ class AuthProvider with ChangeNotifier {
 
   String? get token => _token;
   String? get userId => _userId;
+  bool get isAuthenticated => _token != null;
 
   void setAuthData(String token, String userId) {
     _token = token;
@@ -18,6 +19,4 @@ class AuthProvider with ChangeNotifier {
     _userId = null;
     notifyListeners();
   }
-
-  bool get isAuthenticated => _token != null;
 }

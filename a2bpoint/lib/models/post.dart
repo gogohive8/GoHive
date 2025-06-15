@@ -3,31 +3,37 @@ import 'dart:convert';
 class Post {
   final String id;
   final User user;
-  final String imageUrl;
-  final String text;
+  final List<String>? imageUrls;
+  final String? text;
   final DateTime createdAt;
   int likes;
   int comments;
+  final String? type;
+  final List<Map<String, dynamic>>? tasks;
 
   Post({
     required this.id,
     required this.user,
-    required this.imageUrl,
-    required this.text,
+    this.imageUrls,
+    this.text,
     required this.createdAt,
     required this.likes,
     required this.comments,
+    this.type,
+    this.tasks,
   });
 
   factory Post.fromJson(Map<String, dynamic> json) {
     return Post(
       id: json['id'],
       user: User.fromJson(json['user']),
-      imageUrl: json['image_url'],
-      text: json['text'],
+      imageUrls: json['image_urls']?.cast<String>(),
+      text: json['description'],
       createdAt: DateTime.parse(json['created_at']),
-      likes: json['likes'],
-      comments: json['comments'],
+      likes: json['likes'] ?? 0,
+      comments: json['comments'] ?? 0,
+      type: json['type'],
+      tasks: json['tasks']?.cast<Map<String, dynamic>>(),
     );
   }
 }
