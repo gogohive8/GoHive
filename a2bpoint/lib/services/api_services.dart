@@ -9,7 +9,7 @@ class ApiService {
   final SupabaseClient _supabase = Supabase.instance.client;
 
   SupabaseClient get supabase => _supabase;
-  static const String _baseUrl = 'http://localhost:3000'; // API Gateway URL
+  static const String _baseUrl = 'http://localhost:3001'; // API Gateway URL
   final http.Client _client = http.Client();
 
   Future<Map<String, String>?> login(String email, String password) async {
@@ -41,24 +41,35 @@ class ApiService {
       int age,
       String phoneNumber) async {
     try {
+      final body = jsonEncode({
+        'name': firstName,
+        'surname': lastName,
+        'username': username,
+        'age': age,
+        'mail': email,
+        'phone': phoneNumber,
+        'password': password,
+      });
+      print('Sending request to: $_baseUrl/api/register/email');
+      print('Request body: $body');
       final response = await _client
           .post(
-            Uri.parse('$_baseUrl/api/register/email'),
-            headers: {'Content-Type': 'application/json'},
-            body: jsonEncode({
-              'firstName': firstName,
-              'lastName': lastName,
-              'username': username,
-              'age': age,
-              'email': email,
-              'phoneNumber': phoneNumber,
-              'password': password,
-            }),
+            Uri.parse('$_baseUrl/register/email'),
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json',
+            },
+            body: body,
           )
-          .timeout(Duration(seconds: 30));
+          .timeout(Duration(seconds: 30)); // Add timeout
+      print('Response status: ${response.statusCode}');
+      print('Response body: ${response.body}');
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        return {'token': data['token'] ?? '', 'userId': data['userId'] ?? ''};
+        return {
+          'token': data['token'] ?? '',
+          'userId': data['user']['id'] ?? ''
+        }; // Fix userId field
       } else {
         print('Sign up error: ${response.body}');
         return null;

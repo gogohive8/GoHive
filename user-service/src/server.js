@@ -8,12 +8,20 @@ const cors = require('cors');
 require('dotenv').config({ path: __dirname + '/../.env'});
 
 const app = express();
-app.use(express.json());
 app.use(cors({
-  origin: 'http://localhost:40723', // Replace with your Flutter web app's URL
+  origin: 'http://localhost:4200', // Replace with your Flutter web app's URL
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
 }));
+app.use(express.json({ limit: '10mb' }));
+app.use((err, req, res, next) => {
+  if (err instanceof SyntaxError && err.status === 400 && 'body' in err) {
+    console.error('JSON parsing error:', err.message, 'Request body:', req.body);
+    return res.status(400).json({ error: 'Invalid JSON payload' });
+  }
+  console.error('Unexpected error:', err.stack);
+  res.status(500).json({ error: 'Internal server error' });
+});
 
 // Connect to supabase client
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
@@ -21,7 +29,6 @@ const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SER
 // Redis connection
 const redisClient = redis.createClient({ url: process.env.REDIS_URL });
 redisClient.connect().then(() => console.log('Redis connected'));
-
 
 
 // Middleware to verify JWT
@@ -46,13 +53,19 @@ const verifyToken = async (req, res, next) => {
 // email registration
 
 app.post('/register/email', async (req, res) => {
+  console.log('Received /register/email request:', req.body); // Log incoming request
   try{
     const { name, surname, username, age, mail, phone, password} = req.body;
 
     // check if email is exist
-    const { data: existingUser } = await supabase.auth.admin.getUserByEmail(mail);
+    const { data: users, error: listError } = await supabase.auth.admin.listUsers();
+    if (listError) {
+      console.error('Error listing users:', listError);
+      return res.status(400).json({ error: listError.message });
+    }
+    const existingUser = users.users.find(user => user.email === mail);
     if (existingUser) {
-      return res.status(400).json({error: 'Email already exist'});
+      return res.status(400).json({ error: 'Email already exists' });
     }
 
     // Check if username is already exist
@@ -112,7 +125,8 @@ app.post('/register/email', async (req, res) => {
       token,
     });
   } catch (error) {
-    res.status(400).json({ error: error.message});
+    console.error('Error in /register/email:', error.message);
+    res.status(400).json({ error: error.message });
   }
 });
 
