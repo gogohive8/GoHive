@@ -1,6 +1,5 @@
 const express = require('express');
 const { createClient } = require('@supabase/supabase-js');
-const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const redis = require('redis');
 const cors = require('cors');
@@ -22,6 +21,29 @@ app.use((err, req, res, next) => {
   console.error('Unexpected error:', err.stack);
   res.status(500).json({ error: 'Internal server error' });
 });
+
+
+// Log all incoming requests
+app.use((req, res, next) => {
+  console.log(`[${new Date().toISOString()}] Incoming request: ${req.method} ${req.path}`);
+  console.log(`Request headers: ${JSON.stringify(req.headers)}`);
+  console.log(`Request body: ${JSON.stringify(req.body)}`);
+  next();
+});
+
+// Log all responses
+app.use((req, res, next) => {
+  const originalSend = res.send;
+  res.send = function (body) {
+    console.log(`[${new Date().toISOString()}] Response for ${req.method} ${req.path}`);
+    console.log(`Response status: ${res.statusCode}`);
+    console.log(`Response headers: ${JSON.stringify(res.getHeaders())}`);
+    console.log(`Response body: ${typeof body === 'string' ? body : JSON.stringify(body)}`);
+    return originalSend.call(this, body);
+  };
+  next();
+});
+
 
 // Connect to supabase client
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
@@ -78,12 +100,12 @@ app.post('/register/email', async (req, res) => {
     }
 
     // Hash password
-    const hashedPassword = await bcrypt.hash(password, 10);
+    // const hashedPassword = await bcrypt.hash(password, 10);
 
     // Create new user
     const {data: authData, error: authError} = await supabase.auth.admin.createUser({
       email: mail,
-      password: hashedPassword,
+      password: password,
       phone: phone || null,
       email_confirm: true,
     });
@@ -214,23 +236,14 @@ app.post('/login', async (req, res) => {
       return res.status(400).json({ error: 'Missing email or password' });
     }
 
+
     // Authenticate with Supabase
     const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
       email: mail,
-      password,
+      password: password,
     });
     if (authError) {
       return res.status(401).json({ error: authError.message });
-    }
-
-    // Fetch user data from public.users
-    const { data: user, error } = await supabase
-      .from('users')
-      .select('*')
-      .eq('id', authData.user.id)
-      .single();
-    if (error) {
-      return res.status(400).json({ error: error.message });
     }
 
     // Generate JWT
@@ -240,16 +253,8 @@ app.post('/login', async (req, res) => {
     await redisClient.setEx(`jwt:${token}`, 3600, authData.user.id);
 
     res.json({
-      user: {
-        id: user.id,
-        name: user.name,
-        surname: user.surname,
-        username: user.username,
-        age: user.age,
-        mail: authData.user.email,
-        phone: authData.user.phone,
-      },
-      token,
+      'token' : token,
+      'userID' : authData.user.id,
     });
   } catch (error) {
     res.status(400).json({ error: error.message });
@@ -266,6 +271,7 @@ app.post('/logout', verifyToken, async (req, res) => {
     res.status(400).json({ error: error.message });
   }
 });
+
 
 
 const PORT = process.env.PORT;

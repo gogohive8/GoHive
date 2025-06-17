@@ -15,9 +15,9 @@ class ApiService {
   Future<Map<String, String>?> login(String email, String password) async {
     try {
       final response = await _client.post(
-        Uri.parse('$_baseUrl/api/login'),
+        Uri.parse('$_baseUrl/login'),
         headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'email': email, 'password': password}),
+        body: jsonEncode({'mail': email, 'password': password}),
       );
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
