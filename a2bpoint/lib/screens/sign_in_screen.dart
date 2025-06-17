@@ -20,6 +20,7 @@ class _SignInScreenState extends State<SignInScreen> {
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
+    _apiService.dispose();
     super.dispose();
   }
 
@@ -30,22 +31,26 @@ class _SignInScreenState extends State<SignInScreen> {
           context: context,
           barrierDismissible: false,
           builder: (context) =>
-              const Center(child: CircularProgressIndicator(color: Colors.white)),
+              const Center(child: CircularProgressIndicator()),
         );
         final authData = await _apiService.login(
             _emailController.text, _passwordController.text);
-        if (authData != null && mounted) {
+        if (!mounted) return;
+        Navigator.pop(context);
+        if (authData != null) {
           Provider.of<AuthProvider>(context, listen: false)
               .setAuthData(authData['token'] ?? '', authData['userId'] ?? '');
-          Navigator.pop(context);
           Navigator.pushReplacementNamed(context, '/home');
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Invalid email or password')),
+          );
         }
       } catch (e) {
         if (mounted) {
           Navigator.pop(context);
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Ошибка входа: $e', style: const TextStyle(color: Colors.white))),
-            backgroundColor: Colors.red.withOpacity(0.8),
+            SnackBar(content: Text('Login error: $e')),
           );
         }
       }
@@ -57,22 +62,25 @@ class _SignInScreenState extends State<SignInScreen> {
       showDialog(
         context: context,
         barrierDismissible: false,
-        builder: (context) =>
-            const Center(child: CircularProgressIndicator(color: Colors.white)),
+        builder: (context) => const Center(child: CircularProgressIndicator()),
       );
       final authData = await _apiService.signInWithGoogle();
-      if (authData != null && mounted) {
+      if (!mounted) return;
+      Navigator.pop(context);
+      if (authData != null) {
         Provider.of<AuthProvider>(context, listen: false)
             .setAuthData(authData['token'] ?? '', authData['userId'] ?? '');
-        Navigator.pop(context);
         Navigator.pushReplacementNamed(context, '/home');
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Google sign-in failed')),
+        );
       }
     } catch (e) {
       if (mounted) {
         Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Ошибка Google входа: $e', style: const TextStyle(color: Colors.white))),
-          backgroundColor: Colors.red.withOpacity(0.8),
+          SnackBar(content: Text('Google sign-in error: $e')),
         );
       }
     }
@@ -84,7 +92,7 @@ class _SignInScreenState extends State<SignInScreen> {
     final padding = size.width * 0.05;
 
     return Scaffold(
-      backgroundColor: Color(0xFF7964FF),
+      backgroundColor: const Color(0xFF7964FF),
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
@@ -94,44 +102,36 @@ class _SignInScreenState extends State<SignInScreen> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Stack(
-                    alignment: Alignment.center,
-                    children: [
-                      Image.asset(
-                        'assets/logo_background.png',
-                        height: size.height * 0.3,
-                        fit: BoxFit.contain,
-                        color: Colors.white.withOpacity(0.9), // Адаптация логотипа
-                      ),
-                    ],
+                  Image.asset(
+                    'assets/logo_background.png',
+                    height: size.height * 0.3,
+                    fit: BoxFit.contain,
                   ),
                   SizedBox(height: size.height * 0.05),
                   TextFormField(
                     controller: _emailController,
                     decoration: InputDecoration(
-                      labelText: 'Your email',
+                      labelText: 'Email',
                       labelStyle: const TextStyle(color: Colors.white70),
+                      filled: true,
+                      fillColor: Colors.white.withOpacity(0.1),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(10),
-                        borderSide: const BorderSide(color: Colors.white54),
+                        borderSide: BorderSide.none,
                       ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                        borderSide: const BorderSide(color: Colors.white),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                        borderSide: const BorderSide(color: Colors.white54),
-                      ),
-                      prefixIcon: Image.asset('assets/email_icon.png', height: 24, color: Colors.white),
+                      prefixIcon:
+                          const Icon(Icons.email, color: Colors.white70),
                     ),
                     keyboardType: TextInputType.emailAddress,
                     style: const TextStyle(color: Colors.white),
                     validator: (value) {
-                      if (value == null || value.isEmpty)
-                        return 'Введите email';
+                      if (value == null || value.isEmpty) {
+                        return 'Please enter your email';
+                      }
                       if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$')
-                          .hasMatch(value)) return 'Неверный формат email';
+                          .hasMatch(value)) {
+                        return 'Invalid email format';
+                      }
                       return null;
                     },
                   ),
@@ -141,26 +141,23 @@ class _SignInScreenState extends State<SignInScreen> {
                     decoration: InputDecoration(
                       labelText: 'Password',
                       labelStyle: const TextStyle(color: Colors.white70),
+                      filled: true,
+                      fillColor: Colors.white.withOpacity(0.1),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(10),
-                        borderSide: const BorderSide(color: Colors.white54),
+                        borderSide: BorderSide.none,
                       ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                        borderSide: const BorderSide(color: Colors.white),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                        borderSide: const BorderSide(color: Colors.white54),
-                      ),
-                      prefixIcon: Image.asset('assets/password_icon.png', height: 24, color: Colors.white),
+                      prefixIcon: const Icon(Icons.lock, color: Colors.white70),
                     ),
                     obscureText: true,
                     style: const TextStyle(color: Colors.white),
                     validator: (value) {
-                      if (value == null || value.isEmpty)
-                        return 'Введите пароль';
-                      if (value.length < 6) return 'Минимум 6 символов';
+                      if (value == null || value.isEmpty) {
+                        return 'Please enter your password';
+                      }
+                      if (value.length < 6) {
+                        return 'Password must be at least 6 characters';
+                      }
                       return null;
                     },
                     textInputAction: TextInputAction.done,
@@ -172,61 +169,58 @@ class _SignInScreenState extends State<SignInScreen> {
                     child: ElevatedButton(
                       onPressed: _signInWithEmail,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.white.withOpacity(0.2),
-                        foregroundColor: Colors.white,
-                        padding: EdgeInsets.symmetric(vertical: size.height * 0.02),
+                        backgroundColor: Colors.white,
+                        foregroundColor: const Color(0xFF7964FF),
+                        padding:
+                            EdgeInsets.symmetric(vertical: size.height * 0.02),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(10),
-                          side: const BorderSide(color: Colors.white),
                         ),
                       ),
                       child: Text(
-                        'Sign in',
-                        style: TextStyle(
-                          fontSize: size.width * 0.045,
-                          color: Colors.white,
-                        ),
+                        'Sign In',
+                        style: TextStyle(fontSize: size.width * 0.045),
                       ),
                     ),
                   ),
                   SizedBox(height: size.height * 0.03),
-                  const Text('Or', style: TextStyle(fontSize: 16, color: Colors.white70)),
+                  const Text('Or', style: TextStyle(color: Colors.white70)),
                   SizedBox(height: size.height * 0.03),
-                  Column(
-                    children: [
-                      SizedBox(
-                        width: double.infinity,
-                        child: OutlinedButton(
-                          onPressed: () => Navigator.pushNamed(context, '/sign-up'),
-                          style: OutlinedButton.styleFrom(
-                            side: const BorderSide(color: Colors.white),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            minimumSize: Size(double.infinity, 50),
-                            backgroundColor: Colors.white.withOpacity(0.1),
-                          ),
-                          child: const Text('Sign up', style: TextStyle(color: Colors.white)),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.pushNamed(context, '/sign-up'),
+                      style: OutlinedButton.styleFrom(
+                        side: const BorderSide(color: Colors.white),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
                         ),
+                        backgroundColor: Colors.white.withOpacity(0.1),
                       ),
-                      SizedBox(height: size.height * 0.01),
-                      SizedBox(
-                        width: double.infinity,
-                        child: OutlinedButton.icon(
-                          onPressed: _signInWithGoogle,
-                          icon: Image.asset('assets/google_icon.png', height: 24, color: Colors.white),
-                          label: const Text('Sign in with Google', style: TextStyle(color: Colors.white)),
-                          style: OutlinedButton.styleFrom(
-                            side: const BorderSide(color: Colors.white),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            minimumSize: Size(double.infinity, 50),
-                            backgroundColor: Colors.white.withOpacity(0.1),
-                          ),
+                      child: const Text(
+                        'Sign Up',
+                        style: TextStyle(color: Colors.white),
+                      ),
+                    ),
+                  ),
+                  SizedBox(height: size.height * 0.01),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: _signInWithGoogle,
+                      icon: Image.asset('assets/google_icon.png', height: 24),
+                      label: const Text(
+                        'Sign in with Google',
+                        style: TextStyle(color: Colors.white),
+                      ),
+                      style: OutlinedButton.styleFrom(
+                        side: const BorderSide(color: Colors.white),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
                         ),
+                        backgroundColor: Colors.white.withOpacity(0.1),
                       ),
-                    ],
+                    ),
                   ),
                 ],
               ),

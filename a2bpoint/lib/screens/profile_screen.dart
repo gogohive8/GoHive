@@ -1,305 +1,297 @@
-import 'package:supabase_flutter/supabase_flutter.dart';
-import 'dart:convert';
-import 'package:http/http.dart' as http;
 import 'package:flutter/material.dart';
-import '../models/post.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
+import '../services/api_services.dart';
+import '../models/post.dart';
+import 'dart:typed_data';
 
-class ApiService {
-  final SupabaseClient _supabase = Supabase.instance.client;
+class ProfileScreen extends StatefulWidget {
+  const ProfileScreen({super.key});
 
-  SupabaseClient get supabase => _supabase;
-  static const String _baseUrl = 'http://localhost:3001'; // API Gateway URL
-  final http.Client _client = http.Client();
+  @override
+  _ProfileScreenState createState() => _ProfileScreenState();
+}
 
-  Future<Map<String, String>?> login(String email, String password) async {
-    try {
-      final response = await _client.post(
-        Uri.parse('$_baseUrl/login'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'mail': email, 'password': password}),
+class _ProfileScreenState extends State<ProfileScreen> {
+  final ApiService _apiService = ApiService();
+  Map<String, dynamic>? _profile;
+  List<Post> _goals = [];
+  List<Post> _events = [];
+  bool _isLoading = true;
+  final _bioController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    _loadProfile();
+  }
+
+  Future<void> _loadProfile() async {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final userId = authProvider.userId;
+    final token = authProvider.token;
+
+    if (userId.isEmpty || token.isEmpty) {
+      setState(() => _isLoading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please log in to view your profile')),
       );
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        return {'token': data['token'] ?? '', 'userId': data['userId'] ?? ''};
-      } else {
-        print('Login error: ${response.body}');
-        return null;
+      return;
+    }
+
+    try {
+      final profile = await _apiService.getProfile(userId, token);
+      final goals = await _apiService.getGoals(userId, token);
+      final events = await _apiService.getEvents(userId, token);
+
+      if (mounted) {
+        setState(() {
+          _profile = profile;
+          _goals = goals;
+          _events = events;
+          _bioController.text = profile?['bio'] ?? '';
+          _isLoading = false;
+        });
       }
     } catch (e) {
-      print('Login error: $e');
-      return null;
+      if (mounted) {
+        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error loading profile: $e')),
+        );
+      }
     }
   }
 
-  Future<Map<String, String>?> signUp(
-      String username,
-      String email,
-      String password,
-      String firstName,
-      String lastName,
-      int age,
-      String phoneNumber) async {
+  Future<void> _updateBio() async {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final userId = authProvider.userId;
+    final token = authProvider.token;
+
+    if (_bioController.text.isEmpty) return;
+
     try {
-      final body = jsonEncode({
-        'name': firstName,
-        'surname': lastName,
-        'username': username,
-        'age': age,
-        'mail': email,
-        'phone': phoneNumber,
-        'password': password,
-      });
-      print('Sending request to: $_baseUrl/register/email');
-      print('Request body: $body');
-      final response = await _client
-          .post(
-            Uri.parse('$_baseUrl/register/email'),
-            headers: {
-              'Content-Type': 'application/json',
-              'Accept': 'application/json',
-            },
-            body: body,
-          )
-          .timeout(Duration(seconds: 30));
-      print('Response status: ${response.statusCode}');
-      print('Response body: ${response.body}');
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        return {
-          'token': data['token'] ?? '',
-          'userId': data['user']['id'] ?? ''
-        };
-      } else {
-        print('Sign up error: ${response.body}');
-        return null;
+      final success =
+          await _apiService.updateBio(userId, _bioController.text, token);
+      if (success && mounted) {
+        setState(() {
+          _profile?['bio'] = _bioController.text;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Bio updated successfully')),
+        );
       }
     } catch (e) {
-      print('Sign up error: $e');
-      return null;
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error updating bio: $e')),
+        );
+      }
     }
   }
 
-  Future<Map<String, String>?> signInWithGoogle() async {
-    try {
-      await _supabase.auth.signInWithOAuth(
-        OAuthProvider.google,
-        redirectTo: 'io.supabase.flutterquickstart://callback',
-      );
-      final session = _supabase.auth.currentSession;
-      return {
-        'token': session?.accessToken ?? '',
-        'userId': session?.user.id ?? ''
-      };
-    } catch (e) {
-      print('Google sign in error: $e');
-      return null;
-    }
-  }
+  Future<void> _uploadAvatar() async {
+    final picker = ImagePicker();
+    final pickedFile = await picker.pickImage(source: ImageSource.gallery);
 
-  Future<Map<String, dynamic>?> getProfile(String userId, String token) async {
+    if (pickedFile == null) return;
+
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final userId = authProvider.userId;
+    final token = authProvider.token;
+
     try {
-      final response = await _client.get(
-        Uri.parse('$_baseUrl/profile/$userId'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
-      );
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        return {
-          'avatar_url': data['avatar_url'] ?? '',
-          'username': data['username'] ?? '',
-          'bio': data['bio'] ?? '',
-          'followers': data['followers'] ?? 0,
-          'following': data['following'] ?? 0,
-        };
-      } else {
-        print('Get profile error: ${response.body}');
-        return null;
+      final bytes = await pickedFile.readAsBytes();
+      final url = await _apiService.uploadAvatar(userId, bytes, token);
+      if (url != null && mounted) {
+        setState(() {
+          _profile?['avatar_url'] = url;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Avatar updated successfully')),
+        );
       }
     } catch (e) {
-      print('Get profile error: $e');
-      return null;
-    }
-  }
-
-  Future<bool> updateBio(String userId, String bio, String token) async {
-    try {
-      final response = await _client.put(
-        Uri.parse('$_baseUrl/profile/$userId/bio'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
-        body: jsonEncode({'bio': bio}),
-      );
-      if (response.statusCode == 200) {
-        return true;
-      } else {
-        print('Update bio error: ${response.body}');
-        return false;
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error uploading avatar: $e')),
+        );
       }
-    } catch (e) {
-      print('Update bio error: $e');
-      return false;
     }
   }
 
-  Future<List<Post>> getGoals(String userId, String token) async {
-    try {
-      final response = await _client.get(
-        Uri.parse('$_baseUrl/goals?user_id=$userId'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
-      );
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body) as List;
-        return data
-            .map((json) => Post.fromJson({...json, 'type': 'goal'}))
-            .toList();
-      } else {
-        print('Get goals error: ${response.body}');
-        return [];
-      }
-    } catch (e) {
-      print('Get goals error: $e');
-      return [];
-    }
+  @override
+  void dispose() {
+    _bioController.dispose();
+    _apiService.dispose();
+    super.dispose();
   }
 
-  Future<List<Post>> getEvents(String userId, String token) async {
-    try {
-      final response = await _client.get(
-        Uri.parse('$_baseUrl/events?user_id=$userId'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
-      );
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body) as List;
-        return data
-            .map((json) => Post.fromJson({...json, 'type': 'event'}))
-            .toList();
-      } else {
-        print('Get events error: ${response.body}');
-        return [];
-      }
-    } catch (e) {
-      print('Get events error: $e');
-      return [];
-    }
-  }
+  @override
+  Widget build(BuildContext context) {
+    final size = MediaQuery.of(context).size;
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
 
-  Future<void> likePost(String postId, String type) async {
-    try {
-      await _supabase
-          .from(type == 'goal' ? 'goals' : 'events')
-          .update({'likes': 'likes + 1'}).eq('id', postId);
-    } catch (e) {
-      print('Like post error: $e');
-      throw Exception('Failed to like post: $e');
-    }
-  }
-
-  Future<void> joinEvent(String eventId, String userId) async {
-    try {
-      await _supabase.from('event_participants').insert({
-        'event_id': eventId,
-        'user_id': userId,
-      });
-    } catch (e) {
-      print('Join event error: $e');
-      throw Exception('Failed to join event: $e');
-    }
-  }
-
-  Future<void> createGoal(
-      String userId, String description, String location, String interest,
-      {String? pointA,
-      String? pointB,
-      List<String>? tasks,
-      List<String>? imageUrls}) async {
-    try {
-      await _supabase.from('goals').insert({
-        'user_id': userId,
-        'description': description,
-        'location': location,
-        'interest': interest,
-        'point_a': pointA,
-        'point_b': pointB,
-        'tasks': tasks
-                ?.map((task) => {'title': task, 'completed': false})
-                .toList() ??
-            [],
-        'image_urls': imageUrls ?? [],
-        'created_at': DateTime.now().toIso8601String(),
-        'likes': 0,
-        'comments': 0,
-      });
-    } catch (e) {
-      print('Create goal error: $e');
-      throw Exception('Failed to create goal: $e');
-    }
-  }
-
-  Future<void> createEvent(String userId, String description, String location,
-      {String? pointA,
-      String? pointB,
-      List<String>? tasks,
-      List<String>? imageUrls}) async {
-    try {
-      await _supabase.from('events').insert({
-        'user_id': userId,
-        'description': description,
-        'location': location,
-        'point_a': pointA,
-        'point_b': pointB,
-        'tasks': tasks
-                ?.map((task) => {'title': task, 'completed': false})
-                .toList() ??
-            [],
-        'image_urls': imageUrls ?? [],
-        'created_at': DateTime.now().toIso8601String(),
-        'likes': 0,
-        'comments': 0,
-      });
-    } catch (e) {
-      print('Create event error: $e');
-      throw Exception('Failed to create event: $e');
-    }
-  }
-
-  Future<String?> uploadAvatar(
-      String userId, List<int> fileBytes, String token) async {
-    try {
-      final fileName = DateTime.now().millisecondsSinceEpoch.toString();
-      final response = await _client.post(
-        Uri.parse('$_baseUrl/upload/avatar/$userId'),
-        headers: {
-          'Content-Type': 'application/octet-stream',
-          'Authorization': 'Bearer $token',
-        },
-        body: fileBytes,
-      );
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        return data['url'] ?? '';
-      } else {
-        print('Upload avatar error: ${response.body}');
-        return null;
-      }
-    } catch (e) {
-      print('Upload avatar error: $e');
-      return null;
-    }
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Profile'),
+        backgroundColor: const Color(0xFF7964FF),
+      ),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : _profile == null
+              ? const Center(child: Text('Failed to load profile'))
+              : SingleChildScrollView(
+                  padding: EdgeInsets.all(size.width * 0.05),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Center(
+                        child: Stack(
+                          children: [
+                            CircleAvatar(
+                              radius: size.width * 0.15,
+                              backgroundImage: _profile?['avatar_url'] != ''
+                                  ? NetworkImage(_profile?['avatar_url'])
+                                  : null,
+                              child: _profile?['avatar_url'] == ''
+                                  ? Icon(Icons.person, size: size.width * 0.1)
+                                  : null,
+                            ),
+                            Positioned(
+                              bottom: 0,
+                              right: 0,
+                              child: IconButton(
+                                icon: const Icon(Icons.camera_alt,
+                                    color: Colors.white),
+                                onPressed: _uploadAvatar,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      SizedBox(height: size.height * 0.02),
+                      Center(
+                        child: Text(
+                          _profile?['username'] ?? 'Unknown',
+                          style: TextStyle(
+                            fontSize: size.width * 0.06,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                      SizedBox(height: size.height * 0.01),
+                      TextFormField(
+                        controller: _bioController,
+                        decoration: InputDecoration(
+                          labelText: 'Bio',
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          suffixIcon: IconButton(
+                            icon: const Icon(Icons.save),
+                            onPressed: _updateBio,
+                          ),
+                        ),
+                        maxLines: 3,
+                      ),
+                      SizedBox(height: size.height * 0.02),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Column(
+                            children: [
+                              Text(
+                                '${_profile?['followers'] ?? 0}',
+                                style: TextStyle(
+                                  fontSize: size.width * 0.05,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              const Text('Followers'),
+                            ],
+                          ),
+                          SizedBox(width: size.width * 0.1),
+                          Column(
+                            children: [
+                              Text(
+                                '${_profile?['following'] ?? 0}',
+                                style: TextStyle(
+                                  fontSize: size.width * 0.05,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              const Text('Following'),
+                            ],
+                          ),
+                        ],
+                      ),
+                      SizedBox(height: size.height * 0.03),
+                      const Text(
+                        'Goals',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      _goals.isEmpty
+                          ? const Padding(
+                              padding: EdgeInsets.all(8.0),
+                              child: Text('No goals found'),
+                            )
+                          : ListView.builder(
+                              shrinkWrap: true,
+                              physics: const NeverScrollableScrollViewPhysics(),
+                              itemCount: _goals.length,
+                              itemBuilder: (context, index) {
+                                final goal = _goals[index];
+                                return ListTile(
+                                  title: Text(goal.description),
+                                  subtitle: Text(goal.location),
+                                  trailing: IconButton(
+                                    icon: const Icon(Icons.favorite_border),
+                                    onPressed: () => _apiService.likePost(
+                                        goal.id, 'goal', authProvider.token),
+                                  ),
+                                );
+                              },
+                            ),
+                      SizedBox(height: size.height * 0.03),
+                      const Text(
+                        'Events',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      _events.isEmpty
+                          ? const Padding(
+                              padding: EdgeInsets.all(8.0),
+                              child: Text('No events found'),
+                            )
+                          : ListView.builder(
+                              shrinkWrap: true,
+                              physics: const NeverScrollableScrollViewPhysics(),
+                              itemCount: _events.length,
+                              itemBuilder: (context, index) {
+                                final event = _events[index];
+                                return ListTile(
+                                  title: Text(event.description),
+                                  subtitle: Text(event.location),
+                                  trailing: IconButton(
+                                    icon: const Icon(Icons.event),
+                                    onPressed: () => _apiService.joinEvent(
+                                        event.id,
+                                        authProvider.userId,
+                                        authProvider.token),
+                                  ),
+                                );
+                              },
+                            ),
+                    ],
+                  ),
+                ),
+    );
   }
 }
