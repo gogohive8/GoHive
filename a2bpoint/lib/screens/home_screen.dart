@@ -36,6 +36,7 @@ class _HomeScreenState extends State<HomeScreen>
   void dispose() {
     _tabController.removeListener(_handleTabSelection);
     _tabController.dispose();
+    _apiService.dispose();
     super.dispose();
   }
 
@@ -49,9 +50,10 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   void _fetchPosts() {
+    // Используем getAllGoals и getAllEvents, так как они не требуют параметров
     _postsFuture = _selectedTabIndex == 0
-        ? _apiService.getGoals()
-        : _apiService.getEvents();
+        ? _apiService.getAllGoals()
+        : _apiService.getAllEvents();
   }
 
   void _onItemTapped(int index) {
@@ -65,14 +67,14 @@ class _HomeScreenState extends State<HomeScreen>
   void _likePost(
       String postId, int currentLikes, int index, String type) async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    if (!authProvider.isAuthenticated) {
+    if (!authProvider.isAuthenticated || authProvider.token == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Требуется авторизация')),
       );
       return;
     }
     try {
-      await _apiService.likePost(postId, type);
+      await _apiService.likePost(postId, type, authProvider.token!);
       setState(() {
         _postsFuture.then((posts) {
           if (index >= 0 && index < posts.length) {
@@ -89,14 +91,17 @@ class _HomeScreenState extends State<HomeScreen>
 
   void _joinEvent(String eventId, String eventText) async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    if (!authProvider.isAuthenticated || authProvider.userId == null) {
+    if (!authProvider.isAuthenticated ||
+        authProvider.userId == null ||
+        authProvider.token == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Требуется авторизация')),
       );
       return;
     }
     try {
-      await _apiService.joinEvent(eventId, authProvider.userId!);
+      await _apiService.joinEvent(
+          eventId, authProvider.userId!, authProvider.token!);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Joined $eventText')),
       );
@@ -123,7 +128,7 @@ class _HomeScreenState extends State<HomeScreen>
                     const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
                   color: _selectedTabIndex == 0
-                      ? Colors.purple.withOpacity(0.1)
+                      ? Colors.purple.withValues(alpha: 0.1)
                       : Colors.transparent,
                   borderRadius: BorderRadius.circular(8),
                 ),
@@ -145,7 +150,7 @@ class _HomeScreenState extends State<HomeScreen>
                     const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
                   color: _selectedTabIndex == 1
-                      ? Colors.purple.withOpacity(0.1)
+                      ? Colors.purple.withValues(alpha: 0.1)
                       : Colors.transparent,
                   borderRadius: BorderRadius.circular(8),
                 ),
@@ -196,7 +201,7 @@ class _HomeScreenState extends State<HomeScreen>
                       itemBuilder: (context, index) {
                         final post = posts[index];
                         return Card(
-                          color: Colors.purple.withOpacity(0.1),
+                          color: Colors.purple.withValues(alpha: 0.1),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
                           ),
@@ -249,7 +254,7 @@ class _HomeScreenState extends State<HomeScreen>
                       itemBuilder: (context, index) {
                         final post = posts[index];
                         return Card(
-                          color: Colors.purple.withOpacity(0.1),
+                          color: Colors.purple.withValues(alpha: 0.1),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
                           ),

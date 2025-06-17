@@ -139,11 +139,6 @@ app.post('/register/email', async (req, res) => {
 // OAuth registration/login (Google/Apple)
 app.post('/register/oauth/google', async (req, res) => {
   try {
-    const { provider, access_token } = req.body;
-    if (!['google', 'apple'].includes(provider) || !access_token) {
-      return res.status(400).json({ error: 'Invalid provider or access token' });
-    }
-
     // Sign in with OAuth token
     const { data, error } = await supabase.auth.signInWithOAuth({  
       provider: 'google',  

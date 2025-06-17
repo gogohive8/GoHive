@@ -9,6 +9,7 @@ class ApiService {
   final SupabaseClient _supabase = Supabase.instance.client;
   static const String _baseUrl = 'http://localhost:3001';
 
+  SupabaseClient get supabase => _supabase;
   // Helper method for handling HTTP responses
   Future<Map<String, dynamic>?> _handleResponse(http.Response response) async {
     if (response.statusCode == 200 || response.statusCode == 201) {

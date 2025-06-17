@@ -35,6 +35,7 @@ class _AddScreenState extends State<AddScreen> {
     _pointAController.dispose();
     _pointBController.dispose();
     _taskController.dispose();
+    _apiService.dispose();
     super.dispose();
   }
 
@@ -107,7 +108,9 @@ class _AddScreenState extends State<AddScreen> {
     }
     if (_formKey.currentState!.validate()) {
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
-      if (!authProvider.isAuthenticated || authProvider.userId == null) {
+      if (!authProvider.isAuthenticated ||
+          authProvider.userId == null ||
+          authProvider.token == null) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Требуется авторизация')),
         );
@@ -123,6 +126,7 @@ class _AddScreenState extends State<AddScreen> {
 
         final imageUrls = await _uploadImages();
         final userId = authProvider.userId!;
+        final token = authProvider.token!;
 
         if (_selectedTabIndex == 0) {
           await _apiService.createGoal(
@@ -134,6 +138,7 @@ class _AddScreenState extends State<AddScreen> {
             pointB: _pointBController.text,
             tasks: _tasks,
             imageUrls: imageUrls,
+            token: token,
           );
         } else {
           await _apiService.createEvent(
@@ -144,6 +149,7 @@ class _AddScreenState extends State<AddScreen> {
             pointB: _pointBController.text,
             tasks: _tasks,
             imageUrls: imageUrls,
+            token: token,
           );
         }
 
@@ -199,7 +205,7 @@ class _AddScreenState extends State<AddScreen> {
                         const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                     decoration: BoxDecoration(
                       color: _selectedTabIndex == 0
-                          ? Colors.purple.withOpacity(0.1)
+                          ? Colors.purple.withValues(alpha: 0.1)
                           : Colors.transparent,
                       borderRadius: BorderRadius.circular(8),
                     ),
@@ -223,7 +229,7 @@ class _AddScreenState extends State<AddScreen> {
                         const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                     decoration: BoxDecoration(
                       color: _selectedTabIndex == 1
-                          ? Colors.purple.withOpacity(0.1)
+                          ? Colors.purple.withValues(alpha: 0.1)
                           : Colors.transparent,
                       borderRadius: BorderRadius.circular(8),
                     ),
@@ -280,7 +286,7 @@ class _AddScreenState extends State<AddScreen> {
                                             padding: const EdgeInsets.only(
                                                 left: 8.0),
                                             child: Image.file(_images[index],
-                                                width: 156,
+                                                width: 50,
                                                 height: 174,
                                                 fit: BoxFit.cover),
                                           ),
@@ -326,7 +332,7 @@ class _AddScreenState extends State<AddScreen> {
                             borderRadius: BorderRadius.circular(10)),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(10),
-                          borderSide: const BorderSide(color: Colors.purple),
+                          borderSide: const BorderSide(color: Colors.white),
                         ),
                       ),
                       validator: (value) =>

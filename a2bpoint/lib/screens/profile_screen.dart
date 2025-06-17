@@ -4,7 +4,6 @@ import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../services/api_services.dart';
 import '../models/post.dart';
-import 'dart:typed_data';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -29,8 +28,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Future<void> _loadProfile() async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    final userId = authProvider.userId;
-    final token = authProvider.token;
+    final userId = authProvider.userId ?? '';
+    final token = authProvider.token ?? '';
 
     if (userId.isEmpty || token.isEmpty) {
       setState(() => _isLoading = false);
@@ -66,10 +65,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Future<void> _updateBio() async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    final userId = authProvider.userId;
-    final token = authProvider.token;
+    final userId = authProvider.userId ?? '';
+    final token = authProvider.token ?? '';
 
-    if (_bioController.text.isEmpty) return;
+    if (_bioController.text.isEmpty || userId.isEmpty || token.isEmpty) return;
 
     try {
       final success =
@@ -98,8 +97,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
     if (pickedFile == null) return;
 
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    final userId = authProvider.userId;
-    final token = authProvider.token;
+    final userId = authProvider.userId ?? '';
+    final token = authProvider.token ?? '';
+
+    if (userId.isEmpty || token.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please log in to upload an avatar')),
+      );
+      return;
+    }
 
     try {
       final bytes = await pickedFile.readAsBytes();
@@ -242,17 +248,29 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             )
                           : ListView.builder(
                               shrinkWrap: true,
-                              physics: const NeverScrollableScrollViewPhysics(),
+                              physics: const NeverScrollableScrollPhysics(),
                               itemCount: _goals.length,
                               itemBuilder: (context, index) {
                                 final goal = _goals[index];
                                 return ListTile(
-                                  title: Text(goal.description),
-                                  subtitle: Text(goal.location),
+                                  title: Text(goal.text ?? 'No description'),
+                                  subtitle: Text('By ${goal.user.username}'),
                                   trailing: IconButton(
                                     icon: const Icon(Icons.favorite_border),
-                                    onPressed: () => _apiService.likePost(
-                                        goal.id, 'goal', authProvider.token),
+                                    onPressed: () {
+                                      if (authProvider.token != null &&
+                                          authProvider.token!.isNotEmpty) {
+                                        _apiService.likePost(goal.id, 'goal',
+                                            authProvider.token!);
+                                      } else {
+                                        ScaffoldMessenger.of(context)
+                                            .showSnackBar(
+                                          const SnackBar(
+                                              content: Text(
+                                                  'Please log in to like posts')),
+                                        );
+                                      }
+                                    },
                                   ),
                                 );
                               },
@@ -272,19 +290,33 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             )
                           : ListView.builder(
                               shrinkWrap: true,
-                              physics: const NeverScrollableScrollViewPhysics(),
+                              physics: const NeverScrollableScrollPhysics(),
                               itemCount: _events.length,
                               itemBuilder: (context, index) {
                                 final event = _events[index];
                                 return ListTile(
-                                  title: Text(event.description),
-                                  subtitle: Text(event.location),
+                                  title: Text(event.text ?? 'No description'),
+                                  subtitle: Text('By ${event.user.username}'),
                                   trailing: IconButton(
                                     icon: const Icon(Icons.event),
-                                    onPressed: () => _apiService.joinEvent(
-                                        event.id,
-                                        authProvider.userId,
-                                        authProvider.token),
+                                    onPressed: () {
+                                      if (authProvider.userId != null &&
+                                          authProvider.userId!.isNotEmpty &&
+                                          authProvider.token != null &&
+                                          authProvider.token!.isNotEmpty) {
+                                        _apiService.joinEvent(
+                                            event.id,
+                                            authProvider.userId!,
+                                            authProvider.token!);
+                                      } else {
+                                        ScaffoldMessenger.of(context)
+                                            .showSnackBar(
+                                          const SnackBar(
+                                              content: Text(
+                                                  'Please log in to join events')),
+                                        );
+                                      }
+                                    },
                                   ),
                                 );
                               },
