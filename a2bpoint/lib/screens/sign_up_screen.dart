@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../providers/auth_provider.dart';
 import '../services/api_services.dart';
 
@@ -20,7 +21,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
   final _firstNameController = TextEditingController();
   final _ageController = TextEditingController();
   final _usernameController = TextEditingController();
-  int? _age; // Состояние для хранения возраста как int
+  int? _age;
   final ApiService _apiService = ApiService();
 
   @override
@@ -51,14 +52,15 @@ class _SignUpScreenState extends State<SignUpScreen> {
           _passwordController.text,
           _firstNameController.text,
           _lastNameController.text,
-          _age!, // Используем сохранённое значение _age
+          _age!,
           _phoneController.text,
         );
         if (authData != null && mounted) {
-          // Данные успешно отправлены в API Gateway
-          // Второму разработчику: После успешной регистрации проверьте,
-          // что поля first_name, last_name, age, phone_number сохранены в таблице users
-          // или создайте отдельный запрос для таблицы profiles, если требуется.
+          // Сохранение userId в SharedPreferences
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setString('userId', authData['userId'] ?? '');
+          await prefs.setString('token', authData['token'] ?? '');
+
           Provider.of<AuthProvider>(context, listen: false)
               .setAuthData(authData['token'] ?? '', authData['userId'] ?? '');
           Navigator.pop(context);
@@ -157,7 +159,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                       if (age == null || age < 0 || age > 150)
                         return 'Неверный возраст';
                       setState(() {
-                        _age = age; // Сохраняем преобразованный возраст
+                        _age = age;
                       });
                       return null;
                     },

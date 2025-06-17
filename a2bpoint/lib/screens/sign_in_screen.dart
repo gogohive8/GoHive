@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../providers/auth_provider.dart';
 import '../services/api_services.dart';
 
@@ -35,6 +36,11 @@ class _SignInScreenState extends State<SignInScreen> {
         final authData = await _apiService.login(
             _emailController.text, _passwordController.text);
         if (authData != null && mounted) {
+          // Сохранение userId и token в SharedPreferences
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setString('userId', authData['userId'] ?? '');
+          await prefs.setString('token', authData['token'] ?? '');
+
           Provider.of<AuthProvider>(context, listen: false)
               .setAuthData(authData['token'] ?? '', authData['userId'] ?? '');
           Navigator.pop(context);
@@ -60,6 +66,11 @@ class _SignInScreenState extends State<SignInScreen> {
       );
       final authData = await _apiService.signInWithGoogle();
       if (authData != null && mounted) {
+        // Сохранение userId и token в SharedPreferences
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('userId', authData['userId'] ?? '');
+        await prefs.setString('token', authData['token'] ?? '');
+
         Provider.of<AuthProvider>(context, listen: false)
             .setAuthData(authData['token'] ?? '', authData['userId'] ?? '');
         Navigator.pop(context);
