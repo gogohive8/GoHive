@@ -7,7 +7,7 @@ require('dotenv').config({ path: __dirname + '/../.env'});
 
 const app = express();
 app.use(cors({
-  origin: 'http://localhost:4200', // Replace with your Flutter web app's URL
+  origin: 'http://0.0.0.0:4200', // Replace with your Flutter web app's URL
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
 }));
@@ -139,18 +139,22 @@ app.post('/register/email', async (req, res) => {
 // OAuth registration/login (Google/Apple)
 app.post('/register/oauth/google', async (req, res) => {
   try {
-    // Sign in with OAuth token
-    const { data, error } = await supabase.auth.signInWithOAuth({  
-      provider: 'google',  
-      options: {    
-        redirectTo: 'https://osyajqltbkudsfcppqgh.supabase.co/auth/v1/callback'  
-      }});
+    const { supabase_token } = req.body;
+    if (!supabase_token) {
+      return res.status(400).json({ error: 'Missing Supabase token' });
+    }
+
+    // Verify Supabase session token
+    const { data: userData, error: authError } = await supabase.auth.getUser(supabase_token);
     if (authError) {
-      console.error('Error on OAuth autorization', authError.message);
+      console.error('Error verifying Supabase token:', authError.message);
       return res.status(400).json({ error: authError.message });
     }
 
-    const { user: authUser } = session;
+    const authUser = userData.user;
+    if (!authUser) {
+      return res.status(400).json({ error: 'No user returned from Supabase' });
+    }
 
     // Check if user exists in public.users
     let { data: user, error: fetchError } = await supabase
@@ -175,23 +179,24 @@ app.post('/register/oauth/google', async (req, res) => {
         .select()
         .single();
       if (insertError) {
+        console.error('Error inserting user:', insertError.message);
         return res.status(400).json({ error: insertError.message });
       }
       user = newUser;
     } else if (fetchError) {
+      console.error('Error fetching user:', fetchError.message);
       return res.status(400).json({ error: fetchError.message });
     }
 
-      // Generate JWT
+    // Generate JWT
     const token = jwt.sign({ id: authUser.id }, process.env.JWT_SECRET, { expiresIn: '1h' });
 
-
-   res.json({
-      'token' : token,
-      'userID' : authData.user.id,
+    res.json({
+      token: token,
+      userID: authUser.id,
     });
   } catch (error) {
-    console.error('Error on response', error.message);
+    console.error('Error in /register/oauth/google:', error.message);
     res.status(400).json({ error: error.message });
   }
 });

@@ -7,7 +7,8 @@ import '../models/post.dart';
 class ApiService {
   final http.Client _client = http.Client();
   final SupabaseClient _supabase = Supabase.instance.client;
-  static const String _baseUrl = 'http://10.0.2.2:3001'; // For Android emulator
+  static const String _baseUrl =
+      'http://localhost:3001'; // For Android emulator
 
   SupabaseClient get supabase => _supabase;
 
@@ -56,13 +57,13 @@ class ApiService {
             Uri.parse('$_baseUrl/register/email'),
             headers: {'Content-Type': 'application/json'},
             body: jsonEncode({
-              'username': username,
-              'mail': email,
-              'password': password,
               'name': firstName,
               'surname': lastName,
+              'username': username,
               'age': age,
+              'mail': email,
               'phone': phoneNumber,
+              'password': password,
             }),
           )
           .timeout(const Duration(seconds: 30));
@@ -78,23 +79,31 @@ class ApiService {
   Future<Map<String, String>?> signInWithGoogle() async {
     try {
       developer.log('Google OAuth request', name: 'ApiService');
+
+      // Initiate OAuth with Supabase
       await _supabase.auth.signInWithOAuth(
         OAuthProvider.google,
-        redirectTo: 'io.supabase.flutterquickstart://callback',
+        redirectTo: 'https://osyajqltbkudsfcppqgh.supabase.co/auth/v1/callback',
       );
-      final session = _supabase.auth.currentSession;
+
+      // Wait for session (handled by deep link)
+      final session = await _supabase.auth.onAuthStateChange
+          .firstWhere((event) => event.event == AuthChangeEvent.signedIn)
+          .then((event) => event.session);
+
       if (session == null) {
-        developer.log('No Supabase session', name: 'ApiService');
-        return null;
+        throw Exception('No session received after OAuth');
       }
+
+      final supabaseToken = session.accessToken;
+      developer.log('Supabase token obtained', name: 'ApiService');
+
+      // Send token to backend
       final response = await _client
           .post(
             Uri.parse('$_baseUrl/register/oauth/google'),
             headers: {'Content-Type': 'application/json'},
-            body: jsonEncode({
-              'provider': 'google',
-              'access_token': session.accessToken,
-            }),
+            body: jsonEncode({'supabase_token': supabaseToken}),
           )
           .timeout(const Duration(seconds: 30));
       final data = await _handleResponse(response);
