@@ -26,7 +26,7 @@ app.use((err, req, res, next) => {
 app.use((req, res, next) => {
   console.log(`[${new Date().toISOString()}] Incoming request: ${req.method} ${req.path}`);
   console.log(`Request headers: ${JSON.stringify(req.headers)}`);
-  console.log(`Request body: ${JSON.stringify(req.body)}`);
+  console.log(`Request body: ${JSON.stringify(req.body)}\n`);
   next();
 });
 
@@ -37,7 +37,7 @@ app.use((req, res, next) => {
     console.log(`[${new Date().toISOString()}] Response for ${req.method} ${req.path}`);
     console.log(`Response status: ${res.statusCode}`);
     console.log(`Response headers: ${JSON.stringify(res.getHeaders())}`);
-    console.log(`Response body: ${typeof body === 'string' ? body : JSON.stringify(body)}`);
+    console.log(`Response body: ${typeof body === 'string' ? body : JSON.stringify(body)}\n`);
     return originalSend.call(this, body);
   };
   next();
