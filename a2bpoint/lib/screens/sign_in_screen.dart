@@ -1,3 +1,4 @@
+import 'dart:developer' as developer;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
@@ -26,6 +27,8 @@ class _SignInScreenState extends State<SignInScreen> {
 
   Future<void> _signInWithEmail() async {
     if (_formKey.currentState!.validate()) {
+      developer.log('SignIn with email: email=${_emailController.text}',
+          name: 'SignInScreen');
       try {
         showDialog(
           context: context,
@@ -46,7 +49,9 @@ class _SignInScreenState extends State<SignInScreen> {
             const SnackBar(content: Text('Invalid email or password')),
           );
         }
-      } catch (e) {
+      } catch (e, stackTrace) {
+        developer.log('SignIn error: $e',
+            name: 'SignInScreen', stackTrace: stackTrace);
         if (mounted) {
           Navigator.pop(context);
           ScaffoldMessenger.of(context).showSnackBar(
@@ -58,6 +63,7 @@ class _SignInScreenState extends State<SignInScreen> {
   }
 
   Future<void> _signInWithGoogle() async {
+    developer.log('SignIn with Google', name: 'SignInScreen');
     try {
       showDialog(
         context: context,
@@ -76,7 +82,9 @@ class _SignInScreenState extends State<SignInScreen> {
           const SnackBar(content: Text('Google sign-in failed')),
         );
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
+      developer.log('Google sign-in error: $e',
+          name: 'SignInScreen', stackTrace: stackTrace);
       if (mounted) {
         Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(
@@ -128,7 +136,7 @@ class _SignInScreenState extends State<SignInScreen> {
                       if (value == null || value.isEmpty) {
                         return 'Please enter your email';
                       }
-                      if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$')
+                      if (!RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$')
                           .hasMatch(value)) {
                         return 'Invalid email format';
                       }

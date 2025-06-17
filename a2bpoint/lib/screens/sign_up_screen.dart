@@ -1,6 +1,6 @@
+import 'dart:developer' as developer;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import '../providers/auth_provider.dart';
 import '../services/api_services.dart';
 
@@ -13,297 +13,294 @@ class SignUpScreen extends StatefulWidget {
 
 class _SignUpScreenState extends State<SignUpScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _phoneController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
-  final _confirmPasswordController = TextEditingController();
-  final _lastNameController = TextEditingController();
-  final _firstNameController = TextEditingController();
-  final _ageController = TextEditingController();
   final _usernameController = TextEditingController();
-  int? _age;
+  final _confirmPasswordController = TextEditingController();
+  final _firstNameController = TextEditingController();
+  final _lastNameController = TextEditingController();
+  final _ageController = TextEditingController();
+  final _phoneController = TextEditingController();
   final ApiService _apiService = ApiService();
+  bool _isPasswordVisible = false;
+  bool _isConfirmPasswordVisible = false;
 
   @override
   void dispose() {
-    _phoneController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
-    _confirmPasswordController.dispose();
-    _lastNameController.dispose();
-    _firstNameController.dispose();
-    _ageController.dispose();
     _usernameController.dispose();
+    _confirmPasswordController.dispose();
+    _firstNameController.dispose();
+    _lastNameController.dispose();
+    _ageController.dispose();
+    _phoneController.dispose();
+    _apiService.dispose();
     super.dispose();
   }
 
   Future<void> _signUp() async {
-    if (_formKey.currentState!.validate() && _age != null) {
+    if (_formKey.currentState!.validate()) {
+      developer.log('Form validated successfully', name: 'SignUpScreen');
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(child: CircularProgressIndicator()),
+      );
       try {
-        showDialog(
-          context: context,
-          barrierDismissible: false,
-          builder: (context) =>
-              const Center(child: CircularProgressIndicator()),
-        );
+        developer.log(
+            'SignUp request: username=${_usernameController.text}, email=${_emailController.text}',
+            name: 'SignUpScreen');
         final authData = await _apiService.signUp(
           _usernameController.text,
           _emailController.text,
           _passwordController.text,
           _firstNameController.text,
           _lastNameController.text,
-          _age!,
+          int.parse(_ageController.text),
           _phoneController.text,
         );
-        if (authData != null && mounted) {
-          // Сохранение userId в SharedPreferences
-          final prefs = await SharedPreferences.getInstance();
-          await prefs.setString('userId', authData['userId'] ?? '');
-          await prefs.setString('token', authData['token'] ?? '');
-
+        developer.log('SignUp response: $authData', name: 'SignUpScreen');
+        if (!mounted) return;
+        Navigator.pop(context);
+        if (authData != null) {
           Provider.of<AuthProvider>(context, listen: false)
               .setAuthData(authData['token'] ?? '', authData['userId'] ?? '');
-          Navigator.pop(context);
           Navigator.pushReplacementNamed(context, '/home');
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+                content: Text('Registration failed. Please try again.')),
+          );
         }
-      } catch (e) {
+      } catch (e, stackTrace) {
+        developer.log('SignUp error: $e',
+            name: 'SignUpScreen', stackTrace: stackTrace);
         if (mounted) {
           Navigator.pop(context);
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Ошибка регистрации: $e')),
+            SnackBar(content: Text('Failed to register: ${e.toString()}')),
           );
         }
       }
+    } else {
+      developer.log(
+          'Form validation failed: username=${_usernameController.text}, email=${_emailController.text}',
+          name: 'SignUpScreen');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please check your input fields')),
+      );
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
-    final padding = size.width * 0.05;
-
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Sign up with E-mail'),
-        leading: IconButton(
-          icon:
-              const Icon(Icons.arrow_back_ios, color: Colors.purple, size: 30),
-          onPressed: () => Navigator.of(context).pop(),
-          splashColor: Colors.purple.withOpacity(0.2),
-          highlightColor: Colors.purple.withOpacity(0.4),
-        ),
-        elevation: 2,
-        shadowColor: Colors.grey.withOpacity(0.5),
-      ),
-      body: SafeArea(
+      body: SingleChildScrollView(
         child: Padding(
-          padding: EdgeInsets.symmetric(horizontal: padding),
+          padding: EdgeInsets.all(size.width * 0.05),
           child: Form(
             key: _formKey,
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  TextFormField(
-                    controller: _firstNameController,
-                    decoration: InputDecoration(
-                      labelText: 'First Name',
-                      border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10)),
-                      focusedBorder: OutlineInputBorder(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                SizedBox(height: size.height * 0.1),
+                Image.asset('assets/images/logo.png',
+                    height: size.height * 0.15),
+                SizedBox(height: size.height * 0.02),
+                const Text(
+                  'Create Account',
+                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                ),
+                SizedBox(height: size.height * 0.02),
+                TextFormField(
+                  controller: _firstNameController,
+                  decoration: InputDecoration(
+                    labelText: 'First Name',
+                    border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10)),
+                    prefixIcon: const Icon(Icons.person),
+                  ),
+                  validator: (value) => value?.isEmpty ?? true
+                      ? 'Please enter your first name'
+                      : null,
+                ),
+                SizedBox(height: size.height * 0.02),
+                TextFormField(
+                  controller: _lastNameController,
+                  decoration: InputDecoration(
+                    labelText: 'Last Name',
+                    border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10)),
+                    prefixIcon: const Icon(Icons.person),
+                  ),
+                  validator: (value) => value?.isEmpty ?? true
+                      ? 'Please enter your last name'
+                      : null,
+                ),
+                SizedBox(height: size.height * 0.02),
+                TextFormField(
+                  controller: _usernameController,
+                  decoration: InputDecoration(
+                    labelText: 'Username',
+                    border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10)),
+                    prefixIcon: const Icon(Icons.person),
+                  ),
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Please enter your username';
+                    }
+                    if (value.length < 3) {
+                      return 'Username must be at least 3 characters';
+                    }
+                    return null;
+                  },
+                ),
+                SizedBox(height: size.height * 0.02),
+                TextFormField(
+                  controller: _emailController,
+                  decoration: InputDecoration(
+                    labelText: 'Email',
+                    border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10)),
+                    prefixIcon: const Icon(Icons.email),
+                  ),
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Please enter your email';
+                    }
+                    if (!RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$')
+                        .hasMatch(value)) {
+                      return 'Please enter a valid email';
+                    }
+                    return null;
+                  },
+                ),
+                SizedBox(height: size.height * 0.02),
+                TextFormField(
+                  controller: _ageController,
+                  decoration: InputDecoration(
+                    labelText: 'Age',
+                    border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10)),
+                    prefixIcon: const Icon(Icons.cake),
+                  ),
+                  keyboardType: TextInputType.number,
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Please enter your age';
+                    }
+                    if (int.tryParse(value) == null || int.parse(value) < 1) {
+                      return 'Please enter a valid age';
+                    }
+                    return null;
+                  },
+                ),
+                SizedBox(height: size.height * 0.02),
+                TextFormField(
+                  controller: _phoneController,
+                  decoration: InputDecoration(
+                    labelText: 'Phone Number',
+                    border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10)),
+                    prefixIcon: const Icon(Icons.phone),
+                  ),
+                  keyboardType: TextInputType.phone,
+                  validator: (value) => value?.isEmpty ?? true
+                      ? 'Please enter your phone number'
+                      : null,
+                ),
+                SizedBox(height: size.height * 0.02),
+                TextFormField(
+                  controller: _passwordController,
+                  decoration: InputDecoration(
+                    labelText: 'Password',
+                    border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10)),
+                    prefixIcon: const Icon(Icons.lock),
+                    suffixIcon: IconButton(
+                      icon: Icon(_isPasswordVisible
+                          ? Icons.visibility
+                          : Icons.visibility_off),
+                      onPressed: () => setState(
+                          () => _isPasswordVisible = !_isPasswordVisible),
+                    ),
+                  ),
+                  obscureText: !_isPasswordVisible,
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Please enter your password';
+                    }
+                    if (value.length < 6) {
+                      return 'Password must be at least 6 characters';
+                    }
+                    return null;
+                  },
+                ),
+                SizedBox(height: size.height * 0.02),
+                TextFormField(
+                  controller: _confirmPasswordController,
+                  decoration: InputDecoration(
+                    labelText: 'Confirm Password',
+                    border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10)),
+                    prefixIcon: const Icon(Icons.lock),
+                    suffixIcon: IconButton(
+                      icon: Icon(_isConfirmPasswordVisible
+                          ? Icons.visibility
+                          : Icons.visibility_off),
+                      onPressed: () => setState(() =>
+                          _isConfirmPasswordVisible =
+                              !_isConfirmPasswordVisible),
+                    ),
+                  ),
+                  obscureText: !_isConfirmPasswordVisible,
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Please confirm your password';
+                    }
+                    if (value != _passwordController.text) {
+                      return 'Passwords do not match';
+                    }
+                    return null;
+                  },
+                ),
+                SizedBox(height: size.height * 0.02),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: _signUp,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.purple,
+                      padding:
+                          EdgeInsets.symmetric(vertical: size.height * 0.02),
+                      shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(10),
-                        borderSide: const BorderSide(color: Colors.purple),
                       ),
                     ),
-                    validator: (value) =>
-                        value?.isEmpty ?? true ? 'Введите имя' : null,
-                    textInputAction: TextInputAction.next,
-                    onFieldSubmitted: (_) => FocusScope.of(context).nextFocus(),
+                    child: const Text('Sign Up',
+                        style: TextStyle(color: Colors.white)),
                   ),
-                  SizedBox(height: size.height * 0.02),
-                  TextFormField(
-                    controller: _lastNameController,
-                    decoration: InputDecoration(
-                      labelText: 'Last Name',
-                      border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10)),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                        borderSide: const BorderSide(color: Colors.purple),
-                      ),
+                ),
+                SizedBox(height: size.height * 0.02),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Text('Already have an account?'),
+                    TextButton(
+                      onPressed: () {
+                        developer.log('Navigating to SignInScreen',
+                            name: 'SignUpScreen');
+                        Navigator.pushNamed(context, '/sign-in');
+                      },
+                      child: const Text('Sign In',
+                          style: TextStyle(color: Colors.purple)),
                     ),
-                    validator: (value) =>
-                        value?.isEmpty ?? true ? 'Введите фамилию' : null,
-                    textInputAction: TextInputAction.next,
-                    onFieldSubmitted: (_) => FocusScope.of(context).nextFocus(),
-                  ),
-                  SizedBox(height: size.height * 0.02),
-                  TextFormField(
-                    controller: _ageController,
-                    decoration: InputDecoration(
-                      labelText: 'Age',
-                      border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10)),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                        borderSide: const BorderSide(color: Colors.purple),
-                      ),
-                      prefixIcon:
-                          Image.asset('assets/age_icon.png', height: 24),
-                    ),
-                    keyboardType: TextInputType.number,
-                    validator: (value) {
-                      if (value == null || value.isEmpty)
-                        return 'Введите возраст';
-                      final age = int.tryParse(value);
-                      if (age == null || age < 0 || age > 150)
-                        return 'Неверный возраст';
-                      setState(() {
-                        _age = age;
-                      });
-                      return null;
-                    },
-                    textInputAction: TextInputAction.next,
-                    onFieldSubmitted: (_) => FocusScope.of(context).nextFocus(),
-                  ),
-                  SizedBox(height: size.height * 0.02),
-                  TextFormField(
-                    controller: _usernameController,
-                    decoration: InputDecoration(
-                      labelText: 'Username',
-                      border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10)),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                        borderSide: const BorderSide(color: Colors.purple),
-                      ),
-                    ),
-                    validator: (value) => value?.isEmpty ?? true
-                        ? 'Введите имя пользователя'
-                        : (value!.length < 3 ? 'Минимум 3 символа' : null),
-                    textInputAction: TextInputAction.next,
-                    onFieldSubmitted: (_) => FocusScope.of(context).nextFocus(),
-                  ),
-                  SizedBox(height: size.height * 0.02),
-                  TextFormField(
-                    controller: _phoneController,
-                    decoration: InputDecoration(
-                      labelText: 'Phone Number',
-                      border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10)),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                        borderSide: const BorderSide(color: Colors.purple),
-                      ),
-                      prefixIcon:
-                          Image.asset('assets/phone_icon.png', height: 24),
-                    ),
-                    keyboardType: TextInputType.phone,
-                    validator: (value) {
-                      if (value == null || value.isEmpty)
-                        return 'Введите номер';
-                      final clean =
-                          value.replaceAll(RegExp(r'[\s\-\+\(\)]'), '');
-                      if (clean.length > 11) return 'Слишком длинный номер';
-                      if (!RegExp(r'^\+?\d{10,11}$').hasMatch(clean))
-                        return 'Неверный формат';
-                      return null;
-                    },
-                    textInputAction: TextInputAction.next,
-                    onFieldSubmitted: (_) => FocusScope.of(context).nextFocus(),
-                  ),
-                  SizedBox(height: size.height * 0.02),
-                  TextFormField(
-                    controller: _emailController,
-                    decoration: InputDecoration(
-                      labelText: 'Email',
-                      border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10)),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                        borderSide: const BorderSide(color: Colors.purple),
-                      ),
-                      prefixIcon:
-                          Image.asset('assets/email_icon.png', height: 24),
-                    ),
-                    keyboardType: TextInputType.emailAddress,
-                    validator: (value) {
-                      if (value == null || value.isEmpty)
-                        return 'Введите email';
-                      if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$')
-                          .hasMatch(value)) return 'Неверный email';
-                      return null;
-                    },
-                    textInputAction: TextInputAction.next,
-                    onFieldSubmitted: (_) => FocusScope.of(context).nextFocus(),
-                  ),
-                  SizedBox(height: size.height * 0.02),
-                  TextFormField(
-                    controller: _passwordController,
-                    decoration: InputDecoration(
-                      labelText: 'Password',
-                      border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10)),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                        borderSide: const BorderSide(color: Colors.purple),
-                      ),
-                      prefixIcon:
-                          Image.asset('assets/password_icon.png', height: 24),
-                    ),
-                    obscureText: true,
-                    validator: (value) {
-                      if (value == null || value.isEmpty)
-                        return 'Введите пароль';
-                      if (value.length < 6) return 'Минимум 6 символов';
-                      return null;
-                    },
-                    textInputAction: TextInputAction.next,
-                    onFieldSubmitted: (_) => FocusScope.of(context).nextFocus(),
-                  ),
-                  SizedBox(height: size.height * 0.02),
-                  TextFormField(
-                    controller: _confirmPasswordController,
-                    decoration: InputDecoration(
-                      labelText: 'Confirm Password',
-                      border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10)),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                        borderSide: const BorderSide(color: Colors.purple),
-                      ),
-                      prefixIcon:
-                          Image.asset('assets/password_icon.png', height: 24),
-                    ),
-                    obscureText: true,
-                    validator: (value) {
-                      if (value == null || value.isEmpty)
-                        return 'Подтвердите пароль';
-                      if (value != _passwordController.text)
-                        return 'Пароли не совпадают';
-                      return null;
-                    },
-                    textInputAction: TextInputAction.done,
-                    onFieldSubmitted: (_) => _signUp(),
-                  ),
-                  SizedBox(height: size.height * 0.03),
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: _signUp,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.purple,
-                        padding:
-                            EdgeInsets.symmetric(vertical: size.height * 0.02),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                      ),
-                      child: const Text('Sign up'),
-                    ),
-                  ),
-                ],
-              ),
+                  ],
+                ),
+              ],
             ),
           ),
         ),
