@@ -1,7 +1,6 @@
 const express = require('express');
 const { createClient } = require('@supabase/supabase-js');
 const jwt = require('jsonwebtoken');
-const redis = require('redis');
 const cors = require('cors');
 
 require('dotenv').config({ path: __dirname + '/../.env'});
@@ -47,10 +46,6 @@ app.use((req, res, next) => {
 
 // Connect to supabase client
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
-
-// Redis connection
-const redisClient = redis.createClient({ url: process.env.REDIS_URL });
-redisClient.connect().then(() => console.log('Redis connected'));
 
 
 // Middleware to verify JWT
@@ -99,8 +94,6 @@ app.post('/register/email', async (req, res) => {
       }
     }
 
-    // Hash password
-    // const hashedPassword = await bcrypt.hash(password, 10);
 
     // Create new user
     const {data: authData, error: authError} = await supabase.auth.admin.createUser({
@@ -131,20 +124,9 @@ app.post('/register/email', async (req, res) => {
     // Generate JWT
     const token = jwt.sign({ id: authData.user.id }, process.env.JWT_SECRET, {expiresIn: '1h'});
 
-    // Cache JWT in redis
-    await redisClient.setEx(`jwt:${token}`, 3600, authData.user.id);
-
-    res.status(200).json({
-      user: {
-        id: user.id,
-        name: user.name,
-        surname: user.surname,
-        username: user.username,
-        age: user.age,
-        mail: authData.user.email,
-        phone: authData.user.phone,
-      },
-      token,
+   res.json({
+      'token' : token,
+      'userID' : authData.user.id,
     });
   } catch (error) {
     console.error('Error in /register/email:', error.message);
@@ -155,7 +137,7 @@ app.post('/register/email', async (req, res) => {
 
 
 // OAuth registration/login (Google/Apple)
-app.post('/register/oauth', async (req, res) => {
+app.post('/register/oauth/google', async (req, res) => {
   try {
     const { provider, access_token } = req.body;
     if (!['google', 'apple'].includes(provider) || !access_token) {
@@ -163,11 +145,13 @@ app.post('/register/oauth', async (req, res) => {
     }
 
     // Sign in with OAuth token
-    const { data: session, error: authError } = await supabase.auth.signInWithOAuth({
-      provider,
-      options: { access_token },
-    });
+    const { data, error } = await supabase.auth.signInWithOAuth({  
+      provider: 'google',  
+      options: {    
+        redirectTo: 'https://osyajqltbkudsfcppqgh.supabase.co/auth/v1/callback'  
+      }});
     if (authError) {
+      console.error('Error on OAuth autorization', authError.message);
       return res.status(400).json({ error: authError.message });
     }
 
@@ -206,22 +190,13 @@ app.post('/register/oauth', async (req, res) => {
       // Generate JWT
     const token = jwt.sign({ id: authUser.id }, process.env.JWT_SECRET, { expiresIn: '1h' });
 
-    // Cache JWT and user data in Redis
-    await redisClient.setEx(`jwt:${token}`, 3600, authUser.id);
 
-    res.json({
-      user: {
-        id: user.id,
-        name: user.name,
-        surname: user.surname,
-        username: user.username,
-        age: user.age,
-        mail: authUser.email,
-        phone: authUser.phone,
-      },
-      token,
+   res.json({
+      'token' : token,
+      'userID' : authData.user.id,
     });
   } catch (error) {
+    console.error('Error on response', error.message);
     res.status(400).json({ error: error.message });
   }
 });
@@ -248,9 +223,6 @@ app.post('/login', async (req, res) => {
 
     // Generate JWT
     const token = jwt.sign({ id: authData.user.id }, process.env.JWT_SECRET, { expiresIn: '1h' });
-
-    // Cache JWT and user data in Redis
-    await redisClient.setEx(`jwt:${token}`, 3600, authData.user.id);
 
     res.json({
       'token' : token,

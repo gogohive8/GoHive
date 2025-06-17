@@ -1,7 +1,6 @@
 const express = require('express');
 const { createProxyMiddleware } = require('http-proxy-middleware');
 const jwt = require('jsonwebtoken');
-const redis = require('redis');
 const cors = require('cors');
 const rateLimit = require('express-rate-limit');
 
@@ -46,11 +45,6 @@ app.use((req, res, next) => {
 
 
 // Proxy routes to microservices
-// Proxy routes to microservices with path rewriting
-// Proxy routes to microservices
-// Proxy routes to microservices
-// Proxy options
-// Proxy options
 const proxyOptions = (target, pathRewrite) => ({
   target,
   changeOrigin: true,
@@ -92,16 +86,13 @@ app.use('/api/register/email', createProxyMiddleware(proxyOptions('http://localh
 })));
 
 app.use('/api/register/oauth', createProxyMiddleware(proxyOptions('http://localhost:3001', {
-  '^/api/register/oauth': '/register/oauth',
+  '^/api/register/oauth/google': '/register/oauth/google',
 })));
 
 app.use('/api/login', createProxyMiddleware(proxyOptions('http://localhost:3001', {
   '^/api/login': '/login',
 })));
 
-// Redis connection
-const redisClient = redis.createClient({ url: process.env.REDIS_URL });
-redisClient.connect().then(() => console.log('Redis connected'));
 
 // Middleware to verify JWT
 const verifyToken = async (req, res, next) => {
@@ -133,9 +124,6 @@ app.use('/api/users', verifyToken, createProxyMiddleware(proxyOptions('http://lo
   '^/api/users': '/users',
 })));
 
-app.use('/api/products', verifyToken, createProxyMiddleware(proxyOptions('http://localhost:3002', {
-  '^/api/products': '/products',
-})));
 
 // Error handling middleware
 app.use((err, req, res, next) => {

@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import '../providers/auth_provider.dart';
 import '../services/api_services.dart';
 
@@ -31,16 +30,11 @@ class _SignInScreenState extends State<SignInScreen> {
           context: context,
           barrierDismissible: false,
           builder: (context) =>
-              const Center(child: CircularProgressIndicator()),
+              const Center(child: CircularProgressIndicator(color: Colors.white)),
         );
         final authData = await _apiService.login(
             _emailController.text, _passwordController.text);
         if (authData != null && mounted) {
-          // Сохранение userId и token в SharedPreferences
-          final prefs = await SharedPreferences.getInstance();
-          await prefs.setString('userId', authData['userId'] ?? '');
-          await prefs.setString('token', authData['token'] ?? '');
-
           Provider.of<AuthProvider>(context, listen: false)
               .setAuthData(authData['token'] ?? '', authData['userId'] ?? '');
           Navigator.pop(context);
@@ -50,7 +44,8 @@ class _SignInScreenState extends State<SignInScreen> {
         if (mounted) {
           Navigator.pop(context);
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Ошибка входа: $e')),
+            SnackBar(content: Text('Ошибка входа: $e', style: const TextStyle(color: Colors.white))),
+            backgroundColor: Colors.red.withOpacity(0.8),
           );
         }
       }
@@ -62,15 +57,11 @@ class _SignInScreenState extends State<SignInScreen> {
       showDialog(
         context: context,
         barrierDismissible: false,
-        builder: (context) => const Center(child: CircularProgressIndicator()),
+        builder: (context) =>
+            const Center(child: CircularProgressIndicator(color: Colors.white)),
       );
       final authData = await _apiService.signInWithGoogle();
       if (authData != null && mounted) {
-        // Сохранение userId и token в SharedPreferences
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.setString('userId', authData['userId'] ?? '');
-        await prefs.setString('token', authData['token'] ?? '');
-
         Provider.of<AuthProvider>(context, listen: false)
             .setAuthData(authData['token'] ?? '', authData['userId'] ?? '');
         Navigator.pop(context);
@@ -80,7 +71,8 @@ class _SignInScreenState extends State<SignInScreen> {
       if (mounted) {
         Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Ошибка Google входа: $e')),
+          SnackBar(content: Text('Ошибка Google входа: $e', style: const TextStyle(color: Colors.white))),
+          backgroundColor: Colors.red.withOpacity(0.8),
         );
       }
     }
@@ -92,6 +84,7 @@ class _SignInScreenState extends State<SignInScreen> {
     final padding = size.width * 0.05;
 
     return Scaffold(
+      backgroundColor: Color(0xFF7964FF),
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
@@ -108,6 +101,7 @@ class _SignInScreenState extends State<SignInScreen> {
                         'assets/logo_background.png',
                         height: size.height * 0.3,
                         fit: BoxFit.contain,
+                        color: Colors.white.withOpacity(0.9), // Адаптация логотипа
                       ),
                     ],
                   ),
@@ -116,16 +110,23 @@ class _SignInScreenState extends State<SignInScreen> {
                     controller: _emailController,
                     decoration: InputDecoration(
                       labelText: 'Your email',
+                      labelStyle: const TextStyle(color: Colors.white70),
                       border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10)),
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: const BorderSide(color: Colors.white54),
+                      ),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(10),
-                        borderSide: const BorderSide(color: Colors.purple),
+                        borderSide: const BorderSide(color: Colors.white),
                       ),
-                      prefixIcon:
-                          Image.asset('assets/email_icon.png', height: 24),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: const BorderSide(color: Colors.white54),
+                      ),
+                      prefixIcon: Image.asset('assets/email_icon.png', height: 24, color: Colors.white),
                     ),
                     keyboardType: TextInputType.emailAddress,
+                    style: const TextStyle(color: Colors.white),
                     validator: (value) {
                       if (value == null || value.isEmpty)
                         return 'Введите email';
@@ -139,14 +140,23 @@ class _SignInScreenState extends State<SignInScreen> {
                     controller: _passwordController,
                     decoration: InputDecoration(
                       labelText: 'Password',
+                      labelStyle: const TextStyle(color: Colors.white70),
                       border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10)),
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: const BorderSide(color: Colors.white54),
+                      ),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(10),
-                        borderSide: const BorderSide(color: Colors.purple),
+                        borderSide: const BorderSide(color: Colors.white),
                       ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: const BorderSide(color: Colors.white54),
+                      ),
+                      prefixIcon: Image.asset('assets/password_icon.png', height: 24, color: Colors.white),
                     ),
                     obscureText: true,
+                    style: const TextStyle(color: Colors.white),
                     validator: (value) {
                       if (value == null || value.isEmpty)
                         return 'Введите пароль';
@@ -162,11 +172,12 @@ class _SignInScreenState extends State<SignInScreen> {
                     child: ElevatedButton(
                       onPressed: _signInWithEmail,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.purple,
-                        padding:
-                            EdgeInsets.symmetric(vertical: size.height * 0.02),
+                        backgroundColor: Colors.white.withOpacity(0.2),
+                        foregroundColor: Colors.white,
+                        padding: EdgeInsets.symmetric(vertical: size.height * 0.02),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(10),
+                          side: const BorderSide(color: Colors.white),
                         ),
                       ),
                       child: Text(
@@ -179,25 +190,23 @@ class _SignInScreenState extends State<SignInScreen> {
                     ),
                   ),
                   SizedBox(height: size.height * 0.03),
-                  const Text('Or', style: TextStyle(fontSize: 16)),
+                  const Text('Or', style: TextStyle(fontSize: 16, color: Colors.white70)),
                   SizedBox(height: size.height * 0.03),
                   Column(
                     children: [
                       SizedBox(
                         width: double.infinity,
                         child: OutlinedButton(
-                          onPressed: () =>
-                              Navigator.pushNamed(context, '/sign-up'),
+                          onPressed: () => Navigator.pushNamed(context, '/sign-up'),
                           style: OutlinedButton.styleFrom(
-                            side: const BorderSide(color: Colors.purple),
+                            side: const BorderSide(color: Colors.white),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(10),
                             ),
                             minimumSize: Size(double.infinity, 50),
-                            backgroundColor: Colors.purple.withOpacity(0.1),
+                            backgroundColor: Colors.white.withOpacity(0.1),
                           ),
-                          child: const Text('Sign up',
-                              style: TextStyle(color: Colors.purple)),
+                          child: const Text('Sign up', style: TextStyle(color: Colors.white)),
                         ),
                       ),
                       SizedBox(height: size.height * 0.01),
@@ -205,15 +214,15 @@ class _SignInScreenState extends State<SignInScreen> {
                         width: double.infinity,
                         child: OutlinedButton.icon(
                           onPressed: _signInWithGoogle,
-                          icon:
-                              Image.asset('assets/google_icon.png', height: 24),
-                          label: const Text('Sign in with Google'),
+                          icon: Image.asset('assets/google_icon.png', height: 24, color: Colors.white),
+                          label: const Text('Sign in with Google', style: TextStyle(color: Colors.white)),
                           style: OutlinedButton.styleFrom(
-                            side: const BorderSide(color: Colors.grey),
+                            side: const BorderSide(color: Colors.white),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(10),
                             ),
                             minimumSize: Size(double.infinity, 50),
+                            backgroundColor: Colors.white.withOpacity(0.1),
                           ),
                         ),
                       ),

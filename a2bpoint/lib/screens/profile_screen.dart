@@ -1,350 +1,305 @@
-import 'dart:io';
-import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
-import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+import 'package:flutter/material.dart';
+import '../models/post.dart';
 import '../providers/auth_provider.dart';
-import '../services/api_services.dart';
-import 'navbar.dart';
 
-class ProfileScreen extends StatefulWidget {
-  const ProfileScreen({super.key});
+class ApiService {
+  final SupabaseClient _supabase = Supabase.instance.client;
 
-  @override
-  _ProfileScreenState createState() => _ProfileScreenState();
-}
+  SupabaseClient get supabase => _supabase;
+  static const String _baseUrl = 'http://localhost:3001'; // API Gateway URL
+  final http.Client _client = http.Client();
 
-class _ProfileScreenState extends State<ProfileScreen> {
-  final ApiService _apiService = ApiService();
-  final ImagePicker _picker = ImagePicker();
-  String? _avatarUrl;
-  String? _username;
-  int _followers = 0;
-  int _following = 0;
-  List<Map<String, dynamic>> _posts = [];
-
-  @override
-  void initState() {
-    super.initState();
-    _loadProfileData();
+  Future<Map<String, String>?> login(String email, String password) async {
+    try {
+      final response = await _client.post(
+        Uri.parse('$_baseUrl/login'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'mail': email, 'password': password}),
+      );
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return {'token': data['token'] ?? '', 'userId': data['userId'] ?? ''};
+      } else {
+        print('Login error: ${response.body}');
+        return null;
+      }
+    } catch (e) {
+      print('Login error: $e');
+      return null;
+    }
   }
 
-  Future<void> _loadProfileData() async {
+  Future<Map<String, String>?> signUp(
+      String username,
+      String email,
+      String password,
+      String firstName,
+      String lastName,
+      int age,
+      String phoneNumber) async {
     try {
-      final authProvider = Provider.of<AuthProvider>(context, listen: false);
-      if (authProvider.userId == null || !authProvider.isAuthenticated) {
-        throw Exception('Пользователь не аутентифицирован');
+      final body = jsonEncode({
+        'name': firstName,
+        'surname': lastName,
+        'username': username,
+        'age': age,
+        'mail': email,
+        'phone': phoneNumber,
+        'password': password,
+      });
+      print('Sending request to: $_baseUrl/register/email');
+      print('Request body: $body');
+      final response = await _client
+          .post(
+            Uri.parse('$_baseUrl/register/email'),
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json',
+            },
+            body: body,
+          )
+          .timeout(Duration(seconds: 30));
+      print('Response status: ${response.statusCode}');
+      print('Response body: ${response.body}');
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return {
+          'token': data['token'] ?? '',
+          'userId': data['user']['id'] ?? ''
+        };
+      } else {
+        print('Sign up error: ${response.body}');
+        return null;
       }
-      final userResponse = await _apiService.supabase
-          .from('users')
-          .select('avatar_url, username, followers, following')
-          .eq('id', authProvider.userId!) // Безопасно, так как проверено выше
-          .single();
-      final postsResponse = await _apiService.supabase
-          .from('posts')
-          .select('*, user(id, username)')
-          .eq('user_id', authProvider.userId!);
+    } catch (e) {
+      print('Sign up error: $e');
+      return null;
+    }
+  }
 
-      setState(() {
-        _avatarUrl = userResponse['avatar_url'];
-        _username = userResponse['username'];
-        _followers = userResponse['followers'] ?? 0;
-        _following = userResponse['following'] ?? 0;
-        _posts = (postsResponse as List).cast<Map<String, dynamic>>();
+  Future<Map<String, String>?> signInWithGoogle() async {
+    try {
+      await _supabase.auth.signInWithOAuth(
+        OAuthProvider.google,
+        redirectTo: 'io.supabase.flutterquickstart://callback',
+      );
+      final session = _supabase.auth.currentSession;
+      return {
+        'token': session?.accessToken ?? '',
+        'userId': session?.user.id ?? ''
+      };
+    } catch (e) {
+      print('Google sign in error: $e');
+      return null;
+    }
+  }
+
+  Future<Map<String, dynamic>?> getProfile(String userId, String token) async {
+    try {
+      final response = await _client.get(
+        Uri.parse('$_baseUrl/profile/$userId'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return {
+          'avatar_url': data['avatar_url'] ?? '',
+          'username': data['username'] ?? '',
+          'bio': data['bio'] ?? '',
+          'followers': data['followers'] ?? 0,
+          'following': data['following'] ?? 0,
+        };
+      } else {
+        print('Get profile error: ${response.body}');
+        return null;
+      }
+    } catch (e) {
+      print('Get profile error: $e');
+      return null;
+    }
+  }
+
+  Future<bool> updateBio(String userId, String bio, String token) async {
+    try {
+      final response = await _client.put(
+        Uri.parse('$_baseUrl/profile/$userId/bio'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode({'bio': bio}),
+      );
+      if (response.statusCode == 200) {
+        return true;
+      } else {
+        print('Update bio error: ${response.body}');
+        return false;
+      }
+    } catch (e) {
+      print('Update bio error: $e');
+      return false;
+    }
+  }
+
+  Future<List<Post>> getGoals(String userId, String token) async {
+    try {
+      final response = await _client.get(
+        Uri.parse('$_baseUrl/goals?user_id=$userId'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as List;
+        return data
+            .map((json) => Post.fromJson({...json, 'type': 'goal'}))
+            .toList();
+      } else {
+        print('Get goals error: ${response.body}');
+        return [];
+      }
+    } catch (e) {
+      print('Get goals error: $e');
+      return [];
+    }
+  }
+
+  Future<List<Post>> getEvents(String userId, String token) async {
+    try {
+      final response = await _client.get(
+        Uri.parse('$_baseUrl/events?user_id=$userId'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as List;
+        return data
+            .map((json) => Post.fromJson({...json, 'type': 'event'}))
+            .toList();
+      } else {
+        print('Get events error: ${response.body}');
+        return [];
+      }
+    } catch (e) {
+      print('Get events error: $e');
+      return [];
+    }
+  }
+
+  Future<void> likePost(String postId, String type) async {
+    try {
+      await _supabase
+          .from(type == 'goal' ? 'goals' : 'events')
+          .update({'likes': 'likes + 1'}).eq('id', postId);
+    } catch (e) {
+      print('Like post error: $e');
+      throw Exception('Failed to like post: $e');
+    }
+  }
+
+  Future<void> joinEvent(String eventId, String userId) async {
+    try {
+      await _supabase.from('event_participants').insert({
+        'event_id': eventId,
+        'user_id': userId,
       });
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Ошибка загрузки профиля: $e')),
-        );
-      }
+      print('Join event error: $e');
+      throw Exception('Failed to join event: $e');
     }
   }
 
-  Future<void> _pickAndUploadAvatar() async {
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    if (authProvider.userId == null || !authProvider.isAuthenticated) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Требуется авторизация')),
-      );
-      return;
+  Future<void> createGoal(
+      String userId, String description, String location, String interest,
+      {String? pointA,
+      String? pointB,
+      List<String>? tasks,
+      List<String>? imageUrls}) async {
+    try {
+      await _supabase.from('goals').insert({
+        'user_id': userId,
+        'description': description,
+        'location': location,
+        'interest': interest,
+        'point_a': pointA,
+        'point_b': pointB,
+        'tasks': tasks
+                ?.map((task) => {'title': task, 'completed': false})
+                .toList() ??
+            [],
+        'image_urls': imageUrls ?? [],
+        'created_at': DateTime.now().toIso8601String(),
+        'likes': 0,
+        'comments': 0,
+      });
+    } catch (e) {
+      print('Create goal error: $e');
+      throw Exception('Failed to create goal: $e');
     }
-    final pickedFile = await _picker.pickImage(source: ImageSource.gallery);
-    if (pickedFile != null) {
-      final file = File(pickedFile.path);
+  }
+
+  Future<void> createEvent(String userId, String description, String location,
+      {String? pointA,
+      String? pointB,
+      List<String>? tasks,
+      List<String>? imageUrls}) async {
+    try {
+      await _supabase.from('events').insert({
+        'user_id': userId,
+        'description': description,
+        'location': location,
+        'point_a': pointA,
+        'point_b': pointB,
+        'tasks': tasks
+                ?.map((task) => {'title': task, 'completed': false})
+                .toList() ??
+            [],
+        'image_urls': imageUrls ?? [],
+        'created_at': DateTime.now().toIso8601String(),
+        'likes': 0,
+        'comments': 0,
+      });
+    } catch (e) {
+      print('Create event error: $e');
+      throw Exception('Failed to create event: $e');
+    }
+  }
+
+  Future<String?> uploadAvatar(
+      String userId, List<int> fileBytes, String token) async {
+    try {
       final fileName = DateTime.now().millisecondsSinceEpoch.toString();
-      try {
-        await _apiService.supabase.storage.from('avatars').uploadBinary(
-              fileName,
-              await file.readAsBytes(),
-              fileOptions: FileOptions(
-                contentType: 'image/jpeg',
-                upsert: true,
-              ),
-            );
-        final url =
-            _apiService.supabase.storage.from('avatars').getPublicUrl(fileName);
-        await _apiService.supabase
-            .from('users')
-            .update({'avatar_url': url}).eq('id', authProvider.userId!);
-        setState(() {
-          _avatarUrl = url;
-        });
-      } catch (e) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Ошибка загрузки аватара: $e')),
-        );
-      }
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final size = MediaQuery.of(context).size;
-    final padding = size.width * 0.05;
-
-    return Scaffold(
-      appBar: AppBar(
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.purple),
-          onPressed: () => Navigator.pop(context),
-        ),
-        elevation: 0,
-        backgroundColor: Colors.white,
-        toolbarHeight: 0,
-      ),
-      body: Column(
-        children: [
-          Container(
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            color: Colors.white,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                GestureDetector(
-                  onTap: () {},
-                  child: Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: Colors.purple.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: const Text(
-                      'Profile',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.purple,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Expanded(
-            child: SingleChildScrollView(
-              padding: EdgeInsets.all(padding),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Stack(
-                    alignment: Alignment.center,
-                    children: [
-                      Container(
-                        width: 64,
-                        height: 64,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: Colors.grey[200],
-                        ),
-                        child: _avatarUrl != null
-                            ? ClipOval(
-                                child: Image.network(
-                                  _avatarUrl!,
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (context, error, stackTrace) =>
-                                      Icon(Icons.person, size: 40),
-                                ),
-                              )
-                            : const Icon(Icons.person, size: 40),
-                      ),
-                      Positioned(
-                        bottom: 0,
-                        right: 0,
-                        child: IconButton(
-                          icon: const Icon(Icons.camera_alt,
-                              color: Colors.purple),
-                          onPressed: _pickAndUploadAvatar,
-                        ),
-                      ),
-                    ],
-                  ),
-                  SizedBox(height: size.height * 0.02),
-                  Text(
-                    _username ?? 'No username',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF1C0E31),
-                    ),
-                  ),
-                  SizedBox(height: size.height * 0.01),
-                  Text(
-                    'I love soccer and boys playing soccer. I also eat fish every day',
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: Color(0xFF1C0E31),
-                      height: 1.38,
-                    ),
-                  ),
-                  SizedBox(height: size.height * 0.03),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text('$_followers followers',
-                          style: TextStyle(fontSize: 14)),
-                      Text('$_following following',
-                          style: TextStyle(fontSize: 14)),
-                    ],
-                  ),
-                  SizedBox(height: size.height * 0.03),
-                  Wrap(
-                    spacing: 8,
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(4),
-                        decoration: BoxDecoration(
-                          color: Colors.orange.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: const Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.emoji_events,
-                                color: Colors.orange, size: 16),
-                            Text(' Challenge winner'),
-                          ],
-                        ),
-                      ),
-                      Container(
-                        padding: const EdgeInsets.all(4),
-                        decoration: BoxDecoration(
-                          color: Colors.green.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: const Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.check_circle,
-                                color: Colors.green, size: 16),
-                            Text(' Finished goals'),
-                          ],
-                        ),
-                      ),
-                      Container(
-                        padding: const EdgeInsets.all(4),
-                        decoration: BoxDecoration(
-                          color: Colors.green.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: const Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.check_circle,
-                                color: Colors.green, size: 16),
-                            Text(' Attended'),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                  SizedBox(height: size.height * 0.03),
-                  Divider(color: Color(0x1A1C0E31), thickness: 1),
-                  GridView.builder(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    gridDelegate:
-                        const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 3,
-                      crossAxisSpacing: 4,
-                      mainAxisSpacing: 4,
-                    ),
-                    itemCount: _posts.length,
-                    itemBuilder: (context, index) {
-                      final post = _posts[index];
-                      final isGoal = post['type'] == 'goal';
-                      final imageUrl = post['image_urls']?.isNotEmpty == true
-                          ? post['image_urls'][0]
-                          : null;
-                      return Stack(
-                        children: [
-                          Container(
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(8),
-                              image: imageUrl != null
-                                  ? DecorationImage(
-                                      image: NetworkImage(imageUrl),
-                                      fit: BoxFit.cover,
-                                    )
-                                  : null,
-                            ),
-                            child: imageUrl == null
-                                ? const Center(
-                                    child: Icon(Icons.image, size: 40))
-                                : null,
-                          ),
-                          if (isGoal && post['tasks'] != null)
-                            Positioned(
-                              bottom: 4,
-                              left: 4,
-                              child: Container(
-                                padding: const EdgeInsets.all(4),
-                                color: Colors.black54,
-                                child: Text(
-                                  '${post['tasks'].where((task) => task['completed'] ?? false).length}/${post['tasks'].length} tasks',
-                                  style: const TextStyle(
-                                      color: Colors.white, fontSize: 12),
-                                ),
-                              ),
-                            ),
-                          if (!isGoal)
-                            Positioned(
-                              bottom: 4,
-                              left: 4,
-                              child: Container(
-                                padding: const EdgeInsets.all(4),
-                                color: Colors.black54,
-                                child: Text(
-                                  post['created_at'] != null
-                                      ? DateTime.parse(post['created_at'])
-                                          .toLocal()
-                                          .toString()
-                                          .split(' ')[0]
-                                      : 'No date',
-                                  style: const TextStyle(
-                                      color: Colors.white, fontSize: 12),
-                                ),
-                              ),
-                            ),
-                        ],
-                      );
-                    },
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-      bottomNavigationBar: Navbar(
-        selectedIndex: 3,
-        onTap: (index) {
-          final routes = ['/home', '/search', '/add', '/profile', '/ai-mentor'];
-          Navigator.pushReplacementNamed(context, routes[index]);
+      final response = await _client.post(
+        Uri.parse('$_baseUrl/upload/avatar/$userId'),
+        headers: {
+          'Content-Type': 'application/octet-stream',
+          'Authorization': 'Bearer $token',
         },
-      ),
-    );
+        body: fileBytes,
+      );
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return data['url'] ?? '';
+      } else {
+        print('Upload avatar error: ${response.body}');
+        return null;
+      }
+    } catch (e) {
+      print('Upload avatar error: $e');
+      return null;
+    }
   }
 }
