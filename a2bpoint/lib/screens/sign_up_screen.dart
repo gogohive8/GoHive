@@ -18,6 +18,10 @@ class _SignUpScreenState extends State<SignUpScreen> {
   final _passwordController = TextEditingController();
   final _usernameController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
+  final _firstNameController = TextEditingController();
+  final _lastNameController = TextEditingController();
+  final _ageController = TextEditingController();
+  final _phoneController = TextEditingController();
   final ApiService _apiService = ApiService();
   bool _isPasswordVisible = false;
   bool _isConfirmPasswordVisible = false;
@@ -28,6 +32,10 @@ class _SignUpScreenState extends State<SignUpScreen> {
     _passwordController.dispose();
     _usernameController.dispose();
     _confirmPasswordController.dispose();
+    _firstNameController.dispose();
+    _lastNameController.dispose();
+    _ageController.dispose();
+    _phoneController.dispose();
     _apiService.dispose();
     super.dispose();
   }
@@ -42,14 +50,18 @@ class _SignUpScreenState extends State<SignUpScreen> {
       );
       try {
         developer.log(
-            'Sending register request: username=${_usernameController.text}, email=${_emailController.text}',
+            'SignUp request: username=${_usernameController.text}, email=${_emailController.text}',
             name: 'SignUpScreen');
-        final authData = await _apiService.register(
+        final authData = await _apiService.signUp(
           _usernameController.text,
           _emailController.text,
           _passwordController.text,
+          _firstNameController.text,
+          _lastNameController.text,
+          int.parse(_ageController.text),
+          _phoneController.text,
         );
-        developer.log('Register response: $authData', name: 'SignUpScreen');
+        developer.log('SignUp response: $authData', name: 'SignUpScreen');
         if (!mounted) return;
         Navigator.pop(context);
         if (authData != null) {
@@ -58,15 +70,17 @@ class _SignUpScreenState extends State<SignUpScreen> {
           Navigator.pushReplacementNamed(context, '/home');
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Registration failed')),
+            const SnackBar(
+                content: Text('Registration failed. Please try again.')),
           );
         }
       } catch (e, stackTrace) {
-        developer.log('Register error: $e', name: 'SignUpScreen', stackTrace: stackTrace);
+        developer.log('SignUp error: $e',
+            name: 'SignUpScreen', stackTrace: stackTrace);
         if (mounted) {
           Navigator.pop(context);
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Failed to register. Please try again.')),
+            SnackBar(content: Text('Failed to register: ${e.toString()}')),
           );
         }
       }
@@ -93,11 +107,38 @@ class _SignUpScreenState extends State<SignUpScreen> {
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 SizedBox(height: size.height * 0.1),
-                Image.asset('assets/images/logo.png', height: size.height * 0.15),
+                Image.asset('assets/images/logo.png',
+                    height: size.height * 0.15),
                 SizedBox(height: size.height * 0.02),
                 const Text(
                   'Create Account',
                   style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                ),
+                SizedBox(height: size.height * 0.02),
+                TextFormField(
+                  controller: _firstNameController,
+                  decoration: InputDecoration(
+                    labelText: 'First Name',
+                    border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10)),
+                    prefixIcon: const Icon(Icons.person),
+                  ),
+                  validator: (value) => value?.isEmpty ?? true
+                      ? 'Please enter your first name'
+                      : null,
+                ),
+                SizedBox(height: size.height * 0.02),
+                TextFormField(
+                  controller: _lastNameController,
+                  decoration: InputDecoration(
+                    labelText: 'Last Name',
+                    border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10)),
+                    prefixIcon: const Icon(Icons.person),
+                  ),
+                  validator: (value) => value?.isEmpty ?? true
+                      ? 'Please enter your last name'
+                      : null,
                 ),
                 SizedBox(height: size.height * 0.02),
                 TextFormField(
@@ -131,11 +172,46 @@ class _SignUpScreenState extends State<SignUpScreen> {
                     if (value == null || value.isEmpty) {
                       return 'Please enter your email';
                     }
-                    if (!RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$').hasMatch(value)) {
+                    if (!RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$')
+                        .hasMatch(value)) {
                       return 'Please enter a valid email';
                     }
                     return null;
                   },
+                ),
+                SizedBox(height: size.height * 0.02),
+                TextFormField(
+                  controller: _ageController,
+                  decoration: InputDecoration(
+                    labelText: 'Age',
+                    border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10)),
+                    prefixIcon: const Icon(Icons.cake),
+                  ),
+                  keyboardType: TextInputType.number,
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Please enter your age';
+                    }
+                    if (int.tryParse(value) == null || int.parse(value) < 1) {
+                      return 'Please enter a valid age';
+                    }
+                    return null;
+                  },
+                ),
+                SizedBox(height: size.height * 0.02),
+                TextFormField(
+                  controller: _phoneController,
+                  decoration: InputDecoration(
+                    labelText: 'Phone Number',
+                    border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10)),
+                    prefixIcon: const Icon(Icons.phone),
+                  ),
+                  keyboardType: TextInputType.phone,
+                  validator: (value) => value?.isEmpty ?? true
+                      ? 'Please enter your phone number'
+                      : null,
                 ),
                 SizedBox(height: size.height * 0.02),
                 TextFormField(
@@ -149,11 +225,8 @@ class _SignUpScreenState extends State<SignUpScreen> {
                       icon: Icon(_isPasswordVisible
                           ? Icons.visibility
                           : Icons.visibility_off),
-                      onPressed: () {
-                        setState(() {
-                          _isPasswordVisible = !_isPasswordVisible;
-                        });
-                      },
+                      onPressed: () => setState(
+                          () => _isPasswordVisible = !_isPasswordVisible),
                     ),
                   ),
                   obscureText: !_isPasswordVisible,
@@ -179,11 +252,9 @@ class _SignUpScreenState extends State<SignUpScreen> {
                       icon: Icon(_isConfirmPasswordVisible
                           ? Icons.visibility
                           : Icons.visibility_off),
-                      onPressed: () {
-                        setState(() {
-                          _isConfirmPasswordVisible = !_isConfirmPasswordVisible;
-                        });
-                      },
+                      onPressed: () => setState(() =>
+                          _isConfirmPasswordVisible =
+                              !_isConfirmPasswordVisible),
                     ),
                   ),
                   obscureText: !_isConfirmPasswordVisible,
@@ -204,7 +275,8 @@ class _SignUpScreenState extends State<SignUpScreen> {
                     onPressed: _signUp,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.purple,
-                      padding: EdgeInsets.symmetric(vertical: size.height * 0.02),
+                      padding:
+                          EdgeInsets.symmetric(vertical: size.height * 0.02),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(10),
                       ),
@@ -220,7 +292,8 @@ class _SignUpScreenState extends State<SignUpScreen> {
                     const Text('Already have an account?'),
                     TextButton(
                       onPressed: () {
-                        developer.log('Navigating to SignInScreen', name: 'SignUpScreen');
+                        developer.log('Navigating to SignInScreen',
+                            name: 'SignUpScreen');
                         Navigator.pushNamed(context, '/sign-in');
                       },
                       child: const Text('Sign In',

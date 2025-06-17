@@ -1,3 +1,4 @@
+import 'dart:developer' as developer;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/post.dart';
@@ -26,10 +27,6 @@ class _HomeScreenState extends State<HomeScreen>
     _tabController = TabController(length: 2, vsync: this);
     _tabController.addListener(_handleTabSelection);
     _fetchPosts();
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    if (!authProvider.isAuthenticated) {
-      _postsFuture = Future.value([]);
-    }
   }
 
   @override
@@ -50,7 +47,8 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   void _fetchPosts() {
-    // Используем getAllGoals и getAllEvents, так как они не требуют параметров
+    developer.log('Fetching posts: tabIndex=$_selectedTabIndex',
+        name: 'HomeScreen');
     _postsFuture = _selectedTabIndex == 0
         ? _apiService.getAllGoals()
         : _apiService.getAllEvents();
@@ -64,17 +62,17 @@ class _HomeScreenState extends State<HomeScreen>
     Navigator.pushReplacementNamed(context, routes[index]);
   }
 
-  void _likePost(
-      String postId, int currentLikes, int index, String type) async {
+  void _likePost(String postId, int currentLikes, int index) async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     if (!authProvider.isAuthenticated || authProvider.token == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Требуется авторизация')),
+        const SnackBar(content: Text('Authorization required')),
       );
       return;
     }
     try {
-      await _apiService.likePost(postId, type, authProvider.token!);
+      developer.log('Liking post: postId=$postId', name: 'HomeScreen');
+      await _apiService.likePost(postId, authProvider.token!);
       setState(() {
         _postsFuture.then((posts) {
           if (index >= 0 && index < posts.length) {
@@ -82,32 +80,34 @@ class _HomeScreenState extends State<HomeScreen>
           }
         });
       });
-    } catch (e) {
+    } catch (e, stackTrace) {
+      developer.log('Like post error: $e',
+          name: 'HomeScreen', stackTrace: stackTrace);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Ошибка лайка: $e')),
+        SnackBar(content: Text('Error liking post: $e')),
       );
     }
   }
 
   void _joinEvent(String eventId, String eventText) async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    if (!authProvider.isAuthenticated ||
-        authProvider.userId == null ||
-        authProvider.token == null) {
+    if (!authProvider.isAuthenticated || authProvider.token == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Требуется авторизация')),
+        const SnackBar(content: Text('Authorization required')),
       );
       return;
     }
     try {
-      await _apiService.joinEvent(
-          eventId, authProvider.userId!, authProvider.token!);
+      developer.log('Joining event: eventId=$eventId', name: 'HomeScreen');
+      await _apiService.joinEvent(eventId, authProvider.token!);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Joined $eventText')),
       );
-    } catch (e) {
+    } catch (e, stackTrace) {
+      developer.log('Join event error: $e',
+          name: 'HomeScreen', stackTrace: stackTrace);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Ошибка присоединения: $e')),
+        SnackBar(content: Text('Error joining event: $e')),
       );
     }
   }
@@ -169,9 +169,7 @@ class _HomeScreenState extends State<HomeScreen>
         actions: [
           IconButton(
             icon: Image.asset('assets/images/messages_icon.png', height: 24),
-            onPressed: () {
-              // Логика сообщений
-            },
+            onPressed: () {},
           ),
         ],
       ),
@@ -185,7 +183,7 @@ class _HomeScreenState extends State<HomeScreen>
                 return const Center(child: CircularProgressIndicator());
               }
               if (snapshot.hasError) {
-                return Center(child: Text('Ошибка: ${snapshot.error}'));
+                return Center(child: Text('Error: ${snapshot.error}'));
               }
               final posts = snapshot.data ?? [];
               return SingleChildScrollView(
@@ -208,8 +206,9 @@ class _HomeScreenState extends State<HomeScreen>
                           margin: const EdgeInsets.symmetric(vertical: 8),
                           child: ListTile(
                             leading: CircleAvatar(
-                              backgroundImage:
-                                  NetworkImage(post.user.avatarUrl),
+                              backgroundImage: post.user.avatarUrl.isNotEmpty
+                                  ? NetworkImage(post.user.avatarUrl)
+                                  : null,
                               backgroundColor: Colors.grey,
                             ),
                             title: Text(post.text ?? 'No Text'),
@@ -218,9 +217,8 @@ class _HomeScreenState extends State<HomeScreen>
                             ),
                             trailing: IconButton(
                               icon: const Icon(Icons.favorite_border),
-                              onPressed: () {
-                                _likePost(post.id, post.likes, index, 'goal');
-                              },
+                              onPressed: () =>
+                                  _likePost(post.id, post.likes, index),
                             ),
                           ),
                         );
@@ -238,7 +236,7 @@ class _HomeScreenState extends State<HomeScreen>
                 return const Center(child: CircularProgressIndicator());
               }
               if (snapshot.hasError) {
-                return Center(child: Text('Ошибка: ${snapshot.error}'));
+                return Center(child: Text('Error: ${snapshot.error}'));
               }
               final posts = snapshot.data ?? [];
               return SingleChildScrollView(
@@ -261,8 +259,9 @@ class _HomeScreenState extends State<HomeScreen>
                           margin: const EdgeInsets.symmetric(vertical: 8),
                           child: ListTile(
                             leading: CircleAvatar(
-                              backgroundImage:
-                                  NetworkImage(post.user.avatarUrl),
+                              backgroundImage: post.user.avatarUrl.isNotEmpty
+                                  ? NetworkImage(post.user.avatarUrl)
+                                  : null,
                               backgroundColor: Colors.grey,
                             ),
                             title: Text(post.text ?? 'No Text'),
@@ -270,9 +269,8 @@ class _HomeScreenState extends State<HomeScreen>
                               'by ${post.user.username} • ${post.createdAt.toLocal().toString().split(' ')[0]}',
                             ),
                             trailing: ElevatedButton(
-                              onPressed: () {
-                                _joinEvent(post.id, post.text ?? '');
-                              },
+                              onPressed: () =>
+                                  _joinEvent(post.id, post.text ?? ''),
                               child: const Text('Join'),
                             ),
                           ),

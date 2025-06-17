@@ -1,8 +1,8 @@
+import 'dart:developer' as developer;
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import '../providers/auth_provider.dart';
 import '../services/api_services.dart';
 import 'navbar.dart';
@@ -21,6 +21,7 @@ class _AddScreenState extends State<AddScreen> {
   final _locationController = TextEditingController();
   final _pointAController = TextEditingController();
   final _pointBController = TextEditingController();
+  final _dateTimeController = TextEditingController();
   final ImagePicker _picker = ImagePicker();
   List<File> _images = [];
   int _selectedTabIndex = 0;
@@ -34,6 +35,7 @@ class _AddScreenState extends State<AddScreen> {
     _locationController.dispose();
     _pointAController.dispose();
     _pointBController.dispose();
+    _dateTimeController.dispose();
     _taskController.dispose();
     _apiService.dispose();
     super.dispose();
@@ -42,7 +44,7 @@ class _AddScreenState extends State<AddScreen> {
   Future<void> _pickImage() async {
     if (_images.length >= 3) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Максимум 3 фото')),
+        const SnackBar(content: Text('Maximum 3 photos')),
       );
       return;
     }
@@ -80,18 +82,19 @@ class _AddScreenState extends State<AddScreen> {
     for (var image in _images) {
       final fileName = DateTime.now().millisecondsSinceEpoch.toString();
       try {
-        await _apiService.supabase.storage.from('images').uploadBinary(
-              fileName,
-              await image.readAsBytes(),
-              fileOptions: FileOptions(contentType: 'image/jpeg', upsert: true),
-            );
+        developer.log('Uploading image: $fileName', name: 'AddScreen');
+        await _apiService.supabase.storage
+            .from('images')
+            .upload(fileName, image);
         final url =
             _apiService.supabase.storage.from('images').getPublicUrl(fileName);
         imageUrls.add(url);
-      } catch (e) {
+      } catch (e, stackTrace) {
+        developer.log('Image upload error: $e',
+            name: 'AddScreen', stackTrace: stackTrace);
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Ошибка загрузки изображения: $e')),
+            SnackBar(content: Text('Error uploading image: $e')),
           );
         }
       }
@@ -102,7 +105,13 @@ class _AddScreenState extends State<AddScreen> {
   Future<void> _saveData() async {
     if (_selectedTabIndex == 0 && _selectedInterest == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Выберите интерес')),
+        const SnackBar(content: Text('Please select an interest')),
+      );
+      return;
+    }
+    if (_selectedTabIndex == 1 && _dateTimeController.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please select a date and time')),
       );
       return;
     }
@@ -112,11 +121,13 @@ class _AddScreenState extends State<AddScreen> {
           authProvider.userId == null ||
           authProvider.token == null) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Требуется авторизация')),
+          const SnackBar(content: Text('Authorization required')),
         );
         return;
       }
       try {
+        developer.log('Saving data: tabIndex=$_selectedTabIndex',
+            name: 'AddScreen');
         showDialog(
           context: context,
           barrierDismissible: false,
@@ -145,32 +156,58 @@ class _AddScreenState extends State<AddScreen> {
             userId,
             _descriptionController.text,
             _locationController.text,
-            pointA: _pointAController.text,
-            pointB: _pointBController.text,
-            tasks: _tasks,
+            _selectedInterest ?? 'General',
+            _dateTimeController.text,
             imageUrls: imageUrls,
             token: token,
           );
         }
 
-        Navigator.pop(context);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Данные сохранены')),
-        );
-        _descriptionController.clear();
-        _locationController.clear();
-        _pointAController.clear();
-        _pointBController.clear();
-        setState(() {
-          _selectedInterest = null;
-          _images.clear();
-          _tasks.clear();
-        });
-      } catch (e) {
-        Navigator.pop(context);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Ошибка сохранения: $e')),
-        );
+        if (mounted) {
+          Navigator.pop(context);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Data saved successfully')),
+          );
+          _descriptionController.clear();
+          _locationController.clear();
+          _pointAController.clear();
+          _pointBController.clear();
+          _dateTimeController.clear();
+          setState(() {
+            _selectedInterest = null;
+            _images.clear();
+            _tasks.clear();
+          });
+        }
+      } catch (e, stackTrace) {
+        developer.log('Save data error: $e',
+            name: 'AddScreen', stackTrace: stackTrace);
+        if (mounted) {
+          Navigator.pop(context);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error saving data: $e')),
+          );
+        }
+      }
+    }
+  }
+
+  Future<void> _selectDateTime() async {
+    final date = await showDatePicker(
+      context: context,
+      initialDate: DateTime.now(),
+      firstDate: DateTime.now(),
+      lastDate: DateTime(2100),
+    );
+    if (date != null) {
+      final time = await showTimePicker(
+        context: context,
+        initialTime: TimeOfDay.now(),
+      );
+      if (time != null) {
+        final dateTime =
+            DateTime(date.year, date.month, date.day, time.hour, time.minute);
+        _dateTimeController.text = dateTime.toIso8601String();
       }
     }
   }
@@ -272,7 +309,7 @@ class _AddScreenState extends State<AddScreen> {
                           ),
                         ),
                         Expanded(
-                          child: Container(
+                          child: SizedBox(
                             height: 174,
                             child: _images.isEmpty
                                 ? const SizedBox.shrink()
@@ -285,10 +322,12 @@ class _AddScreenState extends State<AddScreen> {
                                           Padding(
                                             padding: const EdgeInsets.only(
                                                 left: 8.0),
-                                            child: Image.file(_images[index],
-                                                width: 50,
-                                                height: 174,
-                                                fit: BoxFit.cover),
+                                            child: Image.file(
+                                              _images[index],
+                                              width: 50,
+                                              height: 174,
+                                              fit: BoxFit.cover,
+                                            ),
                                           ),
                                           Positioned(
                                             top: 0,
@@ -321,7 +360,7 @@ class _AddScreenState extends State<AddScreen> {
                         ),
                       ),
                       validator: (value) =>
-                          value?.isEmpty ?? true ? 'Введите описание' : null,
+                          value?.isEmpty ?? true ? 'Enter description' : null,
                     ),
                     SizedBox(height: size.height * 0.02),
                     TextFormField(
@@ -336,10 +375,10 @@ class _AddScreenState extends State<AddScreen> {
                         ),
                       ),
                       validator: (value) =>
-                          value?.isEmpty ?? true ? 'Введите локацию' : null,
+                          value?.isEmpty ?? true ? 'Enter location' : null,
                     ),
                     SizedBox(height: size.height * 0.02),
-                    if (_selectedTabIndex == 0)
+                    if (_selectedTabIndex == 0 || _selectedTabIndex == 1)
                       Wrap(
                         spacing: 8,
                         children: [
@@ -349,7 +388,7 @@ class _AddScreenState extends State<AddScreen> {
                           'Music',
                           'Science',
                           'Book',
-                          'Swimming'
+                          'Swimming',
                         ].map((interest) {
                           return ElevatedButton(
                             onPressed: () =>
@@ -367,6 +406,25 @@ class _AddScreenState extends State<AddScreen> {
                         }).toList(),
                       ),
                     SizedBox(height: size.height * 0.02),
+                    if (_selectedTabIndex == 1)
+                      TextFormField(
+                        controller: _dateTimeController,
+                        decoration: InputDecoration(
+                          labelText: 'Date and Time',
+                          border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(10)),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10),
+                            borderSide: const BorderSide(color: Colors.purple),
+                          ),
+                          suffixIcon: IconButton(
+                            icon: const Icon(Icons.calendar_today),
+                            onPressed: _selectDateTime,
+                          ),
+                        ),
+                        readOnly: true,
+                      ),
+                    SizedBox(height: size.height * 0.02),
                     TextFormField(
                       controller: _pointAController,
                       decoration: InputDecoration(
@@ -379,7 +437,7 @@ class _AddScreenState extends State<AddScreen> {
                         ),
                       ),
                       validator: (value) => value?.isEmpty ?? true
-                          ? 'Введите начальную точку'
+                          ? 'Enter starting point'
                           : null,
                     ),
                     SizedBox(height: size.height * 0.02),
@@ -394,9 +452,8 @@ class _AddScreenState extends State<AddScreen> {
                           borderSide: const BorderSide(color: Colors.purple),
                         ),
                       ),
-                      validator: (value) => value?.isEmpty ?? true
-                          ? 'Введите конечную точку'
-                          : null,
+                      validator: (value) =>
+                          value?.isEmpty ?? true ? 'Enter destination' : null,
                     ),
                     SizedBox(height: size.height * 0.02),
                     const Text('Tasks'),
@@ -435,17 +492,6 @@ class _AddScreenState extends State<AddScreen> {
                       ],
                     ),
                     SizedBox(height: size.height * 0.03),
-                    // Скрыто, пока не реализовано
-                    // ElevatedButton.icon(
-                    //   onPressed: () {},
-                    //   icon: const Icon(Icons.smart_toy),
-                    //   label: const Text('Edit with AI Mentor'),
-                    //   style: ElevatedButton.styleFrom(
-                    //     backgroundColor: Colors.purple[100],
-                    //     foregroundColor: Colors.black,
-                    //   ),
-                    // ),
-                    SizedBox(height: size.height * 0.02),
                     SizedBox(
                       width: double.infinity,
                       child: ElevatedButton(
@@ -472,14 +518,10 @@ class _AddScreenState extends State<AddScreen> {
       bottomNavigationBar: Navbar(
         selectedIndex: 2,
         onTap: (index) {
-          _onItemTapped(index);
+          final routes = ['/home', '/search', '/add', '/profile', '/ai-mentor'];
+          Navigator.pushReplacementNamed(context, routes[index]);
         },
       ),
     );
-  }
-
-  void _onItemTapped(int index) {
-    final routes = ['/home', '/search', '/add', '/profile', '/ai-mentor'];
-    Navigator.pushReplacementNamed(context, routes[index]);
   }
 }

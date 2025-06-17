@@ -1,3 +1,4 @@
+import 'dart:developer' as developer;
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
@@ -40,6 +41,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
 
     try {
+      developer.log('Loading profile for userId=$userId',
+          name: 'ProfileScreen');
       final profile = await _apiService.getProfile(userId, token);
       final goals = await _apiService.getGoals(userId, token);
       final events = await _apiService.getEvents(userId, token);
@@ -53,7 +56,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
           _isLoading = false;
         });
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
+      developer.log('Load profile error: $e',
+          name: 'ProfileScreen', stackTrace: stackTrace);
       if (mounted) {
         setState(() => _isLoading = false);
         ScaffoldMessenger.of(context).showSnackBar(
@@ -71,6 +76,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     if (_bioController.text.isEmpty || userId.isEmpty || token.isEmpty) return;
 
     try {
+      developer.log('Updating bio for userId=$userId', name: 'ProfileScreen');
       final success =
           await _apiService.updateBio(userId, _bioController.text, token);
       if (success && mounted) {
@@ -81,7 +87,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
           const SnackBar(content: Text('Bio updated successfully')),
         );
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
+      developer.log('Update bio error: $e',
+          name: 'ProfileScreen', stackTrace: stackTrace);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error updating bio: $e')),
@@ -108,8 +116,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
 
     try {
-      final bytes = await pickedFile.readAsBytes();
-      final url = await _apiService.uploadAvatar(userId, bytes, token);
+      developer.log('Uploading avatar for userId=$userId',
+          name: 'ProfileScreen');
+      final url =
+          await _apiService.uploadAvatar(userId, pickedFile.path, token);
       if (url != null && mounted) {
         setState(() {
           _profile?['avatar_url'] = url;
@@ -118,12 +128,61 @@ class _ProfileScreenState extends State<ProfileScreen> {
           const SnackBar(content: Text('Avatar updated successfully')),
         );
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
+      developer.log('Upload avatar error: $e',
+          name: 'ProfileScreen', stackTrace: stackTrace);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error uploading avatar: $e')),
         );
       }
+    }
+  }
+
+  Future<void> _likePost(String postId) async {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    if (authProvider.token?.isNotEmpty ?? false) {
+      try {
+        developer.log('Liking post: postId=$postId', name: 'ProfileScreen');
+        await _apiService.likePost(postId, authProvider.token!);
+      } catch (e, stackTrace) {
+        developer.log('Like post error: $e',
+            name: 'ProfileScreen', stackTrace: stackTrace);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error liking post: $e')),
+          );
+        }
+      }
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please log in to like posts')),
+      );
+    }
+  }
+
+  Future<void> _joinEvent(String eventId) async {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    if (authProvider.token?.isNotEmpty ?? false) {
+      try {
+        developer.log('Joining event: eventId=$eventId', name: 'ProfileScreen');
+        await _apiService.joinEvent(eventId, authProvider.token!);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Joined event successfully')),
+        );
+      } catch (e, stackTrace) {
+        developer.log('Join event error: $e',
+            name: 'ProfileScreen', stackTrace: stackTrace);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error joining event: $e')),
+          );
+        }
+      }
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please log in to join events')),
+      );
     }
   }
 
@@ -137,7 +196,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
 
     return Scaffold(
       appBar: AppBar(
@@ -158,10 +216,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           children: [
                             CircleAvatar(
                               radius: size.width * 0.15,
-                              backgroundImage: _profile?['avatar_url'] != ''
-                                  ? NetworkImage(_profile?['avatar_url'])
-                                  : null,
-                              child: _profile?['avatar_url'] == ''
+                              backgroundImage:
+                                  _profile?['avatar_url'] != null &&
+                                          _profile?['avatar_url'].isNotEmpty
+                                      ? NetworkImage(_profile?['avatar_url'])
+                                      : null,
+                              child: _profile?['avatar_url'] == null ||
+                                      _profile?['avatar_url'].isEmpty
                                   ? Icon(Icons.person, size: size.width * 0.1)
                                   : null,
                             ),
@@ -237,9 +298,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       const Text(
                         'Goals',
                         style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
+                            fontSize: 18, fontWeight: FontWeight.bold),
                       ),
                       _goals.isEmpty
                           ? const Padding(
@@ -257,20 +316,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                   subtitle: Text('By ${goal.user.username}'),
                                   trailing: IconButton(
                                     icon: const Icon(Icons.favorite_border),
-                                    onPressed: () {
-                                      if (authProvider.token != null &&
-                                          authProvider.token!.isNotEmpty) {
-                                        _apiService.likePost(goal.id, 'goal',
-                                            authProvider.token!);
-                                      } else {
-                                        ScaffoldMessenger.of(context)
-                                            .showSnackBar(
-                                          const SnackBar(
-                                              content: Text(
-                                                  'Please log in to like posts')),
-                                        );
-                                      }
-                                    },
+                                    onPressed: () => _likePost(goal.id),
                                   ),
                                 );
                               },
@@ -279,9 +325,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       const Text(
                         'Events',
                         style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
+                            fontSize: 18, fontWeight: FontWeight.bold),
                       ),
                       _events.isEmpty
                           ? const Padding(
@@ -299,24 +343,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                   subtitle: Text('By ${event.user.username}'),
                                   trailing: IconButton(
                                     icon: const Icon(Icons.event),
-                                    onPressed: () {
-                                      if (authProvider.userId != null &&
-                                          authProvider.userId!.isNotEmpty &&
-                                          authProvider.token != null &&
-                                          authProvider.token!.isNotEmpty) {
-                                        _apiService.joinEvent(
-                                            event.id,
-                                            authProvider.userId!,
-                                            authProvider.token!);
-                                      } else {
-                                        ScaffoldMessenger.of(context)
-                                            .showSnackBar(
-                                          const SnackBar(
-                                              content: Text(
-                                                  'Please log in to join events')),
-                                        );
-                                      }
-                                    },
+                                    onPressed: () => _joinEvent(event.id),
                                   ),
                                 );
                               },

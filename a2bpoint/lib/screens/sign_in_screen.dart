@@ -29,12 +29,8 @@ class _SignInScreenState extends State<SignInScreen> {
 
   Future<void> _signInWithEmail() async {
     if (_formKey.currentState!.validate()) {
-      developer.log('Form validated successfully', name: 'SignInScreen');
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (context) => const Center(child: CircularProgressIndicator()),
-      );
+      developer.log('SignIn with email: email=${_emailController.text}',
+          name: 'SignInScreen');
       try {
         developer.log('Sending login request: email=${_emailController.text}',
             name: 'SignInScreen');
@@ -53,11 +49,13 @@ class _SignInScreenState extends State<SignInScreen> {
           );
         }
       } catch (e, stackTrace) {
-        developer.log('Login error: $e', name: 'SignInScreen', stackTrace: stackTrace);
+        developer.log('SignIn error: $e',
+            name: 'SignInScreen', stackTrace: stackTrace);
         if (mounted) {
           Navigator.pop(context);
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Failed to sign in. Please try again.')),
+            const SnackBar(
+                content: Text('Failed to sign in. Please try again.')),
           );
         }
       }
@@ -72,11 +70,7 @@ class _SignInScreenState extends State<SignInScreen> {
   }
 
   Future<void> _signInWithGoogle() async {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => const Center(child: CircularProgressIndicator()),
-    );
+    developer.log('SignIn with Google', name: 'SignInScreen');
     try {
       developer.log('Starting Google sign-in', name: 'SignInScreen');
       final authData = await _apiService.signInWithGoogle();
@@ -93,11 +87,14 @@ class _SignInScreenState extends State<SignInScreen> {
         );
       }
     } catch (e, stackTrace) {
-      developer.log('Google sign-in error: $e', name: 'SignInScreen', stackTrace: stackTrace);
+      developer.log('Google sign-in error: $e',
+          name: 'SignInScreen', stackTrace: stackTrace);
       if (mounted) {
         Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Failed to sign in with Google. Please try again.')),
+          const SnackBar(
+              content:
+                  Text('Failed to sign in with Google. Please try again.')),
         );
       }
     }
@@ -116,7 +113,8 @@ class _SignInScreenState extends State<SignInScreen> {
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 SizedBox(height: size.height * 0.1),
-                Image.asset('assets/images/logo.png', height: size.height * 0.15),
+                Image.asset('assets/images/logo.png',
+                    height: size.height * 0.15),
                 SizedBox(height: size.height * 0.02),
                 const Text(
                   'Welcome Back!',
@@ -136,7 +134,8 @@ class _SignInScreenState extends State<SignInScreen> {
                       return 'Please enter your email';
                     }
                     // Менее строгий RegExp для email
-                    if (!RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$').hasMatch(value)) {
+                    if (!RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$')
+                        .hasMatch(value)) {
                       return 'Please enter a valid email';
                     }
                     return null;
@@ -160,24 +159,17 @@ class _SignInScreenState extends State<SignInScreen> {
                         });
                       },
                     ),
-                  ),
-                  obscureText: !_isPasswordVisible,
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Please enter your password';
-                    }
-                    if (value.length < 6) {
-                      return 'Password must be at least 6 characters';
-                    }
-                    return null;
-                  },
-                ),
-                SizedBox(height: size.height * 0.02),
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: TextButton(
-                    onPressed: () {
-                      developer.log('Forgot Password clicked', name: 'SignInScreen');
+                    keyboardType: TextInputType.emailAddress,
+                    style: const TextStyle(color: Colors.white),
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Please enter your email';
+                      }
+                      if (!RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$')
+                          .hasMatch(value)) {
+                        return 'Invalid email format';
+                      }
+                      return null;
                     },
                     child: const Text('Forgot Password?',
                         style: TextStyle(color: Colors.purple)),
@@ -190,7 +182,8 @@ class _SignInScreenState extends State<SignInScreen> {
                     onPressed: _signInWithEmail,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.purple,
-                      padding: EdgeInsets.symmetric(vertical: size.height * 0.02),
+                      padding:
+                          EdgeInsets.symmetric(vertical: size.height * 0.02),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(10),
                       ),
@@ -210,7 +203,8 @@ class _SignInScreenState extends State<SignInScreen> {
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.white,
                       foregroundColor: Colors.black,
-                      padding: EdgeInsets.symmetric(vertical: size.height * 0.02),
+                      padding:
+                          EdgeInsets.symmetric(vertical: size.height * 0.02),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(10),
                         side: const BorderSide(color: Colors.grey),
@@ -225,7 +219,8 @@ class _SignInScreenState extends State<SignInScreen> {
                     const Text("Don't have an account?"),
                     TextButton(
                       onPressed: () {
-                        developer.log('Navigating to SignUpScreen', name: 'SignInScreen');
+                        developer.log('Navigating to SignUpScreen',
+                            name: 'SignInScreen');
                         Navigator.pushNamed(context, '/sign-up');
                       },
                       child: const Text('Sign Up',
