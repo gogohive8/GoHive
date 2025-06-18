@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:developer' as developer;
+import 'dart:io'; // Added to fix File class error
 import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/post.dart';
@@ -96,26 +97,18 @@ class ApiService {
   Future<Map<String, String>?> signInWithGoogle() async {
     try {
       developer.log('Google OAuth request', name: 'ApiService');
-
-      // Initiate OAuth with Supabase
       await _supabase.auth.signInWithOAuth(
         OAuthProvider.google,
         redirectTo: 'https://osyajqltbkudsfcppqgh.supabase.co/auth/v1/callback',
       );
-
-      // Wait for session (handled by deep link)
       final session = await _supabase.auth.onAuthStateChange
           .firstWhere((event) => event.event == AuthChangeEvent.signedIn)
           .then((event) => event.session);
-
       if (session == null) {
         throw Exception('No session received after OAuth');
       }
-
       final supabaseToken = session.accessToken;
       developer.log('Supabase token obtained', name: 'ApiService');
-
-      // Send token to backend
       final response = await _client
           .post(
             Uri.parse('$_baseUrl/register/oauth/google'),
@@ -172,26 +165,41 @@ class ApiService {
     }
   }
 
-  Future<String?> uploadAvatar(
-      String userId, String filePath, String token) async {
+  Future<List<String>?> uploadImages(
+      String userId, List<String> filePaths, String token,
+      {bool isAvatar = false}) async {
     try {
-      developer.log('UploadAvatar request: userId=$userId', name: 'ApiService');
-      var request = http.MultipartRequest(
-        'POST',
-        Uri.parse('$_baseUrl/upload/avatar/$userId'),
-      );
-      request.headers['Authorization'] = 'Bearer $token';
-      request.files.add(await http.MultipartFile.fromPath('avatar', filePath));
-      final response =
-          await request.send().timeout(const Duration(seconds: 30));
-      final responseBody = await response.stream.bytesToString();
-      if (response.statusCode >= 200 && response.statusCode < 300) {
-        final data = jsonDecode(responseBody);
-        return data['url'] ?? null;
+      developer.log(
+          'UploadImages request: userId=$userId, isAvatar=$isAvatar, files=${filePaths.length}',
+          name: 'ApiService');
+      if (isAvatar && filePaths.length > 1) {
+        throw Exception('Only one file allowed for avatar upload');
       }
-      throw Exception('Upload failed: ${response.statusCode} $responseBody');
+      List<String> imageUrls = [];
+      for (var filePath in filePaths) {
+        final fileName = '${userId}_${DateTime.now().millisecondsSinceEpoch}';
+        final file = File(filePath);
+        await _supabase.storage.from('images').upload(fileName, file);
+        final url = _supabase.storage.from('images').getPublicUrl(fileName);
+        imageUrls.add(url);
+      }
+      // Update backend with avatar URL if isAvatar is true
+      if (isAvatar && imageUrls.isNotEmpty) {
+        final response = await _client
+            .put(
+              Uri.parse('$_postsUrl/profile/$userId/avatar'),
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer $token',
+              },
+              body: jsonEncode({'avatar_url': imageUrls.first}),
+            )
+            .timeout(const Duration(seconds: 30));
+        await _handleResponse(response);
+      }
+      return imageUrls;
     } catch (e, stackTrace) {
-      developer.log('UploadAvatar error: $e',
+      developer.log('UploadImages error: $e',
           name: 'ApiService', stackTrace: stackTrace);
       return null;
     }
@@ -239,21 +247,27 @@ class ApiService {
     }
   }
 
-  Future<List<Post>> getAllGoals({String? interest}) async {
+  Future<List<Post>> getAllGoals(String token, String userId) async {
     try {
-      developer.log('GetAllGoals request: interest=$interest',
+      developer.log('GetAllGoals request: userId=$userId, token=$token',
           name: 'ApiService');
-      final uri = interest != null
-          ? Uri.parse('$_baseUrl/goals/all?interest=$interest')
-          : Uri.parse('$_baseUrl/goals/all');
       final response = await _client.get(
-        uri,
-        headers: {'Content-Type': 'application/json'},
+        Uri.parse('$_postsUrl/goals/all'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
       ).timeout(const Duration(seconds: 30));
       final data = await _handleResponse(response);
-      return (data['goals'] as List)
-          .map((json) => Post.fromJson({...json, 'type': 'goal'}))
-          .toList();
+      developer.log('GetAllGoals response: $data', name: 'ApiService');
+      if (data is List) {
+        return data
+            .map((json) => Post.fromJson({...json, 'type': 'goal'}))
+            .toList();
+      } else {
+        developer.log('Unexpected response format: $data', name: 'ApiService');
+        return [];
+      }
     } catch (e, stackTrace) {
       developer.log('GetAllGoals error: $e',
           name: 'ApiService', stackTrace: stackTrace);
@@ -261,21 +275,27 @@ class ApiService {
     }
   }
 
-  Future<List<Post>> getAllEvents({String? interest}) async {
+  Future<List<Post>> getAllEvents(String token, String userId) async {
     try {
-      developer.log('GetAllEvents request: interest=$interest',
+      developer.log('GetAllEvents request: userId=$userId, token=$token',
           name: 'ApiService');
-      final uri = interest != null
-          ? Uri.parse('$_baseUrl/events/all?interest=$interest')
-          : Uri.parse('$_baseUrl/events/all');
       final response = await _client.get(
-        uri,
-        headers: {'Content-Type': 'application/json'},
+        Uri.parse('$_postsUrl/events/all'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
       ).timeout(const Duration(seconds: 30));
       final data = await _handleResponse(response);
-      return (data['events'] as List)
-          .map((json) => Post.fromJson({...json, 'type': 'event'}))
-          .toList();
+      developer.log('GetAllEvents response: $data', name: 'ApiService');
+      if (data is List) {
+        return data
+            .map((json) => Post.fromJson({...json, 'type': 'event'}))
+            .toList();
+      } else {
+        developer.log('Unexpected response format: $data', name: 'ApiService');
+        return [];
+      }
     } catch (e, stackTrace) {
       developer.log('GetAllEvents error: $e',
           name: 'ApiService', stackTrace: stackTrace);

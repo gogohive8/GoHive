@@ -77,31 +77,6 @@ class _AddScreenState extends State<AddScreen> {
     });
   }
 
-  Future<List<String>> _uploadImages() async {
-    List<String> imageUrls = [];
-    for (var image in _images) {
-      final fileName = DateTime.now().millisecondsSinceEpoch.toString();
-      try {
-        developer.log('Uploading image: $fileName', name: 'AddScreen');
-        await _apiService.supabase.storage
-            .from('images')
-            .upload(fileName, image);
-        final url =
-            _apiService.supabase.storage.from('images').getPublicUrl(fileName);
-        imageUrls.add(url);
-      } catch (e, stackTrace) {
-        developer.log('Image upload error: $e',
-            name: 'AddScreen', stackTrace: stackTrace);
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Error uploading image: $e')),
-          );
-        }
-      }
-    }
-    return imageUrls;
-  }
-
   Future<void> _saveData() async {
     if (_selectedTabIndex == 0 && _selectedInterest == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -135,7 +110,10 @@ class _AddScreenState extends State<AddScreen> {
               const Center(child: CircularProgressIndicator()),
         );
 
-        final imageUrls = await _uploadImages();
+        final imageUrls = _images.isNotEmpty
+            ? await _apiService.uploadImages(authProvider.userId!,
+                _images.map((file) => file.path).toList(), authProvider.token!)
+            : <String>[];
         final userId = authProvider.userId!;
         final token = authProvider.token!;
 

@@ -19,22 +19,14 @@ class _HomeScreenState extends State<HomeScreen>
   int _selectedTabIndex = 0;
   final ApiService _apiService = ApiService();
   late TabController _tabController;
-  late Future<List<String>> _categoriesFuture;
-  late List<Future<List<Post>>> _postsFutures;
-  List<String> _categories = [];
+  late Future<Map<String, List<Post>>> _postsFuture;
 
   @override
   void initState() {
     super.initState();
-    _categoriesFuture = _apiService.getCategories();
-    _categoriesFuture.then((categories) {
-      setState(() {
-        _categories = categories;
-        _tabController = TabController(length: categories.length, vsync: this);
-        _tabController.addListener(_handleTabSelection);
-        _fetchPostsFutures();
-      });
-    });
+    _tabController = TabController(length: 2, vsync: this);
+    _tabController.addListener(_handleTabSelection);
+    _fetchPosts();
   }
 
   @override
@@ -49,29 +41,54 @@ class _HomeScreenState extends State<HomeScreen>
     if (_tabController.index != _selectedTabIndex) {
       setState(() {
         _selectedTabIndex = _tabController.index;
-        _fetchPostsFutures();
       });
+      _fetchPosts();
     }
   }
 
-  void _fetchPostsFutures() {
-    setState(() {
-      _postsFutures = _categories.map((category) {
-        return _apiService.getAllGoals(interest: category);
-      }).toList();
-    });
+  void _fetchPosts() {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final token = authProvider.token ?? '';
+    final userId = authProvider.userId ?? '';
+
+    if (token.isEmpty || userId.isEmpty) {
+      setState(() {
+        _postsFuture = Future.value({});
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please log in to view posts')),
+      );
+      return;
+    }
+    developer.log('Fetching posts: tabIndex=$_selectedTabIndex',
+        name: 'HomeScreen');
+    _postsFuture = _selectedTabIndex == 0
+        ? _apiService.getAllGoals(token, userId).then(_groupPostsByUser)
+        : _apiService.getAllEvents(token, userId).then(_groupPostsByUser);
+  }
+
+  Future<Map<String, List<Post>>> _groupPostsByUser(List<Post> posts) async {
+    final Map<String, List<Post>> groupedPosts = {};
+    for (var post in posts) {
+      final userId = post.user.id;
+      if (!groupedPosts.containsKey(userId)) {
+        groupedPosts[userId] = [];
+      }
+      groupedPosts[userId]!.add(post);
+    }
+    return groupedPosts;
   }
 
   void _onItemTapped(int index) {
     setState(() {
       _selectedIndex = index;
     });
-    final routes = ['/home', '/search', '/add', '/profile', '/ai'];
+    final routes = ['/home', '/search', '/add', '/profile', '/ai-mentor'];
     Navigator.pushReplacementNamed(context, routes[index]);
   }
 
   void _likePost(
-      String postId, int currentLikes, int index, int categoryIndex) async {
+      String postId, int currentLikes, String userId, int index) async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     if (!authProvider.isAuthenticated || authProvider.token == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -83,9 +100,12 @@ class _HomeScreenState extends State<HomeScreen>
       developer.log('Liking post: postId=$postId', name: 'HomeScreen');
       await _apiService.likePost(postId, authProvider.token!);
       setState(() {
-        _postsFutures[categoryIndex].then((posts) {
-          if (index >= 0 && index < posts.length) {
-            posts[index].likes = currentLikes + 1;
+        _postsFuture.then((groupedPosts) {
+          if (groupedPosts.containsKey(userId)) {
+            final posts = groupedPosts[userId]!;
+            if (index >= 0 && index < posts.length) {
+              posts[index].likes = currentLikes + 1;
+            }
           }
         });
       });
@@ -110,7 +130,7 @@ class _HomeScreenState extends State<HomeScreen>
       developer.log('Joining event: eventId=$eventId', name: 'HomeScreen');
       await _apiService.joinEvent(eventId, authProvider.token!);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Joined event: $eventText')),
+        SnackBar(content: Text('You have joined $eventText')),
       );
     } catch (e, stackTrace) {
       developer.log('Join event error: $e',
@@ -125,50 +145,55 @@ class _HomeScreenState extends State<HomeScreen>
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        elevation: 4,
+        elevation: 0,
         backgroundColor: Colors.white,
-        title: FutureBuilder<List<String>>(
-          future: _categoriesFuture,
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Center(child: CircularProgressIndicator());
-            }
-            if (snapshot.hasError) {
-              return Center(child: Text('Error: ${snapshot.error}'));
-            }
-            final categories = snapshot.data ?? [];
-            return TabBar(
-              controller: _tabController,
-              isScrollable: true,
-              indicatorColor: Colors.purple,
-              tabs: categories.asMap().entries.map((entry) {
-                final index = entry.key;
-                final category = entry.value;
-                return Tab(
-                  child: Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: _tabController.index == index
-                          ? Colors.purple.withValues(alpha: 0.2)
-                          : Colors.transparent,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      category,
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: _tabController.index == index
-                            ? Colors.purple
-                            : Colors.grey,
-                      ),
-                    ),
+        title: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            GestureDetector(
+              onTap: () => _tabController.animateTo(0),
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: _selectedTabIndex == 0
+                      ? Colors.purple.withValues(alpha: 0.1)
+                      : Colors.transparent,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  'Goals',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: _selectedTabIndex == 0 ? Colors.purple : Colors.grey,
                   ),
-                );
-              }).toList(),
-            );
-          },
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            GestureDetector(
+              onTap: () => _tabController.animateTo(1),
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: _selectedTabIndex == 1
+                      ? Colors.purple.withValues(alpha: 0.1)
+                      : Colors.transparent,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  'Events',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: _selectedTabIndex == 1 ? Colors.purple : Colors.grey,
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
         actions: [
           IconButton(
@@ -177,95 +202,101 @@ class _HomeScreenState extends State<HomeScreen>
           ),
         ],
       ),
-      body: FutureBuilder<List<String>>(
-        future: _categoriesFuture,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          if (snapshot.hasError) {
-            return Center(child: Text('Error: ${snapshot.error}'));
-          }
-          final categories = snapshot.data ?? [];
-          return TabBarView(
-            controller: _tabController,
-            children: List.generate(categories.length, (categoryIndex) {
-              return FutureBuilder<List<Post>>(
-                future: _postsFutures[categoryIndex],
-                builder: (context, postSnapshot) {
-                  if (postSnapshot.connectionState == ConnectionState.waiting) {
-                    return const Center(child: CircularProgressIndicator());
-                  }
-                  if (postSnapshot.hasError) {
-                    return Center(child: Text('Error: ${postSnapshot.error}'));
-                  }
-                  final posts = postSnapshot.data ?? [];
-                  return SingleChildScrollView(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          categories[categoryIndex],
-                          style: const TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.purple,
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        ListView.builder(
-                          shrinkWrap: true,
-                          physics: const NeverScrollableScrollPhysics(),
-                          itemCount: posts.length,
-                          itemBuilder: (context, index) {
-                            final post = posts[index];
-                            return Card(
-                              color: Colors.purple.withValues(alpha: 0.1),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              margin: const EdgeInsets.symmetric(vertical: 8),
-                              child: ListTile(
-                                leading: CircleAvatar(
-                                  backgroundImage:
-                                      post.user.avatarUrl.isNotEmpty
-                                          ? NetworkImage(post.user.avatarUrl)
-                                          : null,
-                                  backgroundColor: Colors.grey,
-                                ),
-                                title: Text(post.text ?? 'No Text'),
-                                subtitle: Text(
-                                  'by ${post.user.username} • ${post.createdAt.toLocal().toString().split(' ')[0]}',
-                                ),
-                                trailing: post.type == 'event'
-                                    ? ElevatedButton(
-                                        onPressed: () => _joinEvent(
-                                            post.id, post.text ?? ''),
-                                        child: const Text('Join'),
-                                      )
-                                    : IconButton(
-                                        icon: const Icon(Icons.favorite_border),
-                                        onPressed: () => _likePost(post.id,
-                                            post.likes, index, categoryIndex),
-                                      ),
-                              ),
-                            );
-                          },
-                        ),
-                      ],
-                    ),
-                  );
-                },
-              );
-            }),
-          );
-        },
+      body: TabBarView(
+        controller: _tabController,
+        children: [
+          _buildPostsView(),
+          _buildPostsView(),
+        ],
       ),
       bottomNavigationBar: Navbar(
         selectedIndex: _selectedIndex,
         onTap: _onItemTapped,
       ),
+    );
+  }
+
+  Widget _buildPostsView() {
+    return FutureBuilder<Map<String, List<Post>>>(
+      future: _postsFuture,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        if (snapshot.hasError) {
+          return Center(child: Text('Error: ${snapshot.error}'));
+        }
+        final groupedPosts = snapshot.data ?? {};
+        if (groupedPosts.isEmpty) {
+          return const Center(child: Text('No posts available'));
+        }
+        return SingleChildScrollView(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: groupedPosts.entries.map((entry) {
+              final userId = entry.key;
+              final posts = entry.value;
+              final username =
+                  posts.isNotEmpty ? posts[0].user.username : 'Unknown';
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    child: Text(
+                      username,
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.purple,
+                      ),
+                    ),
+                  ),
+                  ListView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: posts.length,
+                    itemBuilder: (context, index) {
+                      final post = posts[index];
+                      return Card(
+                        color: Colors.purple.withValues(alpha: 0.1),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        margin: const EdgeInsets.symmetric(vertical: 8),
+                        child: ListTile(
+                          leading: CircleAvatar(
+                            backgroundImage: post.user.avatarUrl.isNotEmpty
+                                ? NetworkImage(post.user.avatarUrl)
+                                : null,
+                            backgroundColor: Colors.grey,
+                          ),
+                          title: Text(post.text ?? 'No text'),
+                          subtitle: Text(
+                            'by ${post.user.username} • ${post.createdAt.toLocal().toString().split(' ')[0]}',
+                          ),
+                          trailing: _selectedTabIndex == 0
+                              ? IconButton(
+                                  icon: const Icon(Icons.favorite_border),
+                                  onPressed: () => _likePost(
+                                      post.id, post.likes, userId, index),
+                                )
+                              : ElevatedButton(
+                                  onPressed: () =>
+                                      _joinEvent(post.id, post.text ?? ''),
+                                  child: const Text('Join'),
+                                ),
+                        ),
+                      );
+                    },
+                  ),
+                ],
+              );
+            }).toList(),
+          ),
+        );
+      },
     );
   }
 }

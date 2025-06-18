@@ -1,9 +1,9 @@
-import 'dart:convert'; // Kept for potential future use
+import 'dart:convert';
 import 'dart:developer' as developer;
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
-import 'dart:io'; // Added for File class
+import 'dart:io';
 import '../providers/auth_provider.dart';
 import '../services/api_services.dart';
 import '../models/post.dart';
@@ -129,11 +129,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
     try {
       developer.log('Uploading avatar for userId=$userId',
           name: 'ProfileScreen');
-      final filePath = pickedFile.path; // Use the file path directly
-      final url = await _apiService.uploadAvatar(userId, filePath, token);
-      if (url != null && mounted) {
+      final urls = await _apiService
+          .uploadImages(userId, [pickedFile.path], token, isAvatar: true);
+      if (urls != null && urls.isNotEmpty && mounted) {
         setState(() {
-          _profile?['avatar_url'] = url;
+          _profile?['avatar_url'] = urls.first;
         });
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Avatar updated successfully')),
@@ -165,7 +165,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               : Column(
                   children: [
                     Container(
-                      height: 80, // Фиксированная высота для табов
+                      height: 80,
                       padding: const EdgeInsets.symmetric(
                           vertical: 10, horizontal: 16),
                       color: Colors.white,
@@ -239,8 +239,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                   alignment: Alignment.center,
                                   children: [
                                     CircleAvatar(
-                                      radius:
-                                          60, // Фиксированный радиус аватара
+                                      radius: 60,
                                       backgroundImage:
                                           _profile?['avatar_url'] != null &&
                                                   _profile?['avatar_url']
@@ -370,8 +369,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 crossAxisCount: 3,
                                 crossAxisSpacing: 8,
                                 mainAxisSpacing: 8,
-                                childAspectRatio:
-                                    0.9, // Корректируем соотношение сторон для соответствия дизайну
+                                childAspectRatio: 0.9,
                               ),
                               itemCount: _selectedTab == 0
                                   ? _goals.length

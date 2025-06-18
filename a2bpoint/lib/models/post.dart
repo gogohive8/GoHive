@@ -1,3 +1,5 @@
+import 'dart:developer' as developer;
+
 class Post {
   final String id;
   final User user;
@@ -22,26 +24,36 @@ class Post {
   });
 
   factory Post.fromJson(Map<String, dynamic> json, {String? type}) {
-    return Post(
-      id: json['id'].toString(),
-      user: User.fromJson({
-        'id': json['user_id'],
-        'username': 'User${json['user_id']}',
-        'avatar_url': ''
-      }), // Временное решение для user
-      imageUrls: json['image_urls']?.cast<String>(),
-      text: type == 'goal'
-          ? json['goalinfo'] as String?
-          : json['title'] as String? ?? json['description'] as String?,
-      createdAt: type == 'goal'
-          ? DateTime.now()
-          : DateTime.parse(json['created_at'] as String),
-      likes: json['numOfLikes'] as int? ?? 0,
-      comments: json['numOfComments'] as int? ?? 0,
-      type: type,
-      tasks:
-          type == 'goal' ? json['tasks']?.cast<Map<String, dynamic>>() : null,
-    );
+    developer.log('Parsing Post JSON: $json', name: 'Post.fromJson');
+    try {
+      return Post(
+        id: (json['id']?.toString() ?? ''),
+        user: User.fromJson({
+          'id': json['userID']?.toString() ?? json['user_id']?.toString() ?? '',
+          'username': json['username']?.toString() ?? 'Unknown',
+          'avatar_url': json['avatarUrl']?.toString() ??
+              json['avatar_url']?.toString() ??
+              '',
+        }),
+        imageUrls: (json['image_urls'] as List<dynamic>?)?.cast<String>(),
+        text: type == 'goal'
+            ? json['goalInfo']?.toString() ?? json['goalinfo']?.toString()
+            : json['description']?.toString() ?? json['title']?.toString(),
+        createdAt: json['created_at'] != null
+            ? DateTime.tryParse(json['created_at'] as String) ?? DateTime.now()
+            : DateTime.now(),
+        likes: (json['numOfLikes'] as int?) ?? 0,
+        comments: (json['numOfComments'] as int?) ?? 0,
+        type: type,
+        tasks: type == 'goal'
+            ? (json['tasks'] as List<dynamic>?)?.cast<Map<String, dynamic>>()
+            : null,
+      );
+    } catch (e, stackTrace) {
+      developer.log('Error parsing Post: $e',
+          name: 'Post.fromJson', stackTrace: stackTrace);
+      rethrow;
+    }
   }
 }
 
@@ -57,10 +69,11 @@ class User {
   });
 
   factory User.fromJson(Map<String, dynamic> json) {
+    developer.log('Parsing User JSON: $json', name: 'User.fromJson');
     return User(
-      id: json['id'],
-      username: json['username'],
-      avatarUrl: json['avatar_url'],
+      id: json['id']?.toString() ?? '',
+      username: json['username']?.toString() ?? 'Unknown',
+      avatarUrl: json['avatar_url']?.toString() ?? '',
     );
   }
 }

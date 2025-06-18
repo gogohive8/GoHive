@@ -2,6 +2,8 @@ const express = require('express');
 const { createClient } = require('@supabase/supabase-js');
 const jwt = require('jsonwebtoken');
 const cors = require('cors');
+const multer = require('multer');
+const path = require('path');
 
 require('dotenv').config({ path: __dirname + '/../.env'});
 
@@ -61,6 +63,21 @@ const verifyToken = async (req, res, next) => {
     res.status(401).json({ error: 'Invalid token' });
   }
 };
+
+
+// Configure multer for multiple photo uploads
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 }, // 5MB per file
+  fileFilter: (req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase();
+    if (!['.jpg', '.jpeg', '.png', '.gif'].includes(ext)) {
+      return cb(new Error('Only images are allowed'));
+    }
+    cb(null, true);
+  },
+});
+
 
 app.post('/goals/create', verifyToken, async (req, res) => {
   try{
@@ -267,13 +284,13 @@ app.get('/events/all', verifyToken, async (req, res) => {
 
 app.get('/goals/:id', verifyToken, async (req, res) => {
   try{
-        const { id } = req.params;
+    const { id } = req.params;
     console.log('ID is: ', id);
     if (!id) {
       return res.status(400).json({ error: 'Missing user ID' });
     }
 
-    const { data: usersGoals, error: fetchError } = supabase
+    const { data: usersGoals, error: fetchError } = await supabase
     .schema('posts')
     .from('goals')
     .select('id')
@@ -284,9 +301,15 @@ app.get('/goals/:id', verifyToken, async (req, res) => {
       res.status(400).json({ error: fetchError.message });
     }
 
-    const userGoalsPhotos = Promise.all(
+    if (!usersGoals || usersGoals.length === 0) {
+      console.log('No goals found for user:', id);
+      return res.status(200).json([]);
+    }
+
+
+    const userGoalsPhotos = await Promise.all(
       usersGoals.map(async (goal) => {
-        const {data: photo, error: photoFetchError } = supabase
+        const {data: photo, error: photoFetchError } = await supabase
         .schema('posts')
         .from('goalsPhotos')
         .select('photoUrl')
@@ -320,7 +343,7 @@ app.get('/events/:id', verifyToken, async (req, res) => {
       return res.status(400).json({ error: 'Missing user ID' });
     }
 
-    const { data: usersEvents, error: fetchError } = supabase
+    const { data: usersEvents, error: fetchError } = await supabase
     .schema('posts')
     .from('events')
     .select('id')
@@ -331,9 +354,14 @@ app.get('/events/:id', verifyToken, async (req, res) => {
       res.status(400).json({ error: fetchError.message });
     }
 
-    const userEventsPhotos = Promise.all(
+    if (!usersEvents || usersEvents.length === 0) {
+      console.log('No goals found for user:', id);
+      return res.status(200).json([]);
+    }
+    
+    const userEventsPhotos = await Promise.all(
       usersEvents.map(async (event) => {
-        const {data: photo, error: photoFetchError } = supabase
+        const {data: photo, error: photoFetchError } = await supabase
         .schema('posts')
         .from('eventsPhotos')
         .select('photoUrl')
@@ -357,6 +385,69 @@ app.get('/events/:id', verifyToken, async (req, res) => {
     console.error('Error of fetching photos url: ', error.message);
     res.status(400).json({error: error.message});
   }
-})
+});
+
+
+// Upload avatar endpoint
+app.post('/profile/:userId/avatar', verifyToken, upload.single('avatar'), async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.userId; // From verifyToken
+
+    // Verify user
+    if (id !== userId) {
+      return res.status(403).json({ error: 'Unauthorized: ID does not match authenticated user' });
+    }
+
+    // Check for file
+    if (!req.file) {
+      return res.status(400).json({ error: 'No avatar file provided' });
+    }
+
+    // Generate unique filename
+    const fileExt = path.extname(req.file.originalname).toLowerCase();
+    const fileName = `${userId}-${Date.now()}${fileExt}`;
+
+    // Upload to Supabase Storage
+    const { data: uploadData, error: uploadError } = await supabase
+      .storage
+      .from('avatars')
+      .upload(fileName, req.file.buffer, {
+        contentType: req.file.mimetype,
+        upsert: true,
+      });
+
+    if (uploadError) {
+      console.error('Error uploading avatar:', uploadError.message);
+      return res.status(500).json({ error: 'Failed to upload avatar' });
+    }
+
+    // Get public URL
+    const { data: { publicUrl } } = supabase
+      .storage
+      .from('avatars')
+      .getPublicUrl(fileName);
+
+    // Update user in database
+    const { error: updateError } = await supabase
+      .schema('public')
+      .from('users')
+      .update({ avatar_url: publicUrl })
+      .eq('id', userId);
+
+    if (updateError) {
+      console.error('Error updating avatar URL:', updateError.message);
+      return res.status(500).json({ error: 'Failed to update avatar URL' });
+    }
+
+    console.log(`Avatar uploaded for user ${userId}: ${publicUrl}`);
+    return res.status(200).json({ url: publicUrl });
+  } catch (error) {
+    console.error('Error in /upload/avatar:', error.message);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+
 const PORT = process.env.PORT;
 app.listen(PORT, () => console.log(`Server running on port: ${PORT}`));
