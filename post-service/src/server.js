@@ -168,12 +168,48 @@ app.post('/events/create', verifyToken, async (req, res) => {
 
 
 
-app.get('/goals/all', async (req, res) => {
+app.get('/goals/all', verifyToken, async (req, res) => {
   try{
-    const { goals } = await supabase
+    const { data: goals, error: fetchError} = await supabase
     .schema('posts')
     .from('goals')
-    .select('')
+    .select('id, userID, goalInfo, numOfLikes, numOfComments')
+    .limit(100)
+
+    if (fetchError) {
+      console.error('Problem with take data from database', fetchError.message);
+      res.status(400).json({ error : fetchError.message });
+    }
+
+    const goalsWithUsername = await Promise.all(
+      goals.map(async (goal) => {
+        // Fetch username for each userID
+        const { data: user, error: fetchUserError } = await supabase
+          .schema('public')
+          .from('users')
+          .select('username')
+          .eq('id', goal.userID)
+          .single();
+
+        if (fetchUserError) {
+          console.error(`Error fetching username for userID ${goal.userID}:`, fetchUserError.message);
+          return { ...goal, username: null }; // Fallback to null if user not found
+        }
+
+        // Replace userID with username
+        return {
+          id: goal.id,
+          username: user ? user.username : null,
+          goalInfo: goal.goalInfo,
+          numOfLikes: goal.numOfLikes,
+          numOfComments: goal.numOfComments,
+        };
+      })
+    );
+
+    console.log('\nData is: ', goalsWithUsername);
+    res.json(goalsWithUsername);
+
   } catch (error){
     console.error('Error by fetching goals');
     res.status(400).json({ error: error.message });

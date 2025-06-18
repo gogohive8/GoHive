@@ -47,10 +47,23 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   void _fetchPosts() {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final token = authProvider.token ?? '';
+    final userId = authProvider.userId ?? '';
+
+    if (token.isEmpty || userId.isEmpty) {
+      setState(() {
+        _postsFuture = Future.value([]);
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please log in to view posts')),
+      );
+      return;
+    }
     developer.log('Fetching posts: tabIndex=$_selectedTabIndex',
         name: 'HomeScreen');
     _postsFuture = _selectedTabIndex == 0
-        ? _apiService.getAllGoals()
+        ? _apiService.getAllGoals(token, userId)
         : _apiService.getAllEvents();
   }
 

@@ -239,12 +239,15 @@ class ApiService {
     }
   }
 
-  Future<List<Post>> getAllGoals() async {
+  Future<List<Post>> getAllGoals(String token, String userId) async {
     try {
-      developer.log('GetAllGoals request', name: 'ApiService');
+      developer.log('GetAllGoals request: userId= $userId', name: 'ApiService');
       final response = await _client.get(
         Uri.parse('$_postsUrl/goals/all'),
-        headers: {'Content-Type': 'application/json'},
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
       ).timeout(const Duration(seconds: 30));
       final data = await _handleResponse(response);
       return (data['goals'] as List)

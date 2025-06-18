@@ -152,9 +152,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final size = MediaQuery.of(context).size;
-    final padding = size.width * 0.04;
-
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Colors.transparent,
@@ -168,9 +165,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
               : Column(
                   children: [
                     Container(
-                      height: size.height * 0.12,
-                      padding: EdgeInsets.symmetric(
-                          vertical: size.height * 0.02, horizontal: padding),
+                      height: 80, // Фиксированная высота для табов
+                      padding: const EdgeInsets.symmetric(
+                          vertical: 10, horizontal: 16),
                       color: Colors.white,
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
@@ -178,9 +175,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           GestureDetector(
                             onTap: () => setState(() => _selectedTab = 0),
                             child: Container(
-                              padding: EdgeInsets.symmetric(
-                                  horizontal: size.width * 0.04,
-                                  vertical: size.height * 0.01),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 16, vertical: 8),
                               decoration: BoxDecoration(
                                 color: _selectedTab == 0
                                     ? Color.fromRGBO(121, 100, 255, 0.1)
@@ -190,7 +186,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               child: Text(
                                 'Goals',
                                 style: TextStyle(
-                                  fontSize: size.width * 0.04,
+                                  fontSize: 16,
                                   fontWeight: _selectedTab == 0
                                       ? FontWeight.bold
                                       : FontWeight.normal,
@@ -201,13 +197,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               ),
                             ),
                           ),
-                          SizedBox(width: size.width * 0.04),
+                          const SizedBox(width: 16),
                           GestureDetector(
                             onTap: () => setState(() => _selectedTab = 1),
                             child: Container(
-                              padding: EdgeInsets.symmetric(
-                                  horizontal: size.width * 0.04,
-                                  vertical: size.height * 0.01),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 16, vertical: 8),
                               decoration: BoxDecoration(
                                 color: _selectedTab == 1
                                     ? Color.fromRGBO(121, 100, 255, 0.1)
@@ -217,7 +212,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               child: Text(
                                 'Events',
                                 style: TextStyle(
-                                  fontSize: size.width * 0.04,
+                                  fontSize: 16,
                                   fontWeight: _selectedTab == 1
                                       ? FontWeight.bold
                                       : FontWeight.normal,
@@ -233,7 +228,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                     Expanded(
                       child: SingleChildScrollView(
-                        padding: EdgeInsets.all(padding),
+                        padding: const EdgeInsets.all(16),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -244,7 +239,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                   alignment: Alignment.center,
                                   children: [
                                     CircleAvatar(
-                                      radius: size.width * 0.15,
+                                      radius:
+                                          60, // Фиксированный радиус аватара
                                       backgroundImage:
                                           _profile?['avatar_url'] != null &&
                                                   _profile?['avatar_url']
@@ -254,8 +250,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                               : null,
                                       child: _profile?['avatar_url'] == null ||
                                               _profile?['avatar_url'].isEmpty
-                                          ? Icon(Icons.person,
-                                              size: size.width * 0.1)
+                                          ? Icon(Icons.person, size: 40)
                                           : null,
                                     ),
                                     Positioned(
@@ -274,25 +269,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                   children: [
                                     Text(
                                       _profile?['username'] ?? 'Unknown',
-                                      style: TextStyle(
-                                        fontSize: size.width * 0.06,
+                                      style: const TextStyle(
+                                        fontSize: 24,
                                         fontWeight: FontWeight.bold,
-                                        color: const Color(0xFF1C0E31),
+                                        color: Color(0xFF1C0E31),
                                       ),
                                     ),
-                                    SizedBox(height: size.height * 0.01),
+                                    const SizedBox(height: 4),
                                     Text(
                                       '${_profile?['followers'] ?? 0} followers  ${_profile?['following'] ?? 0} following',
-                                      style: TextStyle(
-                                        fontSize: size.width * 0.035,
-                                        color: const Color(0xFF1C0E31),
+                                      style: const TextStyle(
+                                        fontSize: 14,
+                                        color: Color(0xFF1C0E31),
                                       ),
                                     ),
                                   ],
                                 ),
                               ],
                             ),
-                            SizedBox(height: size.height * 0.02),
+                            const SizedBox(height: 16),
                             TextFormField(
                               controller: _bioController,
                               decoration: InputDecoration(
@@ -313,12 +308,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               ),
                               maxLines: 3,
                             ),
-                            SizedBox(height: size.height * 0.03),
+                            const SizedBox(height: 20),
                             Row(
                               mainAxisAlignment: MainAxisAlignment.start,
                               children: [
                                 Container(
-                                  padding: EdgeInsets.all(size.width * 0.02),
+                                  padding: const EdgeInsets.all(8),
                                   decoration: BoxDecoration(
                                     color: Color.fromRGBO(121, 100, 255, 0.1),
                                     borderRadius: BorderRadius.circular(8),
@@ -327,14 +322,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                     children: [
                                       const Icon(Icons.emoji_events,
                                           color: Colors.purple),
-                                      SizedBox(width: size.width * 0.01),
+                                      const SizedBox(width: 4),
                                       const Text('Challenge winner'),
                                     ],
                                   ),
                                 ),
-                                SizedBox(width: size.width * 0.02),
+                                const SizedBox(width: 8),
                                 Container(
-                                  padding: EdgeInsets.all(size.width * 0.02),
+                                  padding: const EdgeInsets.all(8),
                                   decoration: BoxDecoration(
                                     color: Color.fromRGBO(255, 165, 0, 0.1),
                                     borderRadius: BorderRadius.circular(8),
@@ -343,14 +338,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                     children: [
                                       const Icon(Icons.check_circle,
                                           color: Colors.orange),
-                                      SizedBox(width: size.width * 0.01),
+                                      const SizedBox(width: 4),
                                       const Text('Finished goals'),
                                     ],
                                   ),
                                 ),
-                                SizedBox(width: size.width * 0.02),
+                                const SizedBox(width: 8),
                                 Container(
-                                  padding: EdgeInsets.all(size.width * 0.02),
+                                  padding: const EdgeInsets.all(8),
                                   decoration: BoxDecoration(
                                     color: Color.fromRGBO(0, 128, 0, 0.1),
                                     borderRadius: BorderRadius.circular(8),
@@ -359,23 +354,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                     children: [
                                       const Icon(Icons.event,
                                           color: Colors.green),
-                                      SizedBox(width: size.width * 0.01),
+                                      const SizedBox(width: 4),
                                       const Text('Attended'),
                                     ],
                                   ),
                                 ),
                               ],
                             ),
-                            SizedBox(height: size.height * 0.03),
+                            const SizedBox(height: 20),
                             GridView.builder(
                               shrinkWrap: true,
                               physics: const NeverScrollableScrollPhysics(),
                               gridDelegate:
-                                  SliverGridDelegateWithFixedCrossAxisCount(
+                                  const SliverGridDelegateWithFixedCrossAxisCount(
                                 crossAxisCount: 3,
-                                crossAxisSpacing: size.width * 0.01,
-                                mainAxisSpacing: size.height * 0.01,
-                                childAspectRatio: 121 / 135,
+                                crossAxisSpacing: 8,
+                                mainAxisSpacing: 8,
+                                childAspectRatio:
+                                    0.9, // Корректируем соотношение сторон для соответствия дизайну
                               ),
                               itemCount: _selectedTab == 0
                                   ? _goals.length
@@ -409,24 +405,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                           : null,
                                     ),
                                     Positioned(
-                                      top: size.height * 0.01,
-                                      left: size.width * 0.01,
+                                      top: 4,
+                                      left: 4,
                                       child: Text(
                                         createdAt,
-                                        style: TextStyle(
-                                          fontSize: size.width * 0.03,
+                                        style: const TextStyle(
+                                          fontSize: 12,
                                           color: Colors.white,
                                           backgroundColor: Colors.black54,
                                         ),
                                       ),
                                     ),
                                     Positioned(
-                                      bottom: size.height * 0.01,
-                                      left: size.width * 0.01,
+                                      bottom: 4,
+                                      left: 4,
                                       child: Text(
                                         post.text ?? 'No description',
-                                        style: TextStyle(
-                                          fontSize: size.width * 0.03,
+                                        style: const TextStyle(
+                                          fontSize: 12,
                                           color: Colors.white,
                                           backgroundColor: Colors.black54,
                                         ),
@@ -436,16 +432,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                     ),
                                     if (_selectedTab == 0 && post.tasks != null)
                                       Positioned(
-                                        bottom: size.height * 0.01,
-                                        right: size.width * 0.01,
+                                        bottom: 4,
+                                        right: 4,
                                         child: Container(
-                                          padding:
-                                              EdgeInsets.all(size.width * 0.01),
+                                          padding: const EdgeInsets.all(4),
                                           color: Colors.black54,
                                           child: Text(
                                             '${post.tasks!.where((task) => task['completed'] ?? false).length}/${post.tasks!.length} tasks',
-                                            style: TextStyle(
-                                              fontSize: size.width * 0.025,
+                                            style: const TextStyle(
+                                              fontSize: 10,
                                               color: Colors.white,
                                             ),
                                           ),
