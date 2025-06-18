@@ -54,9 +54,6 @@ const verifyToken = async (req, res, next) => {
   if (!token) return res.status(401).json({ error: 'No token provided' });
 
   try {
-    const storedToken = await redisClient.get(`jwt:${token}`);
-    if (!storedToken) return res.status(401).json({ error: 'Invalid or expired token' });
-
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     req.userId = decoded.id;
     next();
@@ -237,7 +234,6 @@ app.post('/login', async (req, res) => {
 app.post('/logout', verifyToken, async (req, res) => {
   try {
     const token = req.headers['authorization'].split(' ')[1];
-    await redisClient.del(`jwt:${token}`);
     res.json({ message: 'Logged out' });
   } catch (error) {
     res.status(400).json({ error: error.message });
@@ -245,6 +241,69 @@ app.post('/logout', verifyToken, async (req, res) => {
 });
 
 
+
+app.get('/profile/:id', verifyToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    console.log('ID is: ', id);
+    if (!id) {
+      return res.status(400).json({ error: 'Missing user ID' });
+    }
+
+    // Fetch user from public.users
+    const { data: user, error: userError } = await supabase
+      .schema('public')
+      .from('users')
+      .select('id, username')
+      .eq('id', id)
+      .single();
+
+    if (userError) {
+      if (userError.code === 'PGRST116') {
+        return res.status(404).json({ error: 'User not found' });
+      }
+      console.error('Error fetching user:', userError.message);
+      return res.status(400).json({ error: userError.message });
+    };
+
+    // Fetch user from public.profiles
+    const { data: profileInfo, error: profileInfoError } = await supabase
+      .schema('public')
+      .from('profiles')
+      .select()
+      .eq('id', id)
+      .single();
+
+    if (profileInfoError) {
+      if (profileInfoError.code === 'PGRST116') {
+        return res.status(404).json({ error: 'User not found' });
+      }
+      console.error('Error fetching user:', profileInfoError.message);
+      return res.status(400).json({ error: profileInfoError.message });
+    };
+
+    console.log('\n User data: ', user);
+    console.log('\n Profile data: ', profileInfo);
+
+
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    res.json({
+      id: user.id,
+      username: user.username,
+      biography: profileInfo.biography,
+      numOfFollowers: profileInfo.numOfFollowers,
+      numOfFollowing: profileInfo.numOfFollowing,
+      profileImage: profileInfo.profileImage,
+
+    });
+  } catch (error) {
+    console.error('Error in /profile/:id:', error.message);
+    res.status(400).json({ error: error.message });
+  }
+});
 
 const PORT = process.env.PORT;
 app.listen(PORT, () => console.log(`Server running on port: ${PORT}`));

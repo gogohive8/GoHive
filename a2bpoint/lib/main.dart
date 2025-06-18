@@ -9,6 +9,7 @@ import 'screens/add_screen.dart';
 import 'screens/profile_screen.dart';
 import 'screens/ai_mentor_screen.dart';
 import 'providers/auth_provider.dart';
+import 'screens/search_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -99,6 +100,7 @@ class _MyAppState extends State<MyApp> {
         '/add': (context) => AddScreen(),
         '/profile': (context) => ProfileScreen(),
         '/ai-mentor': (context) => AIMentorScreen(),
+        '/search': (context) => SearchScreen(),
       },
     );
   }

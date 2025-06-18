@@ -9,6 +9,7 @@ class ApiService {
   final SupabaseClient _supabase = Supabase.instance.client;
   static const String _baseUrl =
       'http://localhost:3001'; // For Android emulator
+  static const String _postsUrl = 'http://localhost:3002';
 
   SupabaseClient get supabase => _supabase;
 
@@ -19,6 +20,22 @@ class ApiService {
       return response.body.isNotEmpty ? jsonDecode(response.body) : {};
     }
     throw Exception('Request failed: ${response.statusCode} ${response.body}');
+  }
+
+  Future<Map<String, dynamic>> search(String query,
+      {required String filter,
+      required String token,
+      required String userId}) async {
+    final response = await http.post(
+      Uri.parse('https://your-backend.com/search'),
+      headers: {'Authorization': 'Bearer $token'},
+      body: jsonEncode({'query': query, 'filter': filter, 'userId': userId}),
+    );
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+      throw Exception('Failed to search: ${response.statusCode}');
+    }
   }
 
   Future<Map<String, String>?> login(String email, String password) async {
@@ -226,7 +243,7 @@ class ApiService {
     try {
       developer.log('GetAllGoals request', name: 'ApiService');
       final response = await _client.get(
-        Uri.parse('$_baseUrl/goals/all'),
+        Uri.parse('$_postsUrl/goals/all'),
         headers: {'Content-Type': 'application/json'},
       ).timeout(const Duration(seconds: 30));
       final data = await _handleResponse(response);
@@ -315,7 +332,7 @@ class ApiService {
       developer.log('CreateGoal request: userId=$userId', name: 'ApiService');
       final response = await _client
           .post(
-            Uri.parse('$_baseUrl/goals/create'),
+            Uri.parse('$_postsUrl/goals/create'),
             headers: {
               'Content-Type': 'application/json',
               'Authorization': 'Bearer $token',
@@ -356,7 +373,7 @@ class ApiService {
       developer.log('CreateEvent request: userId=$userId', name: 'ApiService');
       final response = await _client
           .post(
-            Uri.parse('$_baseUrl/events/create'),
+            Uri.parse('$_postsUrl/events/create'),
             headers: {
               'Content-Type': 'application/json',
               'Authorization': 'Bearer $token',
@@ -365,7 +382,6 @@ class ApiService {
               'user_id': userId,
               'description': description,
               'location': location,
-              'interest': interest,
               'date_time': dateTime,
               'image_urls': imageUrls ?? [],
             }),

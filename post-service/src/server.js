@@ -7,7 +7,7 @@ require('dotenv').config({ path: __dirname + '/../.env'});
 
 const app = express();
 app.use(cors({
-  origin: 'http://localhost:4200', // Replace with your Flutter web app's URL
+  origin: 'http://0.0.0.0:4200', // Replace with your Flutter web app's URL
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
 }));
@@ -54,9 +54,6 @@ const verifyToken = async (req, res, next) => {
   if (!token) return res.status(401).json({ error: 'No token provided' });
 
   try {
-    const storedToken = await redisClient.get(`jwt:${token}`);
-    if (!storedToken) return res.status(401).json({ error: 'Invalid or expired token' });
-
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     req.userId = decoded.id;
     next();
@@ -65,8 +62,123 @@ const verifyToken = async (req, res, next) => {
   }
 };
 
-app.use(verifyToken);
+app.post('/goals/create', verifyToken, async (req, res) => {
+  try{
+    const { user_id, description, location, interest, point_a, point_b, tasks, image_urls } = req.body;
 
+    const { data: goalInfo, error: insertGoalError } = await supabase
+    .schema('posts')
+    .from('goals')
+    .insert({
+      userID: user_id,
+      category: interest,
+      pointA: point_a,
+      pointB: point_b,
+      goalInfo: description,
+      location: location,
+    })
+    .select('id')
+    .single();
+
+    console.log('\ngoalsInfo', goalInfo);
+    if (insertGoalError) {
+      console.error('Error by insert goal info: ', insertGoalError);
+      res.status(400).json( {error: insertGoalError} );
+    };
+
+    const { error: insertStepsError } = await supabase
+    .schema('posts')
+    .from('steps')
+    .insert({
+      goalID: goalInfo.id,
+      stepsInfo: tasks,
+    });
+
+    if ( insertStepsError ) {
+      console.error('Error of insert steps: ', insertStepsError.message);
+      res.status(400).json( { error: insertStepsError });
+    }
+
+    if (image_urls){
+    const { error: insertPhotoError } = await supabase
+    .schema('posts')
+    .from('goalsPhoto')
+    .insert({
+      goalsId: goalInfo.id,
+      photoURL: image_urls || '',
+    });
+
+    if ( insertPhotoError ) {
+      console.error('Error of insert photo url', insertPhotoError);
+      res.status(400).json({ error: insertPhotoError });
+    }
+  };
+
+    res.status(200);
+
+  } catch (error) {
+    console.error('Error on create goals: ', error.message);
+  }
+});
+
+app.post('/events/create', verifyToken, async (req, res) => {
+  try{
+    const { user_id, description, location, interest, date_time, image_urls } = req.body;
+
+    const { data: eventInfo, error: insertEventError } = await supabase
+    .schema('posts')
+    .from('events')
+    .insert({
+      userID: user_id,
+      category: interest,
+      description: description,
+      location: location,
+    })
+    .select('id')
+    .single();
+
+    console.log('\ngoalsInfo', eventInfo);
+    if (insertEventError) {
+      console.error('Error by insert goal info: ', insertEventError);
+      res.status(400).json( {error: insertGoalError} );
+    };
+
+
+    if (image_urls){
+    const { error: insertPhotoError } = await supabase
+    .schema('posts')
+    .from('eventsPhoto')
+    .insert({
+      eventID: eventInfo.id,
+      photoURL: image_urls || '',
+    });
+
+
+    if ( insertPhotoError ) {
+      console.error('Error of insert photo url', insertPhotoError);
+      res.status(400).json({ error: insertPhotoError });
+    }
+  };
+    res.status(200);
+
+  } catch (error) {
+    console.error('Error on create events: ', error.message);
+  }
+});
+
+
+
+app.get('/goals/all', async (req, res) => {
+  try{
+    const { goals } = await supabase
+    .schema('posts')
+    .from('goals')
+    .select('')
+  } catch (error){
+    console.error('Error by fetching goals');
+    res.status(400).json({ error: error.message });
+  }
+});
 
 
 

@@ -378,7 +378,7 @@ class _AddScreenState extends State<AddScreen> {
                           value?.isEmpty ?? true ? 'Enter location' : null,
                     ),
                     SizedBox(height: size.height * 0.02),
-                    if (_selectedTabIndex == 0 || _selectedTabIndex == 1)
+                    if (_selectedTabIndex == 0)
                       Wrap(
                         spacing: 8,
                         children: [
