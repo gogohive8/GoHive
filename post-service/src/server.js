@@ -137,7 +137,7 @@ app.post('/events/create', verifyToken, async (req, res) => {
     .select('id')
     .single();
 
-    console.log('\ngoalsInfo', eventInfo);
+    console.log('\neventsInfo', eventInfo);
     if (insertEventError) {
       console.error('Error by insert goal info: ', insertEventError);
       res.status(400).json( {error: insertGoalError} );
@@ -215,6 +215,55 @@ app.get('/goals/all', verifyToken, async (req, res) => {
     res.status(400).json({ error: error.message });
   }
 });
+
+app.get('/events/all', verifyToken, async (req, res) => {
+  try{
+    const { data: events, error: fetchError} = await supabase
+    .schema('posts')
+    .from('events')
+    .select('id, userID, description, numOfLikes, numOfComments')
+    .limit(100)
+
+    if (fetchError) {
+      console.error('Problem with take data from database', fetchError.message);
+      res.status(400).json({ error : fetchError.message });
+    }
+
+    const eventsWithUsername = await Promise.all(
+      events.map(async (event) => {
+        // Fetch username for each userID
+        const { data: user, error: fetchUserError } = await supabase
+          .schema('public')
+          .from('users')
+          .select('username')
+          .eq('id', event.userID)
+          .single();
+
+        if (fetchUserError) {
+          console.error(`Error fetching username for userID ${event.userID}:`, fetchUserError.message);
+          return { ...event, username: null }; // Fallback to null if user not found
+        }
+
+        // Replace userID with username
+        return {
+          id: event.id,
+          username: event ? user.username : null,
+          description: event.description,
+          numOfLikes: event.numOfLikes,
+          numOfComments: event.numOfComments,
+        };
+      })
+    );
+
+    console.log('\nData is: ', eventsWithUsername);
+    res.json(eventsWithUsername);
+
+  } catch (error){
+    console.error('Error by fetching events');
+    res.status(400).json({ error: error.message });
+  }
+});
+
 
 
 

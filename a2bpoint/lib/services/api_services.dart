@@ -260,12 +260,16 @@ class ApiService {
     }
   }
 
-  Future<List<Post>> getAllEvents() async {
+  Future<List<Post>> getAllEvents(String token, String userId) async {
     try {
-      developer.log('GetAllEvents request', name: 'ApiService');
+      developer.log('GetAllEvents request: userId= $userId',
+          name: 'ApiService');
       final response = await _client.get(
-        Uri.parse('$_baseUrl/events/all'),
-        headers: {'Content-Type': 'application/json'},
+        Uri.parse('$_postsUrl/events/all'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
       ).timeout(const Duration(seconds: 30));
       final data = await _handleResponse(response);
       return (data['events'] as List)

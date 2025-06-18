@@ -64,7 +64,7 @@ class _HomeScreenState extends State<HomeScreen>
         name: 'HomeScreen');
     _postsFuture = _selectedTabIndex == 0
         ? _apiService.getAllGoals(token, userId)
-        : _apiService.getAllEvents();
+        : _apiService.getAllEvents(token, userId); // Добавлены аргументы
   }
 
   void _onItemTapped(int index) {
