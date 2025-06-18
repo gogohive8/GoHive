@@ -256,7 +256,7 @@ app.get('/events/all', verifyToken, async (req, res) => {
     );
 
     console.log('\nData is: ', eventsWithUsername);
-    res.json(eventsWithUsername);
+    res.status(200).json(eventsWithUsername);
 
   } catch (error){
     console.error('Error by fetching events');
@@ -265,7 +265,98 @@ app.get('/events/all', verifyToken, async (req, res) => {
 });
 
 
+app.get('/goals/:id', verifyToken, async (req, res) => {
+  try{
+        const { id } = req.params;
+    console.log('ID is: ', id);
+    if (!id) {
+      return res.status(400).json({ error: 'Missing user ID' });
+    }
 
+    const { data: usersGoals, error: fetchError } = supabase
+    .schema('posts')
+    .from('goals')
+    .select('id')
+    .eq('userID', id)
 
+    if (fetchError) {
+      console.error('Error of fetching: ', fetchError.message);
+      res.status(400).json({ error: fetchError.message });
+    }
+
+    const userGoalsPhotos = Promise.all(
+      usersGoals.map(async (goal) => {
+        const {data: photo, error: photoFetchError } = supabase
+        .schema('posts')
+        .from('goalsPhotos')
+        .select('photoUrl')
+        .eq('goalId', goal.id)
+
+        if (fetchError) {
+          console.error('Error with fetching photo url', fetchError.message);
+          res.status(400).json({error: photoFetchError.message});
+        }
+
+        return {
+          id: goal.id,
+          photoURL: photo.photoURL,
+        };
+      }) 
+    );
+
+    console.log('photos url: ', userGoalsPhotos);
+    res.status(200).json(userGoalsPhotos);
+  } catch (error) {
+    console.error('Error of fetching photos url: ', error.message);
+    res.status(400).json({error: error.message});
+  }
+})
+
+app.get('/events/:id', verifyToken, async (req, res) => {
+  try{
+        const { id } = req.params;
+    console.log('ID is: ', id);
+    if (!id) {
+      return res.status(400).json({ error: 'Missing user ID' });
+    }
+
+    const { data: usersEvents, error: fetchError } = supabase
+    .schema('posts')
+    .from('events')
+    .select('id')
+    .eq('userID', id)
+
+    if (fetchError) {
+      console.error('Error of fetching: ', fetchError.message);
+      res.status(400).json({ error: fetchError.message });
+    }
+
+    const userEventsPhotos = Promise.all(
+      usersEvents.map(async (event) => {
+        const {data: photo, error: photoFetchError } = supabase
+        .schema('posts')
+        .from('eventsPhotos')
+        .select('photoUrl')
+        .eq('eventId', event.id)
+
+        if (fetchError) {
+          console.error('Error with fetching photo url', fetchError.message);
+          res.status(400).json({error: photoFetchError.message});
+        }
+
+        return {
+          id: event.id,
+          photoURL: photo.photoURL,
+        };
+      }) 
+    );
+
+    console.log('photos url: ', userEventsPhotos);
+    res.status(200).json(userEventsPhotos);
+  } catch (error) {
+    console.error('Error of fetching photos url: ', error.message);
+    res.status(400).json({error: error.message});
+  }
+})
 const PORT = process.env.PORT;
 app.listen(PORT, () => console.log(`Server running on port: ${PORT}`));

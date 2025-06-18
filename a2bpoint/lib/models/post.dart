@@ -1,5 +1,3 @@
-import 'dart:convert';
-
 class Post {
   final String id;
   final User user;
@@ -23,17 +21,26 @@ class Post {
     this.tasks,
   });
 
-  factory Post.fromJson(Map<String, dynamic> json) {
+  factory Post.fromJson(Map<String, dynamic> json, {String? type}) {
     return Post(
-      id: json['id'],
-      user: User.fromJson(json['user']),
+      id: json['id'].toString(),
+      user: User.fromJson({
+        'id': json['user_id'],
+        'username': 'User${json['user_id']}',
+        'avatar_url': ''
+      }), // Временное решение для user
       imageUrls: json['image_urls']?.cast<String>(),
-      text: json['description'],
-      createdAt: DateTime.parse(json['created_at']),
-      likes: json['likes'] ?? 0,
-      comments: json['comments'] ?? 0,
-      type: json['type'],
-      tasks: json['tasks']?.cast<Map<String, dynamic>>(),
+      text: type == 'goal'
+          ? json['goalinfo'] as String?
+          : json['title'] as String? ?? json['description'] as String?,
+      createdAt: type == 'goal'
+          ? DateTime.now()
+          : DateTime.parse(json['created_at'] as String),
+      likes: json['numOfLikes'] as int? ?? 0,
+      comments: json['numOfComments'] as int? ?? 0,
+      type: type,
+      tasks:
+          type == 'goal' ? json['tasks']?.cast<Map<String, dynamic>>() : null,
     );
   }
 }

@@ -201,7 +201,7 @@ class ApiService {
     try {
       developer.log('GetGoals request: userId=$userId', name: 'ApiService');
       final response = await _client.get(
-        Uri.parse('$_baseUrl/goals/$userId'),
+        Uri.parse('$_postsUrl/goals/$userId'),
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $token',
@@ -239,15 +239,16 @@ class ApiService {
     }
   }
 
-  Future<List<Post>> getAllGoals(String token, String userId) async {
+  Future<List<Post>> getAllGoals({String? interest}) async {
     try {
-      developer.log('GetAllGoals request: userId= $userId', name: 'ApiService');
+      developer.log('GetAllGoals request: interest=$interest',
+          name: 'ApiService');
+      final uri = interest != null
+          ? Uri.parse('$_baseUrl/goals/all?interest=$interest')
+          : Uri.parse('$_baseUrl/goals/all');
       final response = await _client.get(
-        Uri.parse('$_postsUrl/goals/all'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
+        uri,
+        headers: {'Content-Type': 'application/json'},
       ).timeout(const Duration(seconds: 30));
       final data = await _handleResponse(response);
       return (data['goals'] as List)
@@ -260,16 +261,16 @@ class ApiService {
     }
   }
 
-  Future<List<Post>> getAllEvents(String token, String userId) async {
+  Future<List<Post>> getAllEvents({String? interest}) async {
     try {
-      developer.log('GetAllEvents request: userId= $userId',
+      developer.log('GetAllEvents request: interest=$interest',
           name: 'ApiService');
+      final uri = interest != null
+          ? Uri.parse('$_baseUrl/events/all?interest=$interest')
+          : Uri.parse('$_baseUrl/events/all');
       final response = await _client.get(
-        Uri.parse('$_postsUrl/events/all'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
+        uri,
+        headers: {'Content-Type': 'application/json'},
       ).timeout(const Duration(seconds: 30));
       final data = await _handleResponse(response);
       return (data['events'] as List)
