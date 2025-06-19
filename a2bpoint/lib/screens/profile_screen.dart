@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:developer' as developer;
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
@@ -23,7 +24,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   List<Post> _events = [];
   bool _isLoading = true;
   final _bioController = TextEditingController();
-  int _selectedTab = 0; // 0 for Goals, 1 for Events
+  int _selectedTab = 0;
 
   @override
   void initState() {
@@ -129,9 +130,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
     try {
       developer.log('Uploading avatar for userId=$userId',
           name: 'ProfileScreen');
-      final urls = await _apiService
-          .uploadImages(userId, [pickedFile.path], token, isAvatar: true);
-      if (urls != null && urls.isNotEmpty && mounted) {
+      final urls =
+          await _apiService.uploadImages(userId, [pickedFile.path], token);
+      if (urls.isNotEmpty && mounted) {
         setState(() {
           _profile?['avatar_url'] = urls.first;
         });
@@ -249,7 +250,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                               : null,
                                       child: _profile?['avatar_url'] == null ||
                                               _profile?['avatar_url'].isEmpty
-                                          ? Icon(Icons.person, size: 40)
+                                          ? const Icon(Icons.person, size: 40)
                                           : null,
                                     ),
                                     Positioned(
@@ -317,12 +318,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                     color: Color.fromRGBO(121, 100, 255, 0.1),
                                     borderRadius: BorderRadius.circular(8),
                                   ),
-                                  child: Row(
+                                  child: const Row(
                                     children: [
-                                      const Icon(Icons.emoji_events,
+                                      Icon(Icons.emoji_events,
                                           color: Colors.purple),
-                                      const SizedBox(width: 4),
-                                      const Text('Challenge winner'),
+                                      SizedBox(width: 4),
+                                      Text('Challenge winner'),
                                     ],
                                   ),
                                 ),
@@ -333,12 +334,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                     color: Color.fromRGBO(255, 165, 0, 0.1),
                                     borderRadius: BorderRadius.circular(8),
                                   ),
-                                  child: Row(
+                                  child: const Row(
                                     children: [
-                                      const Icon(Icons.check_circle,
+                                      Icon(Icons.check_circle,
                                           color: Colors.orange),
-                                      const SizedBox(width: 4),
-                                      const Text('Finished goals'),
+                                      SizedBox(width: 4),
+                                      Text('Finished goals'),
                                     ],
                                   ),
                                 ),
@@ -349,12 +350,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                     color: Color.fromRGBO(0, 128, 0, 0.1),
                                     borderRadius: BorderRadius.circular(8),
                                   ),
-                                  child: Row(
+                                  child: const Row(
                                     children: [
-                                      const Icon(Icons.event,
-                                          color: Colors.green),
-                                      const SizedBox(width: 4),
-                                      const Text('Attended'),
+                                      Icon(Icons.event, color: Colors.green),
+                                      SizedBox(width: 4),
+                                      Text('Attended'),
                                     ],
                                   ),
                                 ),

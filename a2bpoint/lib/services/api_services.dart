@@ -4,6 +4,9 @@ import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/post.dart';
+import 'package:flutter/foundation.dart';
+import 'package:http_parser/http_parser.dart';
+import 'package:image_picker/image_picker.dart';
 
 class ApiService {
   final http.Client _client = http.Client();
@@ -165,57 +168,82 @@ class ApiService {
     }
   }
 
-  Future<List<String>?> uploadImages(
-      String userId, List<String> filePaths, String token,
-      {bool isAvatar = false}) async {
-    try {
-      developer.log(
-          'UploadImages request: userId=$userId, isAvatar=$isAvatar, files=${filePaths.length}',
-          name: 'ApiService');
-      if (isAvatar && filePaths.length > 1) {
-        throw Exception('Only one file allowed for avatar upload');
-      }
-      List<String> imageUrls = [];
-      for (var filePath in filePaths) {
-        final file = File(filePath);
-        if (!await file.exists()) {
-          developer.log('File does not exist: $filePath', name: 'ApiService');
-          throw Exception('File does not exist: $filePath');
+  Future<List<String>> uploadImages(
+    String userId,
+    List<String> imagePaths,
+    String token,
+  ) async {
+    final uri = Uri.parse('$_postsUrl/upload');
+    final request = http.MultipartRequest('POST', uri);
+    request.headers['Authorization'] = 'Bearer $token';
+    request.fields['userId'] = userId;
+
+    for (final path in imagePaths) {
+      try {
+        List<int> imageBytes;
+        String filename;
+        String contentType;
+
+        if (kIsWeb) {
+          final xFile = XFile(path);
+          imageBytes = await xFile.readAsBytes();
+          filename = xFile.name;
+        } else {
+          final file = File(path);
+          imageBytes = await file.readAsBytes();
+          filename = path.split('/').last;
         }
-        final fileName =
-            '${userId}_${DateTime.now().millisecondsSinceEpoch}.jpg';
-        developer.log('Uploading file: $fileName to Supabase',
+        contentType = _getContentType(filename);
+
+        developer.log(
+            'Adding file: $filename, bytes: ${imageBytes.length}, type: $contentType',
             name: 'ApiService');
-        final response = await _supabase.storage.from('images').upload(
-            fileName, file,
-            fileOptions: FileOptions(contentType: 'image/jpeg'));
-        developer.log('Upload response: $response', name: 'ApiService');
-        final url = _supabase.storage.from('images').getPublicUrl(fileName);
-        developer.log('Generated URL: $url', name: 'ApiService');
-        imageUrls.add(url);
+
+        request.files.add(
+          http.MultipartFile.fromBytes(
+            'images', // Один ключ для всех файлов
+            imageBytes,
+            filename: filename,
+            contentType: MediaType.parse(contentType),
+          ),
+        );
+      } catch (e) {
+        developer.log('Error with file $path: $e', name: 'ApiService');
+        throw Exception('Failed to process image: $e');
       }
-      // Update backend with avatar URL if isAvatar is true
-      if (isAvatar && imageUrls.isNotEmpty) {
-        developer.log('Updating avatar URL for userId=$userId',
+    }
+
+    developer.log('Files added: ${request.files.length}', name: 'ApiService');
+
+    try {
+      final response = await request.send();
+      final resBody = await response.stream.bytesToString();
+      if (response.statusCode == 200) {
+        final List data = jsonDecode(resBody);
+        return data.map((e) => e.toString()).toList();
+      } else {
+        developer.log('Upload failed: $resBody, status: ${response.statusCode}',
             name: 'ApiService');
-        final response = await _client
-            .put(
-              Uri.parse('$_baseUrl/profile/$userId/avatar'),
-              headers: {
-                'Content-Type': 'application/json',
-                'Authorization': 'Bearer $token',
-              },
-              body: jsonEncode({'avatar_url': imageUrls.first}),
-            )
-            .timeout(const Duration(seconds: 30));
-        await _handleResponse(response);
-        developer.log('Avatar URL updated successfully', name: 'ApiService');
+        throw Exception('Failed to upload images: $resBody');
       }
-      return imageUrls;
-    } catch (e, stackTrace) {
-      developer.log('UploadImages error: $e',
-          name: 'ApiService', stackTrace: stackTrace);
-      return null;
+    } catch (e) {
+      developer.log('Upload error: $e', name: 'ApiService');
+      throw Exception('Image upload error: $e');
+    }
+  }
+
+  String _getContentType(String filename) {
+    final extension = filename.split('.').last.toLowerCase();
+    switch (extension) {
+      case 'jpg':
+      case 'jpeg':
+        return 'image/jpeg';
+      case 'png':
+        return 'image/png';
+      case 'gif':
+        return 'image/gif';
+      default:
+        return 'application/octet-stream';
     }
   }
 
