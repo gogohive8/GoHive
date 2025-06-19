@@ -1,6 +1,6 @@
 import 'dart:convert';
 import 'dart:developer' as developer;
-import 'dart:io'; // Added to fix File class error
+import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/post.dart';
@@ -177,17 +177,30 @@ class ApiService {
       }
       List<String> imageUrls = [];
       for (var filePath in filePaths) {
-        final fileName = '${userId}_${DateTime.now().millisecondsSinceEpoch}';
         final file = File(filePath);
-        await _supabase.storage.from('images').upload(fileName, file);
+        if (!await file.exists()) {
+          developer.log('File does not exist: $filePath', name: 'ApiService');
+          throw Exception('File does not exist: $filePath');
+        }
+        final fileName =
+            '${userId}_${DateTime.now().millisecondsSinceEpoch}.jpg';
+        developer.log('Uploading file: $fileName to Supabase',
+            name: 'ApiService');
+        final response = await _supabase.storage.from('images').upload(
+            fileName, file,
+            fileOptions: FileOptions(contentType: 'image/jpeg'));
+        developer.log('Upload response: $response', name: 'ApiService');
         final url = _supabase.storage.from('images').getPublicUrl(fileName);
+        developer.log('Generated URL: $url', name: 'ApiService');
         imageUrls.add(url);
       }
       // Update backend with avatar URL if isAvatar is true
       if (isAvatar && imageUrls.isNotEmpty) {
+        developer.log('Updating avatar URL for userId=$userId',
+            name: 'ApiService');
         final response = await _client
             .put(
-              Uri.parse('$_postsUrl/profile/$userId/avatar'),
+              Uri.parse('$_baseUrl/profile/$userId/avatar'),
               headers: {
                 'Content-Type': 'application/json',
                 'Authorization': 'Bearer $token',
@@ -196,6 +209,7 @@ class ApiService {
             )
             .timeout(const Duration(seconds: 30));
         await _handleResponse(response);
+        developer.log('Avatar URL updated successfully', name: 'ApiService');
       }
       return imageUrls;
     } catch (e, stackTrace) {
