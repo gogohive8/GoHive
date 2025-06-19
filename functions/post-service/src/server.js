@@ -7,7 +7,9 @@ const path = require('path');
 
 require('dotenv').config({ path: __dirname + '/../.env'});
 
+
 const app = express();
+
 app.use(cors({
   origin: [
     'http://gohive-d4359.web.app',
@@ -19,7 +21,7 @@ app.use(cors({
   credentials: true // If cookies or auth headers are used
 }));
 
-app.options('*', cors());
+
 
 app.use(express.json({ limit: '10mb' }));
 app.use((err, req, res, next) => {
