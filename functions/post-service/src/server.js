@@ -9,7 +9,7 @@ require('dotenv').config({ path: __dirname + '/../.env'});
 
 const app = express();
 app.use(cors({
-  origin: 'http://0.0.0.0:4200', // Replace with your Flutter web app's URL
+  origin: 'http://gohive-d4359.web.app', // Replace with your Flutter web app's URL
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
 }));
@@ -47,7 +47,8 @@ app.use((req, res, next) => {
 
 
 // Connect to supabase client
-const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
+const supabase = createClient(process.env.SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_KEY);
 
 
 // Middleware to verify JWT
@@ -428,5 +429,7 @@ app.post('/upload', upload.array('images', 10), async (req, res) => {
   }
 });
 
-const PORT = process.env.PORT;
-app.listen(PORT, () => console.log(`Server running on port: ${PORT}`));
+const PORT = process.env.PORT || 3002; // Fallback for local testing
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`Server running on port ${PORT}`);
+});

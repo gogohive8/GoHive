@@ -17,3 +17,15 @@ const logger = require("firebase-functions/logger");
 //   logger.info("Hello logs!", {structuredData: true});
 //   response.send("Hello from Firebase!");
 // });
+const postsApp = require('./post-service/src/server');
+const usersApp = require('./user-service/src/server');
+
+exports.postsService = onRequest(
+  { timeoutSeconds: 300, memory: '512MB', region: 'us-central1' },
+  postsApp.postsService
+);
+
+exports.usersService = onRequest(
+  { timeoutSeconds: 300, memory: '512MB', region: 'us-central1' },
+  usersApp.usersService
+);

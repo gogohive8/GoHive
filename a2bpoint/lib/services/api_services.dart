@@ -13,8 +13,9 @@ class ApiService {
   final http.Client _client = http.Client();
   final SupabaseClient _supabase = Supabase.instance.client;
   static const String _baseUrl =
-      'http://localhost:3001'; // For Android emulator
-  static const String _postsUrl = 'http://localhost:3002';
+      'https://us-central1-gohive-d4359.cloudfunctions.net/usersService'; // For Android emulator
+  static const String _postsUrl =
+      'https://us-central1-gohive-d4359.cloudfunctions.net/postsService';
 
   SupabaseClient get supabase => _supabase;
 
