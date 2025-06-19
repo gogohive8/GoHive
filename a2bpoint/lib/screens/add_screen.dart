@@ -75,22 +75,22 @@ class _AddScreenState extends State<AddScreen> {
 
   Future<void> _pickImage() async {
     if (_images.length >= 3) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Maximum 3 photos')),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('Maximum 3 photos')));
       return;
     }
     try {
       final pickedFile = await _picker.pickImage(source: ImageSource.gallery);
       if (pickedFile != null) {
-        setState(() {
-          _images.add(pickedFile);
-        });
+        developer.log('Picked image: ${pickedFile.path}', name: 'AddScreen');
+        setState(() => _images.add(pickedFile));
+      } else {
+        developer.log('No image picked', name: 'AddScreen');
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to pick image: $e')),
-      );
+      developer.log('Error picking image: $e', name: 'AddScreen');
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('Failed to pick image: $e')));
     }
   }
 

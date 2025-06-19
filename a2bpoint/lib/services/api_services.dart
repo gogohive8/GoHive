@@ -7,6 +7,7 @@ import '../models/post.dart';
 import 'package:flutter/foundation.dart';
 import 'package:http_parser/http_parser.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:mime/mime.dart';
 
 class ApiService {
   final http.Client _client = http.Client();
@@ -174,6 +175,7 @@ class ApiService {
     String token,
   ) async {
     final uri = Uri.parse('$_postsUrl/upload');
+    developer.log('Sending request to $uri', name: 'ApiService');
     final request = http.MultipartRequest('POST', uri);
     request.headers['Authorization'] = 'Bearer $token';
     request.fields['userId'] = userId;
@@ -187,10 +189,14 @@ class ApiService {
         if (kIsWeb) {
           final xFile = XFile(path);
           imageBytes = await xFile.readAsBytes();
+          developer.log('Web image bytes length: ${imageBytes.length}',
+              name: 'ApiService');
           filename = xFile.name;
         } else {
           final file = File(path);
           imageBytes = await file.readAsBytes();
+          developer.log('File image bytes length: ${imageBytes.length}',
+              name: 'ApiService');
           filename = path.split('/').last;
         }
         contentType = _getContentType(filename);
@@ -198,37 +204,39 @@ class ApiService {
         developer.log(
             'Adding file: $filename, bytes: ${imageBytes.length}, type: $contentType',
             name: 'ApiService');
-
         request.files.add(
           http.MultipartFile.fromBytes(
-            'images', // Один ключ для всех файлов
+            'images',
             imageBytes,
             filename: filename,
             contentType: MediaType.parse(contentType),
           ),
         );
       } catch (e) {
-        developer.log('Error with file $path: $e', name: 'ApiService');
+        developer.log('Error reading file $path: $e', name: 'ApiService');
         throw Exception('Failed to process image: $e');
       }
     }
 
     developer.log('Files added: ${request.files.length}', name: 'ApiService');
-
     try {
       final response = await request.send();
-      final resBody = await response.stream.bytesToString();
+      final responseBody = await response.stream.bytesToString();
+      developer.log('Upload response: ${response.statusCode} $responseBody',
+          name: 'ApiService');
+
       if (response.statusCode == 200) {
-        final List data = jsonDecode(resBody);
-        return data.map((e) => e.toString()).toList();
+        final data = jsonDecode(responseBody);
+        if (data is List) {
+          return List<String>.from(data);
+        }
+        throw Exception('Unexpected response format');
       } else {
-        developer.log('Upload failed: $resBody, status: ${response.statusCode}',
-            name: 'ApiService');
-        throw Exception('Failed to upload images: $resBody');
+        throw Exception('Failed to upload images: $responseBody');
       }
     } catch (e) {
       developer.log('Upload error: $e', name: 'ApiService');
-      throw Exception('Image upload error: $e');
+      throw Exception('Image_upload_error: $e');
     }
   }
 
