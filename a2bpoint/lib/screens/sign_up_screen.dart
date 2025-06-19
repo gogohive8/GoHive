@@ -106,7 +106,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 SizedBox(height: size.height * 0.1),
-                Image.asset('assets/images/logo.png',
+                Image.asset('assets/logo_background.png',
                     height: size.height * 0.15),
                 SizedBox(height: size.height * 0.02),
                 const Text(

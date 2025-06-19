@@ -100,7 +100,7 @@ class _SignInScreenState extends State<SignInScreen> {
     final padding = size.width * 0.05;
 
     return Scaffold(
-      backgroundColor: const Color(0xFF7964FF),
+      backgroundColor: const Color(0xFFF5E9D6), // Бежевый фон
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
@@ -116,7 +116,7 @@ class _SignInScreenState extends State<SignInScreen> {
                     fit: BoxFit.contain,
                   ),
                   const SizedBox(
-                      height: 12), // Отступ между логотипом и надписью
+                      height: 8), // Отступ между логотипом и надписью
                   const Text(
                     'GoHive',
                     style: TextStyle(
@@ -125,7 +125,7 @@ class _SignInScreenState extends State<SignInScreen> {
                       height:
                           40 / 32, // Высота строки: 40px / размер шрифта: 32px
                       letterSpacing: -0.02 * 32, // Отступ между буквами: -2%
-                      color: Colors.white, // Цвет текста соответствует теме
+                      color: Color(0xFF2A2A2A), // Темно-серый текст
                     ),
                     textAlign: TextAlign.center,
                   ),
@@ -134,18 +134,21 @@ class _SignInScreenState extends State<SignInScreen> {
                     controller: _emailController,
                     decoration: InputDecoration(
                       labelText: 'Email',
-                      labelStyle: const TextStyle(color: Colors.white70),
+                      labelStyle: const TextStyle(
+                          color: Color(0xFF2A2A2A)), // Темно-серый
                       filled: true,
-                      fillColor: Colors.white.withOpacity(0.1),
+                      fillColor: Colors.white
+                          .withOpacity(0.2), // Легкий белый для контраста
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(10),
                         borderSide: BorderSide.none,
                       ),
-                      prefixIcon:
-                          const Icon(Icons.email, color: Colors.white70),
+                      prefixIcon: const Icon(Icons.email,
+                          color: Color(0xFF2A2A2A)), // Темно-серый
                     ),
                     keyboardType: TextInputType.emailAddress,
-                    style: const TextStyle(color: Colors.white),
+                    style: const TextStyle(
+                        color: Color(0xFF2A2A2A)), // Темно-серый
                     validator: (value) {
                       if (value == null || value.isEmpty) {
                         return 'Please enter your email';
@@ -162,17 +165,20 @@ class _SignInScreenState extends State<SignInScreen> {
                     controller: _passwordController,
                     decoration: InputDecoration(
                       labelText: 'Password',
-                      labelStyle: const TextStyle(color: Colors.white70),
+                      labelStyle: const TextStyle(
+                          color: Color(0xFF2A2A2A)), // Темно-серый
                       filled: true,
-                      fillColor: Colors.white.withOpacity(0.1),
+                      fillColor: Colors.white.withOpacity(0.2), // Легкий белый
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(10),
                         borderSide: BorderSide.none,
                       ),
-                      prefixIcon: const Icon(Icons.lock, color: Colors.white70),
+                      prefixIcon: const Icon(Icons.lock,
+                          color: Color(0xFF2A2A2A)), // Темно-серый
                     ),
                     obscureText: true,
-                    style: const TextStyle(color: Colors.white),
+                    style: const TextStyle(
+                        color: Color(0xFF2A2A2A)), // Темно-серый
                     validator: (value) {
                       if (value == null || value.isEmpty) {
                         return 'Please enter your password';
@@ -191,8 +197,9 @@ class _SignInScreenState extends State<SignInScreen> {
                     child: ElevatedButton(
                       onPressed: _signInWithEmail,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.white,
-                        foregroundColor: const Color(0xFF7964FF),
+                        backgroundColor:
+                            const Color(0xFF8A9ED9), // Голубовато-сиреневый
+                        foregroundColor: Colors.white, // Белый текст
                         padding:
                             EdgeInsets.symmetric(vertical: size.height * 0.02),
                         shape: RoundedRectangleBorder(
@@ -206,22 +213,27 @@ class _SignInScreenState extends State<SignInScreen> {
                     ),
                   ),
                   SizedBox(height: size.height * 0.03),
-                  const Text('Or', style: TextStyle(color: Colors.white70)),
+                  const Text('Or',
+                      style:
+                          TextStyle(color: Color(0xFF2A2A2A))), // Темно-серый
                   SizedBox(height: size.height * 0.03),
                   SizedBox(
                     width: double.infinity,
                     child: OutlinedButton(
                       onPressed: () => Navigator.pushNamed(context, '/sign-up'),
                       style: OutlinedButton.styleFrom(
-                        side: const BorderSide(color: Colors.white),
+                        side: const BorderSide(
+                            color: Color(0xFF2A2A2A)), // Темно-серый
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(10),
                         ),
-                        backgroundColor: Colors.white.withOpacity(0.1),
+                        backgroundColor:
+                            Colors.white.withOpacity(0.1), // Легкий фон
                       ),
                       child: const Text(
                         'Sign Up',
-                        style: TextStyle(color: Colors.white),
+                        style:
+                            TextStyle(color: Color(0xFF2A2A2A)), // Темно-серый
                       ),
                     ),
                   ),
@@ -233,14 +245,17 @@ class _SignInScreenState extends State<SignInScreen> {
                       icon: Image.asset('assets/google_icon.png', height: 24),
                       label: const Text(
                         'Sign in with Google',
-                        style: TextStyle(color: Colors.white),
+                        style:
+                            TextStyle(color: Color(0xFF2A2A2A)), // Темно-серый
                       ),
                       style: OutlinedButton.styleFrom(
-                        side: const BorderSide(color: Colors.white),
+                        side: const BorderSide(
+                            color: Color(0xFF2A2A2A)), // Темно-серый
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(10),
                         ),
-                        backgroundColor: Colors.white.withOpacity(0.1),
+                        backgroundColor:
+                            Colors.white.withOpacity(0.1), // Легкий фон
                       ),
                     ),
                   ),
