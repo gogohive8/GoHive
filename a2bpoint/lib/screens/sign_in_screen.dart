@@ -112,8 +112,22 @@ class _SignInScreenState extends State<SignInScreen> {
                 children: [
                   Image.asset(
                     'assets/logo_background.png',
-                    height: size.height * 0.3,
+                    height: size.height * 0.15, // Уменьшенный размер логотипа
                     fit: BoxFit.contain,
+                  ),
+                  const SizedBox(
+                      height: 12), // Отступ между логотипом и надписью
+                  const Text(
+                    'GoHive',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold, // Эквивалент 700
+                      fontSize: 32,
+                      height:
+                          40 / 32, // Высота строки: 40px / размер шрифта: 32px
+                      letterSpacing: -0.02 * 32, // Отступ между буквами: -2%
+                      color: Colors.white, // Цвет текста соответствует теме
+                    ),
+                    textAlign: TextAlign.center,
                   ),
                   SizedBox(height: size.height * 0.05),
                   TextFormField(
