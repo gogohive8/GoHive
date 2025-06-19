@@ -9,10 +9,18 @@ require('dotenv').config({ path: __dirname + '/../.env'});
 
 const app = express();
 app.use(cors({
-  origin: 'http://gohive-d4359.web.app', // Replace with your Flutter web app's URL
+  origin: [
+    'http://gohive-d4359.web.app',
+    'https://gohive-d4359.firebaseapp.com',
+    'http://localhost:5000' // For local Firebase emulator
+  ],
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true // If cookies or auth headers are used
 }));
+
+app.options('*', cors());
+
 app.use(express.json({ limit: '10mb' }));
 app.use((err, req, res, next) => {
   if (err instanceof SyntaxError && err.status === 400 && 'body' in err) {

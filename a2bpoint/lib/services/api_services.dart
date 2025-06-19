@@ -13,9 +13,9 @@ class ApiService {
   final http.Client _client = http.Client();
   final SupabaseClient _supabase = Supabase.instance.client;
   static const String _baseUrl =
-      'https://us-central1-gohive-d4359.cloudfunctions.net/usersService'; // For Android emulator
+      'https://gohive-user-service-efb5dea164ed.herokuapp.com'; // For Android emulator
   static const String _postsUrl =
-      'https://us-central1-gohive-d4359.cloudfunctions.net/postsService';
+      'https://gohive-post-service-9ac288c0fa11.herokuapp.com';
 
   SupabaseClient get supabase => _supabase;
 
