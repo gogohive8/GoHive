@@ -388,66 +388,45 @@ app.get('/events/:id', verifyToken, async (req, res) => {
 });
 
 
-// Upload avatar endpoint
-app.post('/profile/:userId/avatar', verifyToken, upload.single('avatar'), async (req, res) => {
+app.post('/upload', upload.array('images', 10), async (req, res) => {
   try {
-    const { id } = req.params;
-    const userId = req.userId; // From verifyToken
-
-    // Verify user
-    if (id !== userId) {
-      return res.status(403).json({ error: 'Unauthorized: ID does not match authenticated user' });
+    if (!req.files || req.files.length === 0) {
+      return res.status(400).json({ error: 'No images provided' });
     }
 
-    // Check for file
-    if (!req.file) {
-      return res.status(400).json({ error: 'No avatar file provided' });
+    const photoUrls = [];
+    for (const file of req.files) {
+      const fileExt = path.extname(file.originalname).toLowerCase();
+      const fileName = `${Date.now()}-${Math.random().toString(36).substring(2, 8)}${fileExt}`;
+
+      const { data: uploadData, error: uploadError } = await supabase
+        .storage
+        .from('avatars')
+        .upload(fileName, file.buffer, {
+          contentType: file.mimetype,
+          upsert: true,
+        });
+
+      if (uploadError) {
+        console.error(`Error uploading image ${fileName}:`, uploadError.message);
+        return res.status(500).json({ error: `Failed to upload image ${fileName}` });
+      }
+
+      const { data: { publicUrl } } = supabase
+        .storage
+        .from('avatars')
+        .getPublicUrl(fileName);
+
+      photoUrls.push(publicUrl);
     }
 
-    // Generate unique filename
-    const fileExt = path.extname(req.file.originalname).toLowerCase();
-    const fileName = `${userId}-${Date.now()}${fileExt}`;
-
-    // Upload to Supabase Storage
-    const { data: uploadData, error: uploadError } = await supabase
-      .storage
-      .from('avatars')
-      .upload(fileName, req.file.buffer, {
-        contentType: req.file.mimetype,
-        upsert: true,
-      });
-
-    if (uploadError) {
-      console.error('Error uploading avatar:', uploadError.message);
-      return res.status(500).json({ error: 'Failed to upload avatar' });
-    }
-
-    // Get public URL
-    const { data: { publicUrl } } = supabase
-      .storage
-      .from('avatars')
-      .getPublicUrl(fileName);
-
-    // Update user in database
-    const { error: updateError } = await supabase
-      .schema('public')
-      .from('users')
-      .update({ avatar_url: publicUrl })
-      .eq('id', userId);
-
-    if (updateError) {
-      console.error('Error updating avatar URL:', updateError.message);
-      return res.status(500).json({ error: 'Failed to update avatar URL' });
-    }
-
-    console.log(`Avatar uploaded for user ${userId}: ${publicUrl}`);
-    return res.status(200).json({ url: publicUrl });
+    console.log('Images uploaded:', photoUrls);
+    return res.status(200).json(photoUrls);
   } catch (error) {
-    console.error('Error in /upload/avatar:', error.message);
+    console.error('Error in /upload:', error.message);
     return res.status(500).json({ error: 'Internal server error' });
   }
 });
-
 
 const PORT = process.env.PORT;
 app.listen(PORT, () => console.log(`Server running on port: ${PORT}`));
