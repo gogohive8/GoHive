@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'dart:developer' as developer;
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
@@ -154,136 +153,108 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: const Color(0xFFF9F6F2), // Светло-бежевый фон
       appBar: AppBar(
-        backgroundColor: Colors.transparent,
+        backgroundColor: const Color(0xFFF9F6F2),
         elevation: 0,
-        toolbarHeight: 0,
+        title: Text(
+          _profile?['username'] ?? 'Unknown',
+          style: const TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+            color: Color(0xFF1A1A1A), // Тёмно-серый
+          ),
+        ),
+        actions: [
+          IconButton(
+            icon: Image.asset('assets/images/messages_icon.png', height: 24),
+            onPressed: () {}, // Заглушка для сообщений
+          ),
+        ],
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _profile == null
               ? const Center(child: Text('Failed to load profile'))
-              : Column(
-                  children: [
-                    Container(
-                      height: 80,
-                      padding: const EdgeInsets.symmetric(
-                          vertical: 10, horizontal: 16),
-                      color: Colors.white,
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          GestureDetector(
-                            onTap: () => setState(() => _selectedTab = 0),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 16, vertical: 8),
-                              decoration: BoxDecoration(
-                                color: _selectedTab == 0
-                                    ? Color.fromRGBO(121, 100, 255, 0.1)
-                                    : Colors.transparent,
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Text(
-                                'Goals',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: _selectedTab == 0
-                                      ? FontWeight.bold
-                                      : FontWeight.normal,
-                                  color: _selectedTab == 0
-                                      ? Colors.purple
-                                      : Colors.black,
-                                ),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 16),
-                          GestureDetector(
-                            onTap: () => setState(() => _selectedTab = 1),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 16, vertical: 8),
-                              decoration: BoxDecoration(
-                                color: _selectedTab == 1
-                                    ? Color.fromRGBO(121, 100, 255, 0.1)
-                                    : Colors.transparent,
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Text(
-                                'Events',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: _selectedTab == 1
-                                      ? FontWeight.bold
-                                      : FontWeight.normal,
-                                  color: _selectedTab == 1
-                                      ? Colors.purple
-                                      : Colors.black,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Expanded(
+              : LayoutBuilder(
+                  builder: (context, constraints) {
+                    final screenWidth = constraints.maxWidth;
+                    final avatarRadius =
+                        screenWidth * 0.15 > 50 ? 50.0 : screenWidth * 0.15;
+                    final gridCrossAxisCount =
+                        screenWidth > 600 ? 3 : (screenWidth > 400 ? 2 : 1);
+
+                    return ConstrainedBox(
+                      constraints: BoxConstraints(
+                          maxHeight: MediaQuery.of(context).size.height -
+                              kToolbarHeight -
+                              kBottomNavigationBarHeight),
                       child: SingleChildScrollView(
-                        padding: const EdgeInsets.all(16),
+                        padding: EdgeInsets.all(screenWidth * 0.03),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              mainAxisAlignment: MainAxisAlignment.start,
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Stack(
                                   alignment: Alignment.center,
                                   children: [
                                     CircleAvatar(
-                                      radius: 60,
-                                      backgroundImage:
-                                          _profile?['avatar_url'] != null &&
-                                                  _profile?['avatar_url']
-                                                      .isNotEmpty
-                                              ? NetworkImage(
-                                                  _profile?['avatar_url'])
-                                              : null,
-                                      child: _profile?['avatar_url'] == null ||
-                                              _profile?['avatar_url'].isEmpty
-                                          ? const Icon(Icons.person, size: 40)
-                                          : null,
+                                      radius: avatarRadius,
+                                      backgroundImage: _profile?[
+                                                      'avatar_url'] !=
+                                                  null &&
+                                              _profile?['avatar_url'].isNotEmpty
+                                          ? NetworkImage(
+                                              _profile!['avatar_url'])
+                                          : const AssetImage(
+                                              'assets/images/default_avatar.png'),
+                                      backgroundColor:
+                                          const Color(0xFF333333), // Серый
                                     ),
                                     Positioned(
-                                      bottom: 0,
-                                      right: 0,
+                                      bottom: -avatarRadius * 0.2,
+                                      right: -avatarRadius * 0.2,
                                       child: IconButton(
                                         icon: const Icon(Icons.camera_alt,
-                                            color: Colors.purple),
+                                            color:
+                                                Color(0xFFAFCBEA)), // Голубой
                                         onPressed: _uploadAvatar,
+                                        padding:
+                                            EdgeInsets.all(avatarRadius * 0.1),
                                       ),
                                     ),
                                   ],
                                 ),
-                                Column(
-                                  crossAxisAlignment: CrossAxisAlignment.end,
-                                  children: [
-                                    Text(
-                                      _profile?['username'] ?? 'Unknown',
-                                      style: const TextStyle(
-                                        fontSize: 24,
-                                        fontWeight: FontWeight.bold,
-                                        color: Color(0xFF1C0E31),
+                                const SizedBox(width: 16),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        _profile?['username'] ?? 'Unknown',
+                                        style: TextStyle(
+                                          fontSize: screenWidth * 0.05 > 20
+                                              ? 20.0
+                                              : screenWidth * 0.05,
+                                          fontWeight: FontWeight.bold,
+                                          color: const Color(
+                                              0xFF1A1A1A), // Тёмно-серый
+                                        ),
                                       ),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      '${_profile?['followers'] ?? 0} followers  ${_profile?['following'] ?? 0} following',
-                                      style: const TextStyle(
-                                        fontSize: 14,
-                                        color: Color(0xFF1C0E31),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        '${_profile?['followers'] ?? 0} followers  ${_profile?['following'] ?? 0} following',
+                                        style: const TextStyle(
+                                          fontSize: 12,
+                                          color: Color(0xFF333333), // Серый
+                                        ),
                                       ),
-                                    ),
-                                  ],
+                                    ],
+                                  ),
                                 ),
                               ],
                             ),
@@ -291,89 +262,46 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             TextFormField(
                               controller: _bioController,
                               decoration: InputDecoration(
-                                labelText: 'Bio',
+                                filled: true,
+                                fillColor: const Color.fromRGBO(249, 246, 242,
+                                    0.9), // Схожий с фоном с прозрачностью
                                 border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(10),
+                                  borderRadius: BorderRadius.circular(8),
+                                  borderSide: const BorderSide(
+                                      color: Color(0xFFAFCBEA)), // Голубой
                                 ),
                                 focusedBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(10),
-                                  borderSide:
-                                      const BorderSide(color: Colors.purple),
+                                  borderRadius: BorderRadius.circular(8),
+                                  borderSide: const BorderSide(
+                                      color: Color(0xFFAFCBEA)),
                                 ),
                                 suffixIcon: IconButton(
                                   icon: const Icon(Icons.edit,
-                                      color: Colors.purple),
+                                      color: Color(0xFFAFCBEA)), // Голубой
                                   onPressed: _updateBio,
                                 ),
                               ),
-                              maxLines: 3,
-                            ),
-                            const SizedBox(height: 20),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.start,
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.all(8),
-                                  decoration: BoxDecoration(
-                                    color: Color.fromRGBO(121, 100, 255, 0.1),
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  child: const Row(
-                                    children: [
-                                      Icon(Icons.emoji_events,
-                                          color: Colors.purple),
-                                      SizedBox(width: 4),
-                                      Text('Challenge winner'),
-                                    ],
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                Container(
-                                  padding: const EdgeInsets.all(8),
-                                  decoration: BoxDecoration(
-                                    color: Color.fromRGBO(255, 165, 0, 0.1),
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  child: const Row(
-                                    children: [
-                                      Icon(Icons.check_circle,
-                                          color: Colors.orange),
-                                      SizedBox(width: 4),
-                                      Text('Finished goals'),
-                                    ],
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                Container(
-                                  padding: const EdgeInsets.all(8),
-                                  decoration: BoxDecoration(
-                                    color: Color.fromRGBO(0, 128, 0, 0.1),
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  child: const Row(
-                                    children: [
-                                      Icon(Icons.event, color: Colors.green),
-                                      SizedBox(width: 4),
-                                      Text('Attended'),
-                                    ],
-                                  ),
-                                ),
-                              ],
+                              maxLines: 1,
+                              style: const TextStyle(
+                                fontSize: 14,
+                                color: Color(0xFF1A1A1A), // Тёмно-серый
+                              ),
                             ),
                             const SizedBox(height: 20),
                             GridView.builder(
                               shrinkWrap: true,
                               physics: const NeverScrollableScrollPhysics(),
                               gridDelegate:
-                                  const SliverGridDelegateWithFixedCrossAxisCount(
-                                crossAxisCount: 3,
-                                crossAxisSpacing: 8,
-                                mainAxisSpacing: 8,
+                                  SliverGridDelegateWithFixedCrossAxisCount(
+                                crossAxisCount: gridCrossAxisCount,
+                                crossAxisSpacing: screenWidth * 0.02,
+                                mainAxisSpacing: screenWidth * 0.02,
                                 childAspectRatio: 0.9,
                               ),
                               itemCount: _selectedTab == 0
                                   ? _goals.length
                                   : _events.length,
+                              clipBehavior: Clip.hardEdge,
                               itemBuilder: (context, index) {
                                 final post = _selectedTab == 0
                                     ? _goals[index]
@@ -382,77 +310,72 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                     .toLocal()
                                     .toString()
                                     .split(' ')[0];
-                                return Stack(
-                                  children: [
-                                    Container(
-                                      decoration: BoxDecoration(
-                                        borderRadius: BorderRadius.circular(8),
-                                        image:
-                                            post.imageUrls?.isNotEmpty == true
-                                                ? DecorationImage(
-                                                    image: NetworkImage(
-                                                        post.imageUrls![0]),
-                                                    fit: BoxFit.cover,
-                                                  )
-                                                : null,
-                                      ),
-                                      child: post.imageUrls?.isNotEmpty != true
-                                          ? const Center(
-                                              child:
-                                                  Icon(Icons.image, size: 40))
-                                          : null,
-                                    ),
-                                    Positioned(
-                                      top: 4,
-                                      left: 4,
-                                      child: Text(
-                                        createdAt,
-                                        style: const TextStyle(
-                                          fontSize: 12,
-                                          color: Colors.white,
-                                          backgroundColor: Colors.black54,
+                                return Container(
+                                  decoration: BoxDecoration(
+                                    color:
+                                        const Color(0xFFDDDDDD), // Светло-серый
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Stack(
+                                    children: [
+                                      Padding(
+                                        padding: const EdgeInsets.all(8.0),
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.spaceBetween,
+                                          children: [
+                                            Text(
+                                              createdAt,
+                                              style: const TextStyle(
+                                                fontSize: 12,
+                                                color:
+                                                    Color(0xFF333333), // Серый
+                                              ),
+                                            ),
+                                            Text(
+                                              post.text ?? 'No description',
+                                              style: const TextStyle(
+                                                fontSize: 12,
+                                                color: Color(
+                                                    0xFF1A1A1A), // Тёмно-серый
+                                              ),
+                                              maxLines: 2,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ],
                                         ),
                                       ),
-                                    ),
-                                    Positioned(
-                                      bottom: 4,
-                                      left: 4,
-                                      child: Text(
-                                        post.text ?? 'No description',
-                                        style: const TextStyle(
-                                          fontSize: 12,
-                                          color: Colors.white,
-                                          backgroundColor: Colors.black54,
-                                        ),
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ),
-                                    if (_selectedTab == 0 && post.tasks != null)
-                                      Positioned(
-                                        bottom: 4,
-                                        right: 4,
-                                        child: Container(
-                                          padding: const EdgeInsets.all(4),
-                                          color: Colors.black54,
-                                          child: Text(
-                                            '${post.tasks!.where((task) => task['completed'] ?? false).length}/${post.tasks!.length} tasks',
-                                            style: const TextStyle(
-                                              fontSize: 10,
-                                              color: Colors.white,
+                                      if (_selectedTab == 0 &&
+                                          post.tasks != null)
+                                        Positioned(
+                                          bottom: 4,
+                                          right: 4,
+                                          child: Container(
+                                            padding: const EdgeInsets.all(4),
+                                            color: const Color(
+                                                0xFF333333), // Серый
+                                            child: Text(
+                                              '${post.tasks!.where((task) => task['completed'] ?? false).length}/${post.tasks!.length}',
+                                              style: const TextStyle(
+                                                fontSize: 10,
+                                                color: Color(
+                                                    0xFFF9F6F2), // Светло-бежевый
+                                              ),
                                             ),
                                           ),
                                         ),
-                                      ),
-                                  ],
+                                    ],
+                                  ),
                                 );
                               },
                             ),
                           ],
                         ),
                       ),
-                    ),
-                  ],
+                    );
+                  },
                 ),
       bottomNavigationBar: Navbar(
         selectedIndex: 3,

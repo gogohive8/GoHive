@@ -100,171 +100,179 @@ class _SignInScreenState extends State<SignInScreen> {
     final padding = size.width * 0.05;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF5E9D6), // Бежевый фон
-      body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: EdgeInsets.symmetric(horizontal: padding),
-            child: Form(
-              key: _formKey,
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Image.asset(
-                    'assets/logo_background.png',
-                    height: size.height * 0.15, // Уменьшенный размер логотипа
-                    fit: BoxFit.contain,
-                  ),
-                  const SizedBox(
-                      height: 8), // Отступ между логотипом и надписью
-                  const Text(
-                    'GoHive',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold, // Эквивалент 700
-                      fontSize: 32,
-                      height:
-                          40 / 32, // Высота строки: 40px / размер шрифта: 32px
-                      letterSpacing: -0.02 * 32, // Отступ между буквами: -2%
-                      color: Color(0xFF2A2A2A), // Темно-серый текст
+        backgroundColor: const Color(0xFFF9F6F2), // Светло-бежевый фон
+        body: SafeArea(
+          child: Center(
+            child: SingleChildScrollView(
+              padding: EdgeInsets.symmetric(horizontal: padding),
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Image.asset(
+                      'assets/logo_background.png',
+                      height: size.height * 0.15, // Уменьшенный размер логотипа
+                      fit: BoxFit.contain,
                     ),
-                    textAlign: TextAlign.center,
-                  ),
-                  SizedBox(height: size.height * 0.05),
-                  TextFormField(
-                    controller: _emailController,
-                    decoration: InputDecoration(
-                      labelText: 'Email',
-                      labelStyle: const TextStyle(
-                          color: Color(0xFF2A2A2A)), // Темно-серый
-                      filled: true,
-                      fillColor: Colors.white
-                          .withOpacity(0.2), // Легкий белый для контраста
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                        borderSide: BorderSide.none,
+                    const SizedBox(
+                        height: 8), // Отступ между логотипом и надписью
+                    const Text(
+                      'GoHive',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold, // Эквивалент 700
+                        fontSize: 32,
+                        height: 40 /
+                            32, // Высота строки: 40px / размер шрифта: 32px
+                        letterSpacing: -0.02 * 32, // Отступ между буквами: -2%
+                        color: Color(0xFF000000), // Чёрный текст
                       ),
-                      prefixIcon: const Icon(Icons.email,
-                          color: Color(0xFF2A2A2A)), // Темно-серый
+                      textAlign: TextAlign.center,
                     ),
-                    keyboardType: TextInputType.emailAddress,
-                    style: const TextStyle(
-                        color: Color(0xFF2A2A2A)), // Темно-серый
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return 'Please enter your email';
-                      }
-                      if (!RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$')
-                          .hasMatch(value)) {
-                        return 'Invalid email format';
-                      }
-                      return null;
-                    },
-                  ),
-                  SizedBox(height: size.height * 0.02),
-                  TextFormField(
-                    controller: _passwordController,
-                    decoration: InputDecoration(
-                      labelText: 'Password',
-                      labelStyle: const TextStyle(
-                          color: Color(0xFF2A2A2A)), // Темно-серый
-                      filled: true,
-                      fillColor: Colors.white.withOpacity(0.2), // Легкий белый
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                        borderSide: BorderSide.none,
-                      ),
-                      prefixIcon: const Icon(Icons.lock,
-                          color: Color(0xFF2A2A2A)), // Темно-серый
-                    ),
-                    obscureText: true,
-                    style: const TextStyle(
-                        color: Color(0xFF2A2A2A)), // Темно-серый
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return 'Please enter your password';
-                      }
-                      if (value.length < 6) {
-                        return 'Password must be at least 6 characters';
-                      }
-                      return null;
-                    },
-                    textInputAction: TextInputAction.done,
-                    onFieldSubmitted: (_) => _signInWithEmail(),
-                  ),
-                  SizedBox(height: size.height * 0.03),
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: _signInWithEmail,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor:
-                            const Color(0xFF8A9ED9), // Голубовато-сиреневый
-                        foregroundColor: Colors.white, // Белый текст
-                        padding:
-                            EdgeInsets.symmetric(vertical: size.height * 0.02),
-                        shape: RoundedRectangleBorder(
+                    SizedBox(height: size.height * 0.05),
+                    TextFormField(
+                      controller: _emailController,
+                      decoration: InputDecoration(
+                        labelText: 'Email',
+                        labelStyle: const TextStyle(
+                            color: Color(0xFF1A1A1A)), // Тёмно-серый
+                        filled: true,
+                        fillColor: const Color.fromRGBO(
+                            221, 221, 221, 0.2), // Светло-серый с прозрачностью
+                        border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(10),
+                          borderSide: BorderSide.none,
+                        ),
+                        prefixIcon: const Icon(Icons.email,
+                            color: Color(0xFF333333)), // Серый
+                      ),
+                      keyboardType: TextInputType.emailAddress,
+                      style: const TextStyle(
+                          color: Color(0xFF1A1A1A)), // Тёмно-серый
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Please enter your email';
+                        }
+                        if (!RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$')
+                            .hasMatch(value)) {
+                          return 'Invalid email format';
+                        }
+                        return null;
+                      },
+                    ),
+                    SizedBox(height: size.height * 0.02),
+                    TextFormField(
+                      controller: _passwordController,
+                      decoration: InputDecoration(
+                        labelText: 'Password',
+                        labelStyle: const TextStyle(
+                            color: Color(0xFF1A1A1A)), // Тёмно-серый
+                        filled: true,
+                        fillColor: const Color.fromRGBO(
+                            221, 221, 221, 0.2), // Светло-серый
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide: BorderSide.none,
+                        ),
+                        prefixIcon: const Icon(Icons.lock,
+                            color: Color(0xFF333333)), // Серый
+                        suffixIcon: IconButton(
+                          icon: const Icon(Icons.visibility_off,
+                              color: Color(0xFF333333)),
+                          onPressed: () =>
+                              setState(() {}), // Заглушка для видимости пароля
                         ),
                       ),
-                      child: Text(
-                        'Sign In',
-                        style: TextStyle(fontSize: size.width * 0.045),
-                      ),
+                      obscureText: true,
+                      style: const TextStyle(
+                          color: Color(0xFF1A1A1A)), // Тёмно-серый
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Please enter your password';
+                        }
+                        if (value.length < 6) {
+                          return 'Password must be at least 6 characters';
+                        }
+                        return null;
+                      },
+                      textInputAction: TextInputAction.done,
+                      onFieldSubmitted: (_) => _signInWithEmail(),
                     ),
-                  ),
-                  SizedBox(height: size.height * 0.03),
-                  const Text('Or',
-                      style:
-                          TextStyle(color: Color(0xFF2A2A2A))), // Темно-серый
-                  SizedBox(height: size.height * 0.03),
-                  SizedBox(
-                    width: double.infinity,
-                    child: OutlinedButton(
-                      onPressed: () => Navigator.pushNamed(context, '/sign-up'),
-                      style: OutlinedButton.styleFrom(
-                        side: const BorderSide(
-                            color: Color(0xFF2A2A2A)), // Темно-серый
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
+                    SizedBox(height: size.height * 0.03),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: _signInWithEmail,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFFAFCBEA), // Голубой
+                          foregroundColor:
+                              const Color(0xFF000000), // Чёрный текст
+                          padding: EdgeInsets.symmetric(
+                              vertical: size.height * 0.02),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
                         ),
-                        backgroundColor:
-                            Colors.white.withOpacity(0.1), // Легкий фон
-                      ),
-                      child: const Text(
-                        'Sign Up',
-                        style:
-                            TextStyle(color: Color(0xFF2A2A2A)), // Темно-серый
-                      ),
-                    ),
-                  ),
-                  SizedBox(height: size.height * 0.01),
-                  SizedBox(
-                    width: double.infinity,
-                    child: OutlinedButton.icon(
-                      onPressed: _signInWithGoogle,
-                      icon: Image.asset('assets/google_icon.png', height: 24),
-                      label: const Text(
-                        'Sign in with Google',
-                        style:
-                            TextStyle(color: Color(0xFF2A2A2A)), // Темно-серый
-                      ),
-                      style: OutlinedButton.styleFrom(
-                        side: const BorderSide(
-                            color: Color(0xFF2A2A2A)), // Темно-серый
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
+                        child: Text(
+                          'Sign In',
+                          style: TextStyle(fontSize: size.width * 0.045),
                         ),
-                        backgroundColor:
-                            Colors.white.withOpacity(0.1), // Легкий фон
                       ),
                     ),
-                  ),
-                ],
+                    SizedBox(height: size.height * 0.03),
+                    const Text(
+                      'Or',
+                      style: TextStyle(color: Color(0xFF333333)), // Серый
+                    ),
+                    SizedBox(height: size.height * 0.03),
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton(
+                        onPressed: () =>
+                            Navigator.pushNamed(context, '/sign-up'),
+                        style: OutlinedButton.styleFrom(
+                          side: const BorderSide(
+                              color: Color(0xFF333333)), // Серый
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          backgroundColor: const Color.fromRGBO(
+                              221, 221, 221, 0.1), // Светло-серый
+                        ),
+                        child: const Text(
+                          'Sign Up',
+                          style: TextStyle(
+                              color: Color(0xFF1A1A1A)), // Тёмно-серый
+                        ),
+                      ),
+                    ),
+                    SizedBox(height: size.height * 0.01),
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        onPressed: _signInWithGoogle,
+                        icon: Image.asset('assets/google_icon.png', height: 24),
+                        label: const Text(
+                          'Sign in with Google',
+                          style: TextStyle(
+                              color: Color(0xFF1A1A1A)), // Тёмно-серый
+                        ),
+                        style: OutlinedButton.styleFrom(
+                          side: const BorderSide(
+                              color: Color(0xFF333333)), // Серый
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          backgroundColor: const Color.fromRGBO(
+                              221, 221, 221, 0.1), // Светло-серый
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
-        ),
-      ),
-    );
+        ));
   }
 }
