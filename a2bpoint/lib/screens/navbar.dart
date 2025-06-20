@@ -12,16 +12,30 @@ class Navbar extends StatelessWidget {
       currentIndex: selectedIndex,
       onTap: onTap,
       items: const [
-        BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
-        BottomNavigationBarItem(icon: Icon(Icons.search), label: 'Search'),
-        BottomNavigationBarItem(icon: Icon(Icons.add), label: 'Add'),
-        BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
         BottomNavigationBarItem(
-            icon: Icon(Icons.smart_toy), label: 'AI Mentor'),
+          icon: ImageIcon(AssetImage('assets/images/home.png')),
+          label: 'Home',
+        ),
+        BottomNavigationBarItem(
+          icon: ImageIcon(AssetImage('assets/images/search.png')),
+          label: 'Search',
+        ),
+        BottomNavigationBarItem(
+          icon: ImageIcon(AssetImage('assets/images/add.png')),
+          label: 'Add',
+        ),
+        BottomNavigationBarItem(
+          icon: ImageIcon(AssetImage('assets/images/profile.png')),
+          label: 'Profile',
+        ),
+        BottomNavigationBarItem(
+          icon: ImageIcon(AssetImage('assets/images/ai_mentor.png')),
+          label: 'AI Mentor',
+        ),
       ],
-      selectedItemColor: Colors.purple,
-      unselectedItemColor: Colors.grey,
-      backgroundColor: Colors.white,
+      selectedItemColor: const Color(0xFFAFCBEA), // Голубой
+      unselectedItemColor: const Color(0xFF333333), // Серый
+      backgroundColor: const Color(0xFFF9F6F2), // Светло-бежевый
       elevation: 5,
     );
   }

@@ -20,6 +20,7 @@ class _HomeScreenState extends State<HomeScreen>
   final ApiService _apiService = ApiService();
   late TabController _tabController;
   late Future<Map<String, List<Post>>> _postsFuture;
+  final Set<String> _likedPosts = {}; // Отслеживание лайкнутых постов
 
   @override
   void initState() {
@@ -100,14 +101,27 @@ class _HomeScreenState extends State<HomeScreen>
       developer.log('Liking post: postId=$postId', name: 'HomeScreen');
       await _apiService.likePost(postId, authProvider.token!);
       setState(() {
-        _postsFuture.then((groupedPosts) {
-          if (groupedPosts.containsKey(userId)) {
-            final posts = groupedPosts[userId]!;
-            if (index >= 0 && index < posts.length) {
-              posts[index].likes = currentLikes + 1;
+        if (_likedPosts.contains(postId)) {
+          _likedPosts.remove(postId);
+          _postsFuture.then((groupedPosts) {
+            if (groupedPosts.containsKey(userId)) {
+              final posts = groupedPosts[userId]!;
+              if (index >= 0 && index < posts.length) {
+                posts[index].likes = currentLikes - 1;
+              }
             }
-          }
-        });
+          });
+        } else {
+          _likedPosts.add(postId);
+          _postsFuture.then((groupedPosts) {
+            if (groupedPosts.containsKey(userId)) {
+              final posts = groupedPosts[userId]!;
+              if (index >= 0 && index < posts.length) {
+                posts[index].likes = currentLikes + 1;
+              }
+            }
+          });
+        }
       });
     } catch (e, stackTrace) {
       developer.log('Like post error: $e',
@@ -144,9 +158,11 @@ class _HomeScreenState extends State<HomeScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: const Color(0xFFF9F6F2), // Светло-бежевый фон
       appBar: AppBar(
         elevation: 0,
-        backgroundColor: Colors.white,
+        backgroundColor: const Color(0xFFF9F6F2), // Светло-бежевый
+        automaticallyImplyLeading: false, // Убираем кнопку назад
         title: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
@@ -157,7 +173,8 @@ class _HomeScreenState extends State<HomeScreen>
                     const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
                   color: _selectedTabIndex == 0
-                      ? Colors.purple.withValues(alpha: 0.1)
+                      ? const Color.fromRGBO(
+                          175, 203, 234, 0.1) // Голубой с прозрачностью
                       : Colors.transparent,
                   borderRadius: BorderRadius.circular(8),
                 ),
@@ -166,7 +183,9 @@ class _HomeScreenState extends State<HomeScreen>
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
-                    color: _selectedTabIndex == 0 ? Colors.purple : Colors.grey,
+                    color: _selectedTabIndex == 0
+                        ? const Color(0xFFAFCBEA) // Голубой
+                        : const Color(0xFF1A1A1A), // Тёмно-серый
                   ),
                 ),
               ),
@@ -179,7 +198,7 @@ class _HomeScreenState extends State<HomeScreen>
                     const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
                   color: _selectedTabIndex == 1
-                      ? Colors.purple.withValues(alpha: 0.1)
+                      ? const Color.fromRGBO(175, 203, 234, 0.1)
                       : Colors.transparent,
                   borderRadius: BorderRadius.circular(8),
                 ),
@@ -188,7 +207,9 @@ class _HomeScreenState extends State<HomeScreen>
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
-                    color: _selectedTabIndex == 1 ? Colors.purple : Colors.grey,
+                    color: _selectedTabIndex == 1
+                        ? const Color(0xFFAFCBEA)
+                        : const Color(0xFF1A1A1A),
                   ),
                 ),
               ),
@@ -249,7 +270,7 @@ class _HomeScreenState extends State<HomeScreen>
                       style: const TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
-                        color: Colors.purple,
+                        color: Color(0xFF000000), // Чёрный
                       ),
                     ),
                   ),
@@ -259,34 +280,119 @@ class _HomeScreenState extends State<HomeScreen>
                     itemCount: posts.length,
                     itemBuilder: (context, index) {
                       final post = posts[index];
+                      final isLiked = _likedPosts.contains(post.id);
                       return Card(
-                        color: Colors.purple.withValues(alpha: 0.1),
+                        color: const Color(
+                            0xFFDDDDDD), // Светло-серый фон для карточки
+                        elevation: 2, // Лёгкая тень
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
                         margin: const EdgeInsets.symmetric(vertical: 8),
-                        child: ListTile(
-                          leading: CircleAvatar(
-                            backgroundImage: post.user.avatarUrl.isNotEmpty
-                                ? NetworkImage(post.user.avatarUrl)
-                                : null,
-                            backgroundColor: Colors.grey,
-                          ),
-                          title: Text(post.text ?? 'No text'),
-                          subtitle: Text(
-                            'by ${post.user.username} • ${post.createdAt.toLocal().toString().split(' ')[0]}',
-                          ),
-                          trailing: _selectedTabIndex == 0
-                              ? IconButton(
-                                  icon: const Icon(Icons.favorite_border),
-                                  onPressed: () => _likePost(
-                                      post.id, post.likes, userId, index),
-                                )
-                              : ElevatedButton(
-                                  onPressed: () =>
-                                      _joinEvent(post.id, post.text ?? ''),
-                                  child: const Text('Join'),
+                        child: Padding(
+                          padding: const EdgeInsets.all(12),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  CircleAvatar(
+                                    backgroundImage:
+                                        post.user.avatarUrl.isNotEmpty
+                                            ? NetworkImage(post.user.avatarUrl)
+                                            : null,
+                                    backgroundColor:
+                                        const Color(0xFF333333), // Серый
+                                    radius: 20,
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          post.user.username,
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            color: Color(0xFF000000), // Чёрный
+                                          ),
+                                        ),
+                                        Text(
+                                          post.createdAt
+                                              .toLocal()
+                                              .toString()
+                                              .split(' ')[0],
+                                          style: const TextStyle(
+                                            fontSize: 12,
+                                            color: Color(0xFF333333), // Серый
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                post.text ?? 'No text',
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  color: Color(0xFF1A1A1A), // Тёмно-серый
                                 ),
+                              ),
+                              const SizedBox(height: 8),
+                              Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  _selectedTabIndex == 0
+                                      ? Row(
+                                          children: [
+                                            IconButton(
+                                              icon: Icon(
+                                                isLiked
+                                                    ? Icons.favorite
+                                                    : Icons.favorite_border,
+                                                color: isLiked
+                                                    ? Colors.red
+                                                    : const Color(
+                                                        0xFF333333), // Серый
+                                              ),
+                                              onPressed: () => _likePost(
+                                                  post.id,
+                                                  post.likes,
+                                                  userId,
+                                                  index),
+                                            ),
+                                            Text(
+                                              '${post.likes}',
+                                              style: const TextStyle(
+                                                color: Color(
+                                                    0xFF1A1A1A), // Тёмно-серый
+                                              ),
+                                            ),
+                                          ],
+                                        )
+                                      : ElevatedButton(
+                                          onPressed: () => _joinEvent(
+                                              post.id, post.text ?? ''),
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor: const Color(
+                                                0xFFAFCBEA), // Голубой
+                                            foregroundColor: const Color(
+                                                0xFF000000), // Чёрный текст
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(8),
+                                            ),
+                                          ),
+                                          child: const Text('Join'),
+                                        ),
+                                ],
+                              ),
+                            ],
+                          ),
                         ),
                       );
                     },

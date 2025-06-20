@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:developer' as developer;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -17,6 +18,7 @@ class _SearchScreenState extends State<SearchScreen> {
   String _selectedFilter = 'Goals';
   List<dynamic> _searchResults = [];
   bool _isLoading = false;
+  Timer? _debounce;
 
   @override
   void initState() {
@@ -28,17 +30,21 @@ class _SearchScreenState extends State<SearchScreen> {
   void dispose() {
     _searchController.removeListener(_onSearchChanged);
     _searchController.dispose();
+    _debounce?.cancel();
     super.dispose();
   }
 
   void _onSearchChanged() {
-    if (_searchController.text.isNotEmpty) {
-      _performSearch();
-    } else {
-      setState(() {
-        _searchResults = [];
-      });
-    }
+    if (_debounce?.isActive ?? false) _debounce!.cancel();
+    _debounce = Timer(const Duration(milliseconds: 500), () {
+      if (_searchController.text.isNotEmpty) {
+        _performSearch();
+      } else {
+        setState(() {
+          _searchResults = [];
+        });
+      }
+    });
   }
 
   Future<void> _performSearch() async {
@@ -55,6 +61,9 @@ class _SearchScreenState extends State<SearchScreen> {
             const SnackBar(content: Text('Authorization required')),
           );
         }
+        setState(() {
+          _isLoading = false;
+        });
         return;
       }
       final token = authProvider.token!;
@@ -86,136 +95,126 @@ class _SearchScreenState extends State<SearchScreen> {
     }
   }
 
+  void _showFilterDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Select Filter'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              title: const Text('Goals'),
+              onTap: () {
+                setState(() {
+                  _selectedFilter = 'Goals';
+                });
+                if (_searchController.text.isNotEmpty) _performSearch();
+                Navigator.pop(context);
+              },
+            ),
+            ListTile(
+              title: const Text('Events'),
+              onTap: () {
+                setState(() {
+                  _selectedFilter = 'Events';
+                });
+                if (_searchController.text.isNotEmpty) _performSearch();
+                Navigator.pop(context);
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
     return Scaffold(
-      body: Stack(
-        children: [
-          ClipPath(
-            clipper: CustomShapeClipper(),
-            child: Container(
-              width: double.infinity,
-              height: double.infinity,
-              color: const Color(0xFFE9ECF4),
-            ),
-          ),
-          SafeArea(
-            child: Column(
-              children: [
-                // System Top (44dp)
-                Container(
-                  width: size.width,
-                  height: 44,
-                  color: Colors.transparent,
-                ),
-                // Light Tab and Icons
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
-                        child: Container(
-                          width: 263,
-                          height: 34,
-                          color: Colors.white,
-                          child: const Center(
-                              child: Text('Search Tab',
-                                  style: TextStyle(color: Colors.black))),
+      backgroundColor: const Color(0xFFF9F6F2), // Светло-бежевый фон
+      body: SafeArea(
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _searchController,
+                      decoration: InputDecoration(
+                        hintText: 'Search $_selectedFilter...',
+                        hintStyle:
+                            const TextStyle(color: Color(0xFF333333)), // Серый
+                        filled: true,
+                        fillColor: const Color(0xFFDDDDDD), // Светло-серый
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide: BorderSide.none,
                         ),
+                        prefixIcon:
+                            const Icon(Icons.search, color: Color(0xFF333333)),
+                        suffixIcon: _searchController.text.isNotEmpty
+                            ? IconButton(
+                                icon: const Icon(Icons.clear,
+                                    color: Color(0xFF333333)),
+                                onPressed: () {
+                                  _searchController.clear();
+                                  setState(() {
+                                    _searchResults = [];
+                                  });
+                                },
+                              )
+                            : null,
                       ),
-                      Row(
-                        children: [
-                          Container(
-                              width: 24,
-                              height: 24,
-                              color:
-                                  Colors.grey), // Placeholder for linear_esse
-                          const SizedBox(width: 40),
-                          Container(
-                              width: 24,
-                              height: 24,
-                              color:
-                                  Colors.grey), // Placeholder for linear_mess
-                        ],
-                      ),
-                    ],
+                      style: const TextStyle(
+                          color: Color(0xFF1A1A1A)), // Тёмно-серый
+                    ),
                   ),
-                ),
-                const SizedBox(height: 8),
-                // Frame 3 (317dp x 20dp)
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                  child: Container(
-                    width: 317,
-                    height: 20,
-                    color: Colors.white.withOpacity(0.5),
+                  const SizedBox(width: 8),
+                  IconButton(
+                    icon:
+                        const Icon(Icons.filter_list, color: Color(0xFF333333)),
+                    onPressed: _showFilterDialog,
                   ),
-                ),
-                const SizedBox(height: 16),
-                // Vector 12 and 13
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                  child: Row(
-                    children: [
-                      Container(
-                          width: 343,
-                          height: 1,
-                          color: const Color(0x1A1C0E31)),
-                      const SizedBox(width: 16),
-                      Container(
-                          width: 38, height: 1, color: const Color(0x1C0E31)),
-                    ],
+                  IconButton(
+                    icon: Image.asset('assets/images/messages_icon.png',
+                        height: 24),
+                    onPressed: () {}, // Заглушка для сообщений
                   ),
-                ),
-                const SizedBox(height: 24),
-                // Search Results
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                    child: _isLoading
-                        ? const Center(child: CircularProgressIndicator())
+                ],
+              ),
+            ),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                child: _isLoading
+                    ? const Center(child: CircularProgressIndicator())
+                    : _searchResults.isEmpty
+                        ? const Center(child: Text('No results found'))
                         : ListView.builder(
                             itemCount: _searchResults.length,
                             itemBuilder: (context, index) {
                               final item = _searchResults[index];
                               return _buildCard(
-                                imageUrl: item['imageUrl'] ??
-                                    'https://via.placeholder.com/150',
-                                title: item['title'] ?? 'No title',
-                                username: item['username'] ?? 'Unknown',
+                                imageUrl: item['user']?['avatarUrl'] ?? '',
+                                title: item['text'] ?? 'No text',
+                                username:
+                                    item['user']?['username'] ?? 'Unknown',
                                 likes: item['likes'] ?? 0,
-                                comments: item['comments'] ?? 0,
+                                createdAt: item['createdAt'] != null
+                                    ? DateTime.parse(item['createdAt'])
+                                        .toLocal()
+                                    : DateTime.now(),
                               );
                             },
                           ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          // Navigation Bar
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
-            child: ClipPath(
-              clipper: NavBarClipper(),
-              child: Container(
-                height: 100,
-                decoration: const BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [Color(0x00E9ECF4), Color(0xFFE9ECF4)],
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                  ),
-                ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
       bottomNavigationBar: Navbar(
         selectedIndex: 1,
@@ -232,73 +231,74 @@ class _SearchScreenState extends State<SearchScreen> {
     required String title,
     required String username,
     required int likes,
-    required int comments,
+    required DateTime createdAt,
   }) {
     return Card(
+      color: const Color(0xFFDDDDDD), // Светло-серый фон
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       margin: const EdgeInsets.only(bottom: 16.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Image.network(imageUrl,
-              fit: BoxFit.cover, height: 200, width: double.infinity),
-          Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: Text(
-              title,
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8.0),
-            child: Text(
-              username,
-              style: const TextStyle(fontStyle: FontStyle.italic),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      child: Padding(
+        padding: const EdgeInsets.all(12.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
               children: [
-                Text('$likes likes'),
-                Text('$comments comments'),
+                CircleAvatar(
+                  backgroundImage:
+                      imageUrl.isNotEmpty ? NetworkImage(imageUrl) : null,
+                  backgroundColor: const Color(0xFF333333), // Серый
+                  radius: 20,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        username,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF000000), // Чёрный
+                        ),
+                      ),
+                      Text(
+                        createdAt.toString().split(' ')[0],
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Color(0xFF333333), // Серый
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ],
             ),
-          ),
-        ],
+            const SizedBox(height: 8),
+            Text(
+              title,
+              style: const TextStyle(
+                fontSize: 16,
+                color: Color(0xFF1A1A1A), // Тёмно-серый
+              ),
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                const Icon(Icons.favorite_border,
+                    color: Color(0xFF333333), size: 20),
+                const SizedBox(width: 4),
+                Text(
+                  '$likes',
+                  style:
+                      const TextStyle(color: Color(0xFF1A1A1A)), // Тёмно-серый
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
-}
-
-class CustomShapeClipper extends CustomClipper<Path> {
-  @override
-  Path getClip(Size size) {
-    final path = Path();
-    path.moveTo(0, 0);
-    path.lineTo(size.width, 0);
-    path.lineTo(size.width, size.height - 100); // Leave space for nav bar
-    path.lineTo(0, size.height - 100);
-    path.close();
-    return path;
-  }
-
-  @override
-  bool shouldReclip(covariant CustomClipper<Path> oldClipper) => false;
-}
-
-class NavBarClipper extends CustomClipper<Path> {
-  @override
-  Path getClip(Size size) {
-    final path = Path();
-    path.moveTo(0, 0);
-    path.lineTo(size.width, 0);
-    path.lineTo(size.width, size.height);
-    path.lineTo(0, size.height);
-    path.close();
-    return path;
-  }
-
-  @override
-  bool shouldReclip(covariant CustomClipper<Path> oldClipper) => false;
 }

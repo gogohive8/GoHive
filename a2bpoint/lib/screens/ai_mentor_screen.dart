@@ -46,7 +46,7 @@ class _AIMentorScreenState extends State<AIMentorScreen>
           });
           _messages.add({
             'text':
-                'На данный момент данная функция находится в этапе разработки, в скором времени всё будет готово, сейчас если вы желаете можете оформить предзаказ всех функций ИИ ассистента, для этого напишите по номеру +7-XXX-XXX-XX-XX и получите 75% скидки на все услуги ИИ ассистента на год после релиза',
+                'Эта функция сейчас находится в стадии разработки, и совсем скоро будет доступна для использования.\n\nУже сейчас вы можете оформить предзаказ полного доступа ко всем функциям ИИ-ассистента и получить скидку 75% на годовой пакет после релиза.\n\nДля оформления предзаказа свяжитесь с нами по номеру:\n📞 +90 (535) 082 02 16',
             'isUser': false,
             'time': TimeOfDay.now().format(context),
           });
@@ -66,23 +66,38 @@ class _AIMentorScreenState extends State<AIMentorScreen>
     final padding = size.width * 0.05;
 
     return Scaffold(
+      backgroundColor: const Color(0xFFF9F6F2), // Светло-бежевый фон
       appBar: AppBar(
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.purple),
+          icon:
+              const Icon(Icons.arrow_back, color: Color(0xFFAFCBEA)), // Голубой
           onPressed: () => Navigator.pop(context),
         ),
         elevation: 0,
-        backgroundColor: Colors.white,
-        title: const Text('AI Mentor'),
+        backgroundColor: const Color(0xFFF9F6F2),
+        title: const Text(
+          'AI Mentor',
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+            color: Color(0xFF1A1A1A), // Тёмно-серый
+          ),
+        ),
+        actions: [
+          IconButton(
+            icon: Image.asset('assets/images/ai_mentor.png', height: 24),
+            onPressed: () {}, // Заглушка для действия
+          ),
+        ],
         bottom: TabBar(
           controller: _tabController,
           tabs: const [
             Tab(text: 'Goals'),
             Tab(text: 'Events'),
           ],
-          indicatorColor: Colors.purple,
-          labelColor: Colors.purple,
-          unselectedLabelColor: Colors.grey,
+          indicatorColor: const Color(0xFFAFCBEA), // Голубой
+          labelColor: const Color(0xFFAFCBEA),
+          unselectedLabelColor: const Color(0xFF333333), // Серый
         ),
       ),
       bottomNavigationBar: Navbar(
@@ -115,8 +130,9 @@ class _AIMentorScreenState extends State<AIMentorScreen>
                             padding: const EdgeInsets.all(12),
                             decoration: BoxDecoration(
                               color: message['isUser']
-                                  ? Colors.purple.withOpacity(0.1)
-                                  : Colors.grey[200],
+                                  ? const Color(0xFFAFCBEA).withOpacity(
+                                      0.1) // Голубой с прозрачностью
+                                  : const Color(0xFFDDDDDD), // Светло-серый
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: Column(
@@ -126,15 +142,15 @@ class _AIMentorScreenState extends State<AIMentorScreen>
                                   message['text'],
                                   style: TextStyle(
                                     color: message['isUser']
-                                        ? Colors.purple
-                                        : Colors.black,
+                                        ? const Color(0xFF1A1A1A) // Тёмно-серый
+                                        : const Color(0xFF1A1A1A),
                                   ),
                                 ),
                                 Text(
                                   message['time'],
-                                  style: TextStyle(
+                                  style: const TextStyle(
                                     fontSize: 12,
-                                    color: Colors.grey,
+                                    color: Color(0xFF333333), // Серый
                                   ),
                                 ),
                               ],
@@ -158,8 +174,17 @@ class _AIMentorScreenState extends State<AIMentorScreen>
                       controller: _messageController,
                       decoration: InputDecoration(
                         hintText: 'Message...',
+                        hintStyle:
+                            const TextStyle(color: Color(0xFF333333)), // Серый
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(20),
+                          borderSide: const BorderSide(
+                              color: Color(0xFFAFCBEA)), // Голубой
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(20),
+                          borderSide:
+                              const BorderSide(color: Color(0xFFAFCBEA)),
                         ),
                         contentPadding: const EdgeInsets.symmetric(
                             horizontal: 16, vertical: 8),
@@ -167,7 +192,8 @@ class _AIMentorScreenState extends State<AIMentorScreen>
                     ),
                   ),
                   IconButton(
-                    icon: const Icon(Icons.send, color: Colors.purple),
+                    icon: const Icon(Icons.send,
+                        color: Color(0xFFAFCBEA)), // Голубой
                     onPressed: _sendMessage,
                   ),
                 ],

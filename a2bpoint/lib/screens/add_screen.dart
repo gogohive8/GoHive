@@ -1,16 +1,10 @@
-import 'dart:convert'; // Для jsonEncode
 import 'dart:developer' as developer;
-import 'dart:io' show File;
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
-import 'package:http/http.dart' as http; // Для http-запросов
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
-import '../services/api_services.dart'; // Для вызова createGoal и createEvent
+import '../services/api_services.dart';
 import 'navbar.dart';
 
-// Предполагаем, что это StatefulWidget для экрана добавления
 class AddScreen extends StatefulWidget {
   const AddScreen({super.key});
 
@@ -26,25 +20,24 @@ class _AddScreenState extends State<AddScreen> {
   final _pointAController = TextEditingController();
   final _pointBController = TextEditingController();
   final _dateTimeController = TextEditingController();
-  final ImagePicker _picker = ImagePicker();
-  List<XFile> _images = [];
+  final _taskController = TextEditingController();
+  // // Комментарий: Закомментировано для удаления функционала фотографий
+  // final ImagePicker _picker = ImagePicker();
+  // List<XFile> _images = [];
+
   int _selectedTabIndex = 0;
   String? _selectedInterest;
   List<String> _tasks = [];
-  final _taskController = TextEditingController();
-
   bool _isLoading = false;
   String _errorMessage = '';
 
   @override
   void initState() {
     super.initState();
-    // Инициализация, если была
     _loadInitialData();
   }
 
   Future<void> _loadInitialData() async {
-    // Пример загрузки начальных данных, если был такой функционал
     setState(() {
       _isLoading = true;
     });
@@ -73,32 +66,34 @@ class _AddScreenState extends State<AddScreen> {
     super.dispose();
   }
 
-  Future<void> _pickImage() async {
-    if (_images.length >= 3) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('Maximum 3 photos')));
-      return;
-    }
-    try {
-      final pickedFile = await _picker.pickImage(source: ImageSource.gallery);
-      if (pickedFile != null) {
-        developer.log('Picked image: ${pickedFile.path}', name: 'AddScreen');
-        setState(() => _images.add(pickedFile));
-      } else {
-        developer.log('No image picked', name: 'AddScreen');
-      }
-    } catch (e) {
-      developer.log('Error picking image: $e', name: 'AddScreen');
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('Failed to pick image: $e')));
-    }
-  }
+  // // Комментарий: Закомментировано для удаления функционала фотографий
+  // Future<void> _pickImage() async {
+  //   if (_images.length >= 3) {
+  //     ScaffoldMessenger.of(context)
+  //         .showSnackBar(const SnackBar(content: Text('Maximum 3 photos')));
+  //     return;
+  //   }
+  //   try {
+  //     final pickedFile = await _picker.pickImage(source: ImageSource.gallery);
+  //     if (pickedFile != null) {
+  //       developer.log('Picked image: ${pickedFile.path}', name: 'AddScreen');
+  //       setState(() => _images.add(pickedFile));
+  //     } else {
+  //       developer.log('No image picked', name: 'AddScreen');
+  //     }
+  //   } catch (e) {
+  //     developer.log('Error picking image: $e', name: 'AddScreen');
+  //     ScaffoldMessenger.of(context)
+  //         .showSnackBar(SnackBar(content: Text('Failed to pick image: $e')));
+  //   }
+  // }
 
-  void _removeImage(int index) {
-    setState(() {
-      _images.removeAt(index);
-    });
-  }
+  // // Комментарий: Закомментировано для удаления функционала фотографий
+  // void _removeImage(int index) {
+  //   setState(() {
+  //     _images.removeAt(index);
+  //   });
+  // }
 
   Future<void> _saveData() async {
     if (_selectedTabIndex == 0 && _selectedInterest == null) {
@@ -136,14 +131,16 @@ class _AddScreenState extends State<AddScreen> {
               const Center(child: CircularProgressIndicator()),
         );
 
-        // Upload images and get URLs
-        final imageUrls = _images.isNotEmpty
-            ? await _apiService.uploadImages(
-                authProvider.userId!,
-                _images.map((file) => file.path).toList(),
-                authProvider.token!,
-              )
-            : <String>[];
+        // // Комментарий: Закомментировано для удаления функционала фотографий
+        // // Upload images and get URLs
+        // final imageUrls = _images.isNotEmpty
+        //     ? await _apiService.uploadImages(
+        //         authProvider.userId!,
+        //         _images.map((file) => file.path).toList(),
+        //         authProvider.token!,
+        //       )
+        //     : <String>[];
+        final imageUrls = <String>[]; // Пустой список для imageUrls
 
         final String userId = authProvider.userId!;
         final String token = authProvider.token!;
@@ -188,7 +185,7 @@ class _AddScreenState extends State<AddScreen> {
           _dateTimeController.clear();
           setState(() {
             _selectedInterest = null;
-            _images.clear();
+            // _images.clear(); // Закомментировано
             _tasks.clear();
             _errorMessage = '';
           });
@@ -254,14 +251,15 @@ class _AddScreenState extends State<AddScreen> {
     final padding = size.width * 0.05;
 
     return Scaffold(
+      backgroundColor: const Color(0xFFF9F6F2), // Светло-бежевый фон
       appBar: AppBar(
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.purple),
-          onPressed: () => Navigator.pop(context),
-        ),
         elevation: 0,
-        backgroundColor: Colors.white,
-        toolbarHeight: 0,
+        backgroundColor: const Color(0xFFF9F6F2),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Color(0xFF333333)), // Серый
+          onPressed: () => Navigator.pushReplacementNamed(
+              context, '/profile'), // Ведёт на ProfileScreen
+        ),
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
@@ -269,7 +267,7 @@ class _AddScreenState extends State<AddScreen> {
               children: [
                 Container(
                   padding: const EdgeInsets.symmetric(vertical: 8),
-                  color: Colors.white,
+                  color: const Color(0xFFF9F6F2), // Светло-бежевый
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
@@ -280,7 +278,8 @@ class _AddScreenState extends State<AddScreen> {
                               horizontal: 16, vertical: 8),
                           decoration: BoxDecoration(
                             color: _selectedTabIndex == 0
-                                ? Colors.purple.withValues(alpha: 0.1)
+                                ? const Color.fromRGBO(175, 203, 234,
+                                    0.1) // Голубой с прозрачностью
                                 : Colors.transparent,
                             borderRadius: BorderRadius.circular(8),
                           ),
@@ -290,8 +289,8 @@ class _AddScreenState extends State<AddScreen> {
                               fontSize: 16,
                               fontWeight: FontWeight.bold,
                               color: _selectedTabIndex == 0
-                                  ? Colors.purple
-                                  : Colors.grey,
+                                  ? const Color(0xFFAFCBEA) // Голубой
+                                  : const Color(0xFF333333), // Серый
                             ),
                           ),
                         ),
@@ -304,7 +303,7 @@ class _AddScreenState extends State<AddScreen> {
                               horizontal: 16, vertical: 8),
                           decoration: BoxDecoration(
                             color: _selectedTabIndex == 1
-                                ? Colors.purple.withValues(alpha: 0.1)
+                                ? const Color.fromRGBO(175, 203, 234, 0.1)
                                 : Colors.transparent,
                             borderRadius: BorderRadius.circular(8),
                           ),
@@ -314,8 +313,8 @@ class _AddScreenState extends State<AddScreen> {
                               fontSize: 16,
                               fontWeight: FontWeight.bold,
                               color: _selectedTabIndex == 1
-                                  ? Colors.purple
-                                  : Colors.grey,
+                                  ? const Color(0xFFAFCBEA)
+                                  : const Color(0xFF333333),
                             ),
                           ),
                         ),
@@ -331,97 +330,24 @@ class _AddScreenState extends State<AddScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Row(
-                            children: [
-                              GestureDetector(
-                                onTap: _pickImage,
-                                child: Container(
-                                  width: 50,
-                                  height: 174,
-                                  decoration: BoxDecoration(
-                                    color: Colors.grey[200],
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  child: const Icon(Icons.add_a_photo,
-                                      size: 40, color: Colors.grey),
-                                ),
-                              ),
-                              Expanded(
-                                child: SizedBox(
-                                  height: 174,
-                                  child: _images.isEmpty
-                                      ? const SizedBox.shrink()
-                                      : ListView.builder(
-                                          scrollDirection: Axis.horizontal,
-                                          itemCount: _images.length,
-                                          itemBuilder: (context, index) {
-                                            final image = _images[index];
-                                            return Stack(
-                                              children: [
-                                                Padding(
-                                                  padding:
-                                                      const EdgeInsets.only(
-                                                          left: 8.0),
-                                                  child: kIsWeb
-                                                      ? FutureBuilder<
-                                                          Uint8List>(
-                                                          future: image
-                                                              .readAsBytes(),
-                                                          builder: (context,
-                                                              snapshot) {
-                                                            if (snapshot
-                                                                .hasData) {
-                                                              return Image
-                                                                  .memory(
-                                                                snapshot.data!,
-                                                                width: 50,
-                                                                height: 174,
-                                                                fit: BoxFit
-                                                                    .cover,
-                                                              );
-                                                            }
-                                                            return const CircularProgressIndicator();
-                                                          },
-                                                        )
-                                                      : Image.file(
-                                                          File(image.path),
-                                                          width: 50,
-                                                          height: 174,
-                                                          fit: BoxFit.cover,
-                                                        ),
-                                                ),
-                                                Positioned(
-                                                  top: 0,
-                                                  right: 0,
-                                                  child: IconButton(
-                                                    icon: const Icon(
-                                                        Icons.close,
-                                                        color: Colors.red),
-                                                    onPressed: () =>
-                                                        _removeImage(index),
-                                                  ),
-                                                ),
-                                              ],
-                                            );
-                                          },
-                                        ),
-                                ),
-                              ),
-                            ],
-                          ),
-                          SizedBox(height: size.height * 0.02),
                           TextFormField(
                             controller: _descriptionController,
                             decoration: InputDecoration(
                               labelText: 'Description',
+                              labelStyle: const TextStyle(
+                                  color: Color(0xFF1A1A1A)), // Тёмно-серый
+                              filled: true,
+                              fillColor: const Color.fromRGBO(
+                                  221, 221, 221, 0.2), // Светло-серый
                               border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(10)),
-                              focusedBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(10),
-                                borderSide:
-                                    const BorderSide(color: Colors.purple),
+                                borderSide: BorderSide.none,
                               ),
+                              prefixIcon: const Icon(Icons.description,
+                                  color: Color(0xFF333333)), // Серый
                             ),
+                            style: const TextStyle(
+                                color: Color(0xFF1A1A1A)), // Тёмно-серый
                             validator: (value) => value?.isEmpty ?? true
                                 ? 'Enter description'
                                 : null,
@@ -431,47 +357,68 @@ class _AddScreenState extends State<AddScreen> {
                             controller: _locationController,
                             decoration: InputDecoration(
                               labelText: 'Location',
+                              labelStyle:
+                                  const TextStyle(color: Color(0xFF1A1A1A)),
+                              filled: true,
+                              fillColor:
+                                  const Color.fromRGBO(221, 221, 221, 0.2),
                               border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(10)),
-                              focusedBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(10),
-                                borderSide:
-                                    const BorderSide(color: Colors.purple),
+                                borderSide: BorderSide.none,
                               ),
+                              prefixIcon: const Icon(Icons.location_on,
+                                  color: Color(0xFF333333)),
                             ),
+                            style: const TextStyle(color: Color(0xFF1A1A1A)),
                             validator: (value) => value?.isEmpty ?? true
                                 ? 'Enter location'
                                 : null,
                           ),
                           SizedBox(height: size.height * 0.02),
                           if (_selectedTabIndex == 0)
-                            Wrap(
-                              spacing: 8,
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                'Health',
-                                'Yoga',
-                                'Sport',
-                                'Music',
-                                'Science',
-                                'Book',
-                                'Swimming',
-                              ].map((interest) {
-                                return ElevatedButton(
-                                  onPressed: () => setState(
-                                      () => _selectedInterest = interest),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor:
-                                        _selectedInterest == interest
-                                            ? Colors.purple
-                                            : Colors.grey[200],
-                                    foregroundColor:
-                                        _selectedInterest == interest
-                                            ? Colors.white
-                                            : Colors.black,
+                                const Text(
+                                  'Interests',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    color: Color(0xFF000000), // Чёрный
                                   ),
-                                  child: Text(interest),
-                                );
-                              }).toList(),
+                                ),
+                                const SizedBox(height: 8),
+                                Wrap(
+                                  spacing: 8,
+                                  runSpacing: 8,
+                                  children: [
+                                    'Health',
+                                    'Yoga',
+                                    'Sport',
+                                    'Music',
+                                    'Science',
+                                    'Book',
+                                    'Swimming',
+                                  ].map((interest) {
+                                    return ChoiceChip(
+                                      label: Text(interest),
+                                      selected: _selectedInterest == interest,
+                                      onSelected: (selected) => setState(() =>
+                                          _selectedInterest =
+                                              selected ? interest : null),
+                                      selectedColor:
+                                          const Color(0xFFAFCBEA), // Голубой
+                                      labelStyle: TextStyle(
+                                        color: _selectedInterest == interest
+                                            ? const Color(0xFF000000) // Чёрный
+                                            : const Color(
+                                                0xFF1A1A1A), // Тёмно-серый
+                                      ),
+                                      backgroundColor: const Color.fromRGBO(
+                                          221, 221, 221, 0.2), // Светло-серый
+                                    );
+                                  }).toList(),
+                                ),
+                              ],
                             ),
                           SizedBox(height: size.height * 0.02),
                           if (_selectedTabIndex == 1)
@@ -479,102 +426,145 @@ class _AddScreenState extends State<AddScreen> {
                               controller: _dateTimeController,
                               decoration: InputDecoration(
                                 labelText: 'Date and Time',
+                                labelStyle:
+                                    const TextStyle(color: Color(0xFF1A1A1A)),
+                                filled: true,
+                                fillColor:
+                                    const Color.fromRGBO(221, 221, 221, 0.2),
                                 border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(10)),
-                                focusedBorder: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(10),
-                                  borderSide:
-                                      const BorderSide(color: Colors.purple),
+                                  borderSide: BorderSide.none,
                                 ),
+                                prefixIcon: const Icon(Icons.calendar_today,
+                                    color: Color(0xFF333333)),
                                 suffixIcon: IconButton(
-                                  icon: const Icon(Icons.calendar_today),
+                                  icon: const Icon(Icons.event,
+                                      color: Color(0xFF333333)),
                                   onPressed: _selectDateTime,
                                 ),
                               ),
                               readOnly: true,
+                              style: const TextStyle(color: Color(0xFF1A1A1A)),
                             ),
                           SizedBox(height: size.height * 0.02),
-                          TextFormField(
-                            controller: _pointAController,
-                            decoration: InputDecoration(
-                              labelText: 'Point A',
-                              border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(10)),
-                              focusedBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(10),
-                                borderSide:
-                                    const BorderSide(color: Colors.purple),
+                          if (_selectedTabIndex == 0) ...[
+                            TextFormField(
+                              controller: _pointAController,
+                              decoration: InputDecoration(
+                                labelText: 'Point A',
+                                labelStyle:
+                                    const TextStyle(color: Color(0xFF1A1A1A)),
+                                filled: true,
+                                fillColor:
+                                    const Color.fromRGBO(221, 221, 221, 0.2),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                  borderSide: BorderSide.none,
+                                ),
+                                prefixIcon: const Icon(Icons.place,
+                                    color: Color(0xFF333333)),
+                              ),
+                              style: const TextStyle(color: Color(0xFF1A1A1A)),
+                            ),
+                            SizedBox(height: size.height * 0.02),
+                            TextFormField(
+                              controller: _pointBController,
+                              decoration: InputDecoration(
+                                labelText: 'Point B',
+                                labelStyle:
+                                    const TextStyle(color: Color(0xFF1A1A1A)),
+                                filled: true,
+                                fillColor:
+                                    const Color.fromRGBO(221, 221, 221, 0.2),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                  borderSide: BorderSide.none,
+                                ),
+                                prefixIcon: const Icon(Icons.place,
+                                    color: Color(0xFF333333)),
+                              ),
+                              style: const TextStyle(color: Color(0xFF1A1A1A)),
+                            ),
+                            SizedBox(height: size.height * 0.02),
+                            const Text(
+                              'Tasks',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF000000), // Чёрный
                               ),
                             ),
-                          ),
-                          SizedBox(height: size.height * 0.02),
-                          TextFormField(
-                            controller: _pointBController,
-                            decoration: InputDecoration(
-                              labelText: 'Point B',
-                              border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(10)),
-                              focusedBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(10),
-                                borderSide:
-                                    const BorderSide(color: Colors.purple),
-                              ),
+                            ListView.builder(
+                              shrinkWrap: true,
+                              physics: const NeverScrollableScrollPhysics(),
+                              itemCount: _tasks.length,
+                              itemBuilder: (context, index) {
+                                return Row(
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        _tasks[index],
+                                        style: const TextStyle(
+                                            color: Color(
+                                                0xFF1A1A1A)), // Тёмно-серый
+                                      ),
+                                    ),
+                                    IconButton(
+                                      icon: const Icon(Icons.close,
+                                          color: Color(0xFF333333)), // Серый
+                                      onPressed: () => _removeTask(index),
+                                    ),
+                                  ],
+                                );
+                              },
                             ),
-                          ),
-                          SizedBox(height: size.height * 0.02),
-                          const Text('Tasks'),
-                          ListView.builder(
-                            shrinkWrap: true,
-                            physics: const NeverScrollableScrollPhysics(),
-                            itemCount: _tasks.length,
-                            itemBuilder: (context, index) {
-                              return Row(
-                                children: [
-                                  Expanded(child: Text(_tasks[index])),
-                                  IconButton(
-                                    icon: const Icon(Icons.close,
-                                        color: Colors.red),
-                                    onPressed: () => _removeTask(index),
-                                  ),
-                                ],
-                              );
-                            },
-                          ),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: TextFormField(
-                                  controller: _taskController,
-                                  decoration: InputDecoration(
-                                    hintText: 'Add a task',
-                                    border: OutlineInputBorder(
-                                        borderRadius:
-                                            BorderRadius.circular(10)),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: TextFormField(
+                                    controller: _taskController,
+                                    decoration: InputDecoration(
+                                      hintText: 'Add a task',
+                                      hintStyle: const TextStyle(
+                                          color: Color(0xFF333333)), // Серый
+                                      filled: true,
+                                      fillColor: const Color.fromRGBO(
+                                          221, 221, 221, 0.2),
+                                      border: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(10),
+                                        borderSide: BorderSide.none,
+                                      ),
+                                      prefixIcon: const Icon(Icons.task,
+                                          color: Color(0xFF333333)),
+                                    ),
+                                    style: const TextStyle(
+                                        color: Color(0xFF1A1A1A)),
                                   ),
                                 ),
-                              ),
-                              IconButton(
-                                icon:
-                                    const Icon(Icons.add, color: Colors.purple),
-                                onPressed: _addTask,
-                              ),
-                            ],
-                          ),
+                                IconButton(
+                                  icon: const Icon(Icons.add,
+                                      color: Color(0xFFAFCBEA)), // Голубой
+                                  onPressed: _addTask,
+                                ),
+                              ],
+                            ),
+                          ],
                           SizedBox(height: size.height * 0.03),
                           SizedBox(
                             width: double.infinity,
                             child: ElevatedButton(
                               onPressed: _saveData,
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.purple,
+                                backgroundColor:
+                                    const Color(0xFFAFCBEA), // Голубой
+                                foregroundColor:
+                                    const Color(0xFF000000), // Чёрный
                                 padding: EdgeInsets.symmetric(
                                     vertical: size.height * 0.02),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(10),
                                 ),
                               ),
-                              child: const Text('Create',
-                                  style: TextStyle(color: Colors.white)),
+                              child: const Text('Create'),
                             ),
                           ),
                           if (_errorMessage.isNotEmpty)
