@@ -127,20 +127,20 @@ app.post('/goals/create', verifyToken, async (req, res) => {
       res.status(400).json( { error: insertStepsError });
     }
 
-    if (image_urls){
-    const { error: insertPhotoError } = await supabase
-    .schema('posts')
-    .from('goalsPhoto')
-    .insert({
-      goalsId: goalInfo.id,
-      photoURL: image_urls || '',
-    });
+  //   if (image_urls){
+  //   const { error: insertPhotoError } = await supabase
+  //   .schema('posts')
+  //   .from('goalsPhoto')
+  //   .insert({
+  //     goalsId: goalInfo.id,
+  //     photoURL: image_urls || '',
+  //   });
 
-    if ( insertPhotoError ) {
-      console.error('Error of insert photo url', insertPhotoError);
-      res.status(400).json({ error: insertPhotoError });
-    }
-  };
+  //   if ( insertPhotoError ) {
+  //     console.error('Error of insert photo url', insertPhotoError);
+  //     res.status(400).json({ error: insertPhotoError });
+  //   }
+  // };
 
     res.status(200);
 
@@ -151,16 +151,16 @@ app.post('/goals/create', verifyToken, async (req, res) => {
 
 app.post('/events/create', verifyToken, async (req, res) => {
   try{
-    const { user_id, description, location, interest, date_time, image_urls } = req.body;
+    const { user_id, description, location, date_time } = req.body;
 
     const { data: eventInfo, error: insertEventError } = await supabase
     .schema('posts')
     .from('events')
     .insert({
       userID: user_id,
-      category: interest,
       description: description,
       location: location,
+      date_time: date_time,
     })
     .select('id')
     .single();
@@ -172,21 +172,21 @@ app.post('/events/create', verifyToken, async (req, res) => {
     };
 
 
-    if (image_urls){
-    const { error: insertPhotoError } = await supabase
-    .schema('posts')
-    .from('eventsPhoto')
-    .insert({
-      eventID: eventInfo.id,
-      photoURL: image_urls || '',
-    });
+  //   if (image_urls){
+  //   const { error: insertPhotoError } = await supabase
+  //   .schema('posts')
+  //   .from('eventsPhoto')
+  //   .insert({
+  //     eventID: eventInfo.id,
+  //     photoURL: image_urls || '',
+  //   });
 
 
-    if ( insertPhotoError ) {
-      console.error('Error of insert photo url', insertPhotoError);
-      res.status(400).json({ error: insertPhotoError });
-    }
-  };
+  //   if ( insertPhotoError ) {
+  //     console.error('Error of insert photo url', insertPhotoError);
+  //     res.status(400).json({ error: insertPhotoError });
+  //   }
+  // };
     res.status(200);
 
   } catch (error) {

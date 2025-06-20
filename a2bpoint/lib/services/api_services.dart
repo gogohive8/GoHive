@@ -462,7 +462,6 @@ class ApiService {
               'description': description,
               'location': location,
               'date_time': dateTime,
-              'image_urls': imageUrls ?? [],
             }),
           )
           .timeout(const Duration(seconds: 30));
