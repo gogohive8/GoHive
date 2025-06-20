@@ -24,8 +24,29 @@ class Post {
   });
 
   factory Post.fromJson(Map<String, dynamic> json, {String? type}) {
-    developer.log('Parsing Post JSON: $json', name: 'Post.fromJson');
+    developer.log('Parsing Post JSON: $json, type: $type',
+        name: 'Post.fromJson');
     try {
+      String? textValue;
+      if (type == 'goal') {
+        textValue = json['goalInfo']?.toString() ??
+            json['goalinfo']?.toString() ??
+            json['description']?.toString() ??
+            json['title']?.toString() ??
+            json['content']?.toString() ??
+            json['body']?.toString() ??
+            'No goal text available';
+        developer.log('Parsed goal text: $textValue (keys: ${json.keys})',
+            name: 'Post.fromJson');
+      } else {
+        textValue = json['description']?.toString() ??
+            json['title']?.toString() ??
+            json['content']?.toString() ??
+            json['body']?.toString() ??
+            'No event text';
+        developer.log('Event text parsed: $textValue', name: 'Post.fromJson');
+      }
+
       return Post(
         id: (json['id']?.toString() ?? ''),
         user: User.fromJson({
@@ -36,9 +57,7 @@ class Post {
               '',
         }),
         imageUrls: (json['image_urls'] as List<dynamic>?)?.cast<String>(),
-        text: type == 'goal'
-            ? json['goalInfo']?.toString() ?? json['goalinfo']?.toString()
-            : json['description']?.toString() ?? json['title']?.toString(),
+        text: textValue,
         createdAt: json['created_at'] != null
             ? DateTime.tryParse(json['created_at'] as String) ?? DateTime.now()
             : DateTime.now(),

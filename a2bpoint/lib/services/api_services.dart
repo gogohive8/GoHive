@@ -22,6 +22,12 @@ class ApiService {
     developer.log('Response: ${response.statusCode}, ${response.body}',
         name: 'ApiService');
     if (response.statusCode >= 200 && response.statusCode < 300) {
+      if (response.statusCode == 204) return {};
+      return response.body.isNotEmpty ? jsonDecode(response.body) : {};
+    }
+    if (response.statusCode == 400 && response.body.contains('"id"')) {
+      developer.log('Handling 400 as success due to id in response',
+          name: 'ApiService');
       return response.body.isNotEmpty ? jsonDecode(response.body) : {};
     }
     throw Exception('Request failed: ${response.statusCode} ${response.body}');
@@ -308,16 +314,22 @@ class ApiService {
           'Authorization': 'Bearer $token',
         },
       ).timeout(const Duration(seconds: 30));
+      final rawBody = response.body;
       final data = await _handleResponse(response);
-      developer.log('GetAllGoals response: $data', name: 'ApiService');
-      if (data is List) {
-        return data
-            .map((json) => Post.fromJson({...json, 'type': 'goal'}))
-            .toList();
+      developer.log('GetAllGoals raw response: $rawBody', name: 'ApiService');
+      developer.log('GetAllGoals parsed data: $data', name: 'ApiService');
+      final List<dynamic> postsData = data is List
+          ? data
+          : (data['data'] as List?) ?? (data['goals'] as List?) ?? [];
+      if (postsData.isEmpty) {
+        developer.log('No posts data found in response', name: 'ApiService');
       } else {
-        developer.log('Unexpected response format: $data', name: 'ApiService');
-        return [];
+        developer.log('Posts data length: ${postsData.length}',
+            name: 'ApiService');
       }
+      return postsData
+          .map((json) => Post.fromJson({...json, 'type': 'goal'}))
+          .toList();
     } catch (e, stackTrace) {
       developer.log('GetAllGoals error: $e',
           name: 'ApiService', stackTrace: stackTrace);
@@ -407,7 +419,22 @@ class ApiService {
     required String token,
   }) async {
     try {
-      developer.log('CreateGoal request: userId=$userId', name: 'ApiService');
+      final body = {
+        'user_id': userId,
+        'description': description,
+        'location': location,
+        'interest': interest,
+        if (pointA != null) 'point_a': pointA,
+        if (pointB != null) 'point_b': pointB,
+        'tasks': tasks
+                ?.map((task) => {'title': task, 'completed': false})
+                .toList() ??
+            [],
+        if (imageUrls != null && imageUrls.isNotEmpty) 'image_urls': imageUrls,
+      };
+      developer.log(
+          'CreateGoal request: userId=$userId, body=${jsonEncode(body)}',
+          name: 'ApiService');
       final response = await _client
           .post(
             Uri.parse('$_postsUrl/goals/create'),
@@ -415,22 +442,13 @@ class ApiService {
               'Content-Type': 'application/json',
               'Authorization': 'Bearer $token',
             },
-            body: jsonEncode({
-              'user_id': userId,
-              'description': description,
-              'location': location,
-              'interest': interest,
-              'point_a': pointA,
-              'point_b': pointB,
-              'tasks': tasks
-                      ?.map((task) => {'title': task, 'completed': false})
-                      .toList() ??
-                  [],
-              'image_urls': imageUrls ?? [],
-            }),
+            body: jsonEncode(body),
           )
           .timeout(const Duration(seconds: 30));
-      await _handleResponse(response);
+      developer.log(
+          'CreateGoal response: ${response.statusCode}, ${response.body}',
+          name: 'ApiService');
+      return await _handleResponse(response);
     } catch (e, stackTrace) {
       developer.log('CreateGoal error: $e',
           name: 'ApiService', stackTrace: stackTrace);
