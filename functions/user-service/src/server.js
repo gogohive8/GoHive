@@ -109,11 +109,15 @@ app.post('/register/email', async (req, res) => {
       email_confirm: true,
     });
     if (authError) {
+      console.error('Error of create new user', authError.message);
       return res.status(400).json({error: authError.message});
     }
 
     // Insert additional information into public.users table
-    const { data: user, error } = await supabase.from('users').insert([
+    const { data: user, error } = await supabase
+    .schema('public')
+    .from('users')
+    .insert([
       {
         id: authData.user.id,
         name,
@@ -124,6 +128,7 @@ app.post('/register/email', async (req, res) => {
     ]).select().single();
     if (error){
       await supabase.auth.admin.deleteUser(authData.user.id);
+      console.error('Error of insert new user', error.message);
       return res.status(400).json({ error: error.message });
     }
 

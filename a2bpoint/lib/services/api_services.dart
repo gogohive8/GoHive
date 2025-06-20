@@ -110,7 +110,7 @@ class ApiService {
       developer.log('Google OAuth request', name: 'ApiService');
       await _supabase.auth.signInWithOAuth(
         OAuthProvider.google,
-        redirectTo: 'https://osyajqltbkudsfcppqgh.supabase.co/auth/v1/callback',
+        redirectTo: 'https://gohive-d4359.firebaseapp.com',
       );
       final session = await _supabase.auth.onAuthStateChange
           .firstWhere((event) => event.event == AuthChangeEvent.signedIn)
