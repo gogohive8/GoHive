@@ -251,6 +251,8 @@ class _HomeScreenState extends State<HomeScreen>
         if (groupedPosts.isEmpty) {
           return const Center(child: Text('No posts available'));
         }
+        developer.log('Posts data: $groupedPosts',
+            name: 'HomeScreen'); // Отладка
         return SingleChildScrollView(
           padding: const EdgeInsets.all(16),
           child: Column(
@@ -280,6 +282,9 @@ class _HomeScreenState extends State<HomeScreen>
                     itemCount: posts.length,
                     itemBuilder: (context, index) {
                       final post = posts[index];
+                      developer.log(
+                          'Post[$index]: text=${post.text}, id=${post.id}',
+                          name: 'HomeScreen'); // Отладка
                       final isLiked = _likedPosts.contains(post.id);
                       return Card(
                         color: const Color(
@@ -335,7 +340,8 @@ class _HomeScreenState extends State<HomeScreen>
                               ),
                               const SizedBox(height: 8),
                               Text(
-                                post.text ?? 'No text',
+                                post.text ??
+                                    'No description', // Попробуем 'description' если 'text' пуст
                                 style: const TextStyle(
                                   fontSize: 16,
                                   color: Color(0xFF1A1A1A), // Тёмно-серый
