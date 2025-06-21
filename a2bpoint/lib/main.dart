@@ -44,12 +44,8 @@ class MyApp extends StatelessWidget {
       child: MaterialApp(
         title: 'GoHive',
         theme: ThemeData(
-          primaryColor: const Color(0xFFAFCBEA),
+          primarySwatch: Colors.blue,
           scaffoldBackgroundColor: const Color(0xFFF9F6F2),
-          textTheme: const TextTheme(
-            bodyLarge: TextStyle(color: Color(0xFF1A1A1A)),
-            bodyMedium: TextStyle(color: Color(0xFF1A1A1A)),
-          ),
           elevatedButtonTheme: ElevatedButtonThemeData(
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFFAFCBEA),
@@ -59,17 +55,41 @@ class MyApp extends StatelessWidget {
               ),
             ),
           ),
+          outlinedButtonTheme: OutlinedButtonThemeData(
+            style: OutlinedButton.styleFrom(
+              side: const BorderSide(color: Color(0xFF333333)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+          ),
+          textTheme: const TextTheme(
+            bodyLarge: TextStyle(color: Color(0xFF1A1A1A)),
+            bodyMedium: TextStyle(color: Color(0xFF1A1A1A)),
+          ),
         ),
-        initialRoute: '/sign_in',
+        initialRoute: '/sign-in', // Начальный маршрут
         routes: {
-          '/sign_in': (context) => const SignInScreen(),
-          '/sign_up': (context) => const SignUpScreen(),
           '/home': (context) => const HomeScreen(),
+          '/sign-in': (context) => const SignInScreen(),
+          '/sign-up': (context) => const SignUpScreen(),
           '/search': (context) => const SearchScreen(),
           '/add': (context) => const AddScreen(),
           '/profile': (context) => const ProfileScreen(),
+          '/ai-mentor': (context) =>
+              const AIMentorScreen(), // Замените, если нужно
           '/welcome': (context) => const WelcomeScreen(),
-          '/ai-mentor': (context) => const AIMentorScreen(),
+        },
+        onUnknownRoute: (settings) {
+          // Обработка неизвестных маршрутов
+          return MaterialPageRoute(
+            builder: (context) => Scaffold(
+              appBar: AppBar(title: const Text('Route Not Found')),
+              body: Center(
+                child: Text('No route defined for ${settings.name}'),
+              ),
+            ),
+          );
         },
       ),
     );
