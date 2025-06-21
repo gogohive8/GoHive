@@ -3,6 +3,7 @@ import 'dart:developer' as developer;
 import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/post.dart';
+import 'exceptions.dart';
 
 class ApiService {
   final http.Client _client = http.Client();
@@ -21,10 +22,15 @@ class ApiService {
       if (response.statusCode == 204) return {};
       return response.body.isNotEmpty ? jsonDecode(response.body) : {};
     }
-    if (response.statusCode == 400 && response.body.contains('"id"')) {
-      developer.log('Handling 400 as success due to id in response',
-          name: 'ApiService');
-      return response.body.isNotEmpty ? jsonDecode(response.body) : {};
+    if (response.statusCode == 400) {
+      final errorBody = jsonDecode(response.body);
+      final errorMessage = errorBody['error']?.toString() ?? 'Неверные данные';
+      developer.log('Validation error: $errorMessage', name: 'ApiService');
+      throw DataValidationException('Неверные данные: $errorMessage');
+    }
+    if (response.statusCode == 401) {
+      developer.log('Unauthorized: ${response.body}', name: 'ApiService');
+      throw AuthenticationException('Неавторизован: ${response.body}');
     }
     throw Exception('Request failed: ${response.statusCode} ${response.body}');
   }
@@ -171,92 +177,6 @@ class ApiService {
     }
   }
 
-  // Future<List<String>> uploadImages(
-  //   String userId,
-  //   List<String> imagePaths,
-  //   String token,
-  // ) async {
-  //   final uri = Uri.parse('$_postsUrl/upload');
-  //   developer.log('Sending request to $uri', name: 'ApiService');
-  //   final request = http.MultipartRequest('POST', uri);
-  //   request.headers['Authorization'] = 'Bearer $token';
-  //   request.fields['userId'] = userId;
-
-  //   for (final path in imagePaths) {
-  //     try {
-  //       List<int> imageBytes;
-  //       String filename;
-  //       String contentType;
-
-  //       if (kIsWeb) {
-  //         final xFile = XFile(path);
-  //         imageBytes = await xFile.readAsBytes();
-  //         developer.log('Web image bytes length: ${imageBytes.length}',
-  //             name: 'ApiService');
-  //         filename = xFile.name;
-  //       } else {
-  //         final file = File(path);
-  //         imageBytes = await file.readAsBytes();
-  //         developer.log('File image bytes length: ${imageBytes.length}',
-  //             name: 'ApiService');
-  //         filename = path.split('/').last;
-  //       }
-  //       contentType = _getContentType(filename);
-
-  //       developer.log(
-  //           'Adding file: $filename, bytes: ${imageBytes.length}, type: $contentType',
-  //           name: 'ApiService');
-  //       request.files.add(
-  //         http.MultipartFile.fromBytes(
-  //           'images',
-  //           imageBytes,
-  //           filename: filename,
-  //           contentType: MediaType.parse(contentType),
-  //         ),
-  //       );
-  //     } catch (e) {
-  //       developer.log('Error reading file $path: $e', name: 'ApiService');
-  //       throw Exception('Failed to process image: $e');
-  //     }
-  //   }
-
-  //   developer.log('Files added: ${request.files.length}', name: 'ApiService');
-  //   try {
-  //     final response = await request.send();
-  //     final responseBody = await response.stream.bytesToString();
-  //     developer.log('Upload response: ${response.statusCode} $responseBody',
-  //         name: 'ApiService');
-
-  //     if (response.statusCode == 200) {
-  //       final data = jsonDecode(responseBody);
-  //       if (data is List) {
-  //         return List<String>.from(data);
-  //       }
-  //       throw Exception('Unexpected response format');
-  //     } else {
-  //       throw Exception('Failed to upload images: $responseBody');
-  //     }
-  //   } catch (e) {
-  //     developer.log('Upload error: $e', name: 'ApiService');
-  //     throw Exception('Image_upload_error: $e');
-  //   }
-  // }
-
-  // String _getContentType(String filename) {
-  //   final extension = filename.split('.').last.toLowerCase();
-  //   switch (extension) {
-  //     case 'jpg':
-  //     case 'jpeg':
-  //       return 'image/jpeg';
-  //     case 'png':
-  //       return 'image/png';
-  //     case 'gif':
-  //       return 'image/gif';
-  //     default:
-  //       return 'application/octet-stream';
-  //   }
-  // }
-
   Future<List<Post>> getGoals(String userId, String token) async {
     try {
       developer.log('GetGoals request: userId=$userId', name: 'ApiService');
@@ -282,7 +202,7 @@ class ApiService {
     try {
       developer.log('GetEvents request: userId=$userId', name: 'ApiService');
       final response = await _client.get(
-        Uri.parse('$_baseUrl/events/$userId'),
+        Uri.parse('$_postsUrl/events/$userId'),
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $token',
@@ -293,8 +213,7 @@ class ApiService {
           .map((json) => Post.fromJson({...json, 'type': 'event'}))
           .toList();
     } catch (e, stackTrace) {
-      developer.log('GetEvents error: $e',
-          name: 'ApiService', stackTrace: stackTrace);
+      developer.log('GetEvents error: $e', stackTrace: stackTrace);
       return [];
     }
   }
@@ -426,6 +345,7 @@ class ApiService {
           'tasks': tasks
               .map((task) => {'title': task['title'], 'completed': false})
               .toList(),
+        if (imageUrls != null && imageUrls.isNotEmpty) 'image_urls': imageUrls,
       };
 
       developer.log(
@@ -471,6 +391,7 @@ class ApiService {
         'location': location,
         'interest': interest,
         'date_time': dateTime,
+        if (imageUrls != null && imageUrls.isNotEmpty) 'image_urls': imageUrls,
       };
 
       developer.log(
