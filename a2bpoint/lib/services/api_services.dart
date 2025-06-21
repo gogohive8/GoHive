@@ -35,31 +35,26 @@ class ApiService {
     throw Exception('Request failed: ${response.statusCode} ${response.body}');
   }
 
-  Future<List<Post>> search(String query,
-      {required String filter,
-      required String token,
-      required String userId}) async {
+  Future<List<Map<String, dynamic>>> search(String query,
+      {required String token}) async {
     try {
-      final url = filter == 'Goals'
-          ? '$_postsUrl/goals/search'
-          : '$_postsUrl/events/search';
+      developer.log('Searching users: query=$query', name: 'ApiService');
       final response = await _client
           .post(
-            Uri.parse(url),
+            Uri.parse('$_baseUrl/users/search'),
             headers: {
               'Content-Type': 'application/json',
               'Authorization': 'Bearer $token',
             },
-            body: jsonEncode({'query': query, 'userId': userId}),
+            body: jsonEncode({'query': query}),
           )
           .timeout(const Duration(seconds: 30));
       final data = await _handleResponse(response);
-      final postsData = data is List ? data : (data['results'] as List?) ?? [];
-      return postsData
-          .map((json) => Post.fromJson({...json, 'type': filter.toLowerCase()}))
-          .toList();
+      final usersData = data is List ? data : (data['results'] as List?) ?? [];
+      developer.log('Found ${usersData.length} users', name: 'ApiService');
+      return usersData.cast<Map<String, dynamic>>();
     } catch (e, stackTrace) {
-      developer.log('Search error: $e',
+      developer.log('Search users error: $e',
           name: 'ApiService', stackTrace: stackTrace);
       rethrow;
     }

@@ -37,7 +37,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     await authProvider.initialize();
     if (authProvider.shouldRedirectTo()) {
-      Navigator.pushReplacementNamed(context, '/sign_in');
+      Navigator.pushReplacementNamed(context, '/sign-in');
     } else if (authProvider.isFirstLogin) {
       Navigator.pushReplacementNamed(context, '/welcome');
     }
@@ -78,11 +78,17 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  Future<void> _likePost(String postId) async {
+  Future<void> _likePost(String? postId) async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     if (!authProvider.isAuthenticated || authProvider.token == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please log in to like posts')),
+      );
+      return;
+    }
+    if (postId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Invalid post ID')),
       );
       return;
     }
@@ -181,6 +187,9 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildPostList(List<Post> posts) {
+    if (posts.isEmpty) {
+      return const Center(child: Text('No posts available'));
+    }
     return ListView.builder(
       padding: const EdgeInsets.all(16),
       itemCount: posts.length,
@@ -213,14 +222,14 @@ class _HomeScreenState extends State<HomeScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            post.username,
+                            post.username ?? 'Unknown',
                             style: const TextStyle(
                               fontWeight: FontWeight.bold,
                               color: Color(0xFF000000),
                             ),
                           ),
                           Text(
-                            post.createdAt.toString().split(' ')[0],
+                            post.createdAt?.toString().split(' ')[0] ?? '',
                             style: const TextStyle(
                               fontSize: 12,
                               color: Color(0xFF333333),
@@ -259,13 +268,13 @@ class _HomeScreenState extends State<HomeScreen> {
                       onPressed: () => _likePost(post.id),
                     ),
                     Text(
-                      '${post.numOfLikes}',
+                      '${post.numOfLikes ?? 0}',
                       style: const TextStyle(color: Color(0xFF1A1A1A)),
                     ),
                     const SizedBox(width: 16),
                     if (post.type == 'event' && post.dateTime != null)
                       Text(
-                        post.dateTime!,
+                        post.dateTime.toString().split('.')[0],
                         style: const TextStyle(
                           fontSize: 12,
                           color: Color(0xFF333333),

@@ -323,12 +323,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         color: Color(0xFF333333), size: 20),
                     const SizedBox(width: 4),
                     Text(
-                      '${post.numOfLikes}',
+                      '${post.numOfLikes ?? 0}',
                       style: const TextStyle(color: Color(0xFF1A1A1A)),
                     ),
                     const SizedBox(width: 16),
                     Text(
-                      post.createdAt.toString().split(' ')[0],
+                      post.createdAt?.toString().split(' ')[0] ?? '',
                       style: const TextStyle(
                         fontSize: 12,
                         color: Color(0xFF333333),
@@ -340,7 +340,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   Padding(
                     padding: const EdgeInsets.only(top: 8.0),
                     child: Text(
-                      'Date: ${post.dateTime}',
+                      'Date: ${post.dateTime.toString().split('.')[0]}',
                       style: const TextStyle(
                         fontSize: 12,
                         color: Color(0xFF333333),
