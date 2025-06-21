@@ -1,13 +1,8 @@
 import 'dart:convert';
 import 'dart:developer' as developer;
-import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/post.dart';
-import 'package:flutter/foundation.dart';
-import 'package:http_parser/http_parser.dart';
-import 'package:image_picker/image_picker.dart';
-import 'package:mime/mime.dart';
 
 class ApiService {
   final http.Client _client = http.Client();
@@ -176,91 +171,91 @@ class ApiService {
     }
   }
 
-  Future<List<String>> uploadImages(
-    String userId,
-    List<String> imagePaths,
-    String token,
-  ) async {
-    final uri = Uri.parse('$_postsUrl/upload');
-    developer.log('Sending request to $uri', name: 'ApiService');
-    final request = http.MultipartRequest('POST', uri);
-    request.headers['Authorization'] = 'Bearer $token';
-    request.fields['userId'] = userId;
+  // Future<List<String>> uploadImages(
+  //   String userId,
+  //   List<String> imagePaths,
+  //   String token,
+  // ) async {
+  //   final uri = Uri.parse('$_postsUrl/upload');
+  //   developer.log('Sending request to $uri', name: 'ApiService');
+  //   final request = http.MultipartRequest('POST', uri);
+  //   request.headers['Authorization'] = 'Bearer $token';
+  //   request.fields['userId'] = userId;
 
-    for (final path in imagePaths) {
-      try {
-        List<int> imageBytes;
-        String filename;
-        String contentType;
+  //   for (final path in imagePaths) {
+  //     try {
+  //       List<int> imageBytes;
+  //       String filename;
+  //       String contentType;
 
-        if (kIsWeb) {
-          final xFile = XFile(path);
-          imageBytes = await xFile.readAsBytes();
-          developer.log('Web image bytes length: ${imageBytes.length}',
-              name: 'ApiService');
-          filename = xFile.name;
-        } else {
-          final file = File(path);
-          imageBytes = await file.readAsBytes();
-          developer.log('File image bytes length: ${imageBytes.length}',
-              name: 'ApiService');
-          filename = path.split('/').last;
-        }
-        contentType = _getContentType(filename);
+  //       if (kIsWeb) {
+  //         final xFile = XFile(path);
+  //         imageBytes = await xFile.readAsBytes();
+  //         developer.log('Web image bytes length: ${imageBytes.length}',
+  //             name: 'ApiService');
+  //         filename = xFile.name;
+  //       } else {
+  //         final file = File(path);
+  //         imageBytes = await file.readAsBytes();
+  //         developer.log('File image bytes length: ${imageBytes.length}',
+  //             name: 'ApiService');
+  //         filename = path.split('/').last;
+  //       }
+  //       contentType = _getContentType(filename);
 
-        developer.log(
-            'Adding file: $filename, bytes: ${imageBytes.length}, type: $contentType',
-            name: 'ApiService');
-        request.files.add(
-          http.MultipartFile.fromBytes(
-            'images',
-            imageBytes,
-            filename: filename,
-            contentType: MediaType.parse(contentType),
-          ),
-        );
-      } catch (e) {
-        developer.log('Error reading file $path: $e', name: 'ApiService');
-        throw Exception('Failed to process image: $e');
-      }
-    }
+  //       developer.log(
+  //           'Adding file: $filename, bytes: ${imageBytes.length}, type: $contentType',
+  //           name: 'ApiService');
+  //       request.files.add(
+  //         http.MultipartFile.fromBytes(
+  //           'images',
+  //           imageBytes,
+  //           filename: filename,
+  //           contentType: MediaType.parse(contentType),
+  //         ),
+  //       );
+  //     } catch (e) {
+  //       developer.log('Error reading file $path: $e', name: 'ApiService');
+  //       throw Exception('Failed to process image: $e');
+  //     }
+  //   }
 
-    developer.log('Files added: ${request.files.length}', name: 'ApiService');
-    try {
-      final response = await request.send();
-      final responseBody = await response.stream.bytesToString();
-      developer.log('Upload response: ${response.statusCode} $responseBody',
-          name: 'ApiService');
+  //   developer.log('Files added: ${request.files.length}', name: 'ApiService');
+  //   try {
+  //     final response = await request.send();
+  //     final responseBody = await response.stream.bytesToString();
+  //     developer.log('Upload response: ${response.statusCode} $responseBody',
+  //         name: 'ApiService');
 
-      if (response.statusCode == 200) {
-        final data = jsonDecode(responseBody);
-        if (data is List) {
-          return List<String>.from(data);
-        }
-        throw Exception('Unexpected response format');
-      } else {
-        throw Exception('Failed to upload images: $responseBody');
-      }
-    } catch (e) {
-      developer.log('Upload error: $e', name: 'ApiService');
-      throw Exception('Image_upload_error: $e');
-    }
-  }
+  //     if (response.statusCode == 200) {
+  //       final data = jsonDecode(responseBody);
+  //       if (data is List) {
+  //         return List<String>.from(data);
+  //       }
+  //       throw Exception('Unexpected response format');
+  //     } else {
+  //       throw Exception('Failed to upload images: $responseBody');
+  //     }
+  //   } catch (e) {
+  //     developer.log('Upload error: $e', name: 'ApiService');
+  //     throw Exception('Image_upload_error: $e');
+  //   }
+  // }
 
-  String _getContentType(String filename) {
-    final extension = filename.split('.').last.toLowerCase();
-    switch (extension) {
-      case 'jpg':
-      case 'jpeg':
-        return 'image/jpeg';
-      case 'png':
-        return 'image/png';
-      case 'gif':
-        return 'image/gif';
-      default:
-        return 'application/octet-stream';
-    }
-  }
+  // String _getContentType(String filename) {
+  //   final extension = filename.split('.').last.toLowerCase();
+  //   switch (extension) {
+  //     case 'jpg':
+  //     case 'jpeg':
+  //       return 'image/jpeg';
+  //     case 'png':
+  //       return 'image/png';
+  //     case 'gif':
+  //       return 'image/gif';
+  //     default:
+  //       return 'application/octet-stream';
+  //   }
+  // }
 
   Future<List<Post>> getGoals(String userId, String token) async {
     try {
@@ -408,14 +403,14 @@ class ApiService {
     }
   }
 
-  Future<void> createGoal(
-    String userId,
-    String description,
-    String location,
-    String interest, {
+  Future<void> createGoal({
+    required String userId,
+    required String description,
+    required String location,
+    required String interest,
     String? pointA,
     String? pointB,
-    List<String>? tasks,
+    List<Map<String, dynamic>>? tasks,
     List<String>? imageUrls,
     required String token,
   }) async {
@@ -425,17 +420,18 @@ class ApiService {
         'description': description,
         'location': location,
         'interest': interest,
-        if (pointA != null) 'point_a': pointA,
-        if (pointB != null) 'point_b': pointB,
-        'tasks': tasks
-                ?.map((task) => {'title': task, 'completed': false})
-                .toList() ??
-            [],
-        if (imageUrls != null && imageUrls.isNotEmpty) 'image_urls': imageUrls,
+        if (pointA != null && pointA.isNotEmpty) 'point_a': pointA,
+        if (pointB != null && pointB.isNotEmpty) 'point_b': pointB,
+        if (tasks != null && tasks.isNotEmpty)
+          'tasks': tasks
+              .map((task) => {'title': task['title'], 'completed': false})
+              .toList(),
       };
+
       developer.log(
-          'CreateGoal request: userId=$userId, body=${jsonEncode(body)}',
+          'Creating goal for user: $userId, body: ${jsonEncode(body)}',
           name: 'ApiService');
+
       final response = await _client
           .post(
             Uri.parse('$_postsUrl/goals/create'),
@@ -446,10 +442,12 @@ class ApiService {
             body: jsonEncode(body),
           )
           .timeout(const Duration(seconds: 30));
+
       developer.log(
           'CreateGoal response: ${response.statusCode}, ${response.body}',
           name: 'ApiService');
-      return await _handleResponse(response);
+
+      await _handleResponse(response);
     } catch (e, stackTrace) {
       developer.log('CreateGoal error: $e',
           name: 'ApiService', stackTrace: stackTrace);
@@ -457,17 +455,28 @@ class ApiService {
     }
   }
 
-  Future<void> createEvent(
-    String userId,
-    String description,
-    String location,
-    String interest,
-    String dateTime, {
+  Future<void> createEvent({
+    required String userId,
+    required String description,
+    required String location,
+    required String interest,
+    required String dateTime,
     List<String>? imageUrls,
     required String token,
   }) async {
     try {
-      developer.log('CreateEvent request: userId=$userId', name: 'ApiService');
+      final body = {
+        'user_id': userId,
+        'description': description,
+        'location': location,
+        'interest': interest,
+        'date_time': dateTime,
+      };
+
+      developer.log(
+          'Creating event for user: $userId, body: ${jsonEncode(body)}',
+          name: 'ApiService');
+
       final response = await _client
           .post(
             Uri.parse('$_postsUrl/events/create'),
@@ -475,14 +484,14 @@ class ApiService {
               'Content-Type': 'application/json',
               'Authorization': 'Bearer $token',
             },
-            body: jsonEncode({
-              'user_id': userId,
-              'description': description,
-              'location': location,
-              'date_time': dateTime,
-            }),
+            body: jsonEncode(body),
           )
           .timeout(const Duration(seconds: 30));
+
+      developer.log(
+          'CreateEvent response: ${response.statusCode}, ${response.body}',
+          name: 'ApiService');
+
       await _handleResponse(response);
     } catch (e, stackTrace) {
       developer.log('CreateEvent error: $e',

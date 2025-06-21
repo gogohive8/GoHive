@@ -34,17 +34,26 @@ class Post {
             json['description']?.toString() ??
             json['title']?.toString() ??
             json['content']?.toString() ??
-            json['body']?.toString() ??
-            'No goal text available';
-        developer.log('Parsed goal text: $textValue (keys: ${json.keys})',
-            name: 'Post.fromJson');
+            json['body']?.toString();
+        if (textValue == null) {
+          developer.log('No text found for goal. Available keys: ${json.keys}',
+              name: 'Post.fromJson');
+          textValue = 'No goal text available';
+        } else {
+          developer.log('Parsed goal text: $textValue', name: 'Post.fromJson');
+        }
       } else {
         textValue = json['description']?.toString() ??
             json['title']?.toString() ??
             json['content']?.toString() ??
-            json['body']?.toString() ??
-            'No event text';
-        developer.log('Event text parsed: $textValue', name: 'Post.fromJson');
+            json['body']?.toString();
+        if (textValue == null) {
+          developer.log('No text found for event. Available keys: ${json.keys}',
+              name: 'Post.fromJson');
+          textValue = 'No event text';
+        } else {
+          developer.log('Parsed event text: $textValue', name: 'Post.fromJson');
+        }
       }
 
       return Post(
