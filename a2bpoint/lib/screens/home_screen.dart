@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../models/post.dart';
 import '../services/api_services.dart';
 import '../providers/auth_provider.dart';
+import '../services/exceptions.dart';
 import 'navbar.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -20,14 +21,14 @@ class _HomeScreenState extends State<HomeScreen>
   final ApiService _apiService = ApiService();
   late TabController _tabController;
   late Future<Map<String, List<Post>>> _postsFuture;
-  final Set<String> _likedPosts = {}; // Отслеживание лайкнутых постов
+  final Set<String> _likedPosts = {};
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
     _tabController.addListener(_handleTabSelection);
-    _fetchPosts();
+    _checkAuthAndFetchPosts();
   }
 
   @override
@@ -36,6 +37,32 @@ class _HomeScreenState extends State<HomeScreen>
     _tabController.dispose();
     _apiService.dispose();
     super.dispose();
+  }
+
+  void _checkAuthAndFetchPosts() {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    if (!authProvider.isInitialized) {
+      // Ждем инициализации AuthProvider
+      authProvider.initialize().then((_) {
+        if (mounted) {
+          _redirectIfNotAuthenticated(authProvider);
+          _fetchPosts();
+        }
+      });
+    } else {
+      _redirectIfNotAuthenticated(authProvider);
+      _fetchPosts();
+    }
+  }
+
+  void _redirectIfNotAuthenticated(AuthProvider authProvider) {
+    if (authProvider.shouldRedirectToSignIn()) {
+      developer.log('No token found, redirecting to sign-in',
+          name: 'HomeScreen');
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        Navigator.pushReplacementNamed(context, '/sign_in');
+      });
+    }
   }
 
   void _handleTabSelection() {
@@ -56,9 +83,6 @@ class _HomeScreenState extends State<HomeScreen>
       setState(() {
         _postsFuture = Future.value({});
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please log in to view posts')),
-      );
       return;
     }
     developer.log('Fetching posts: tabIndex=$_selectedTabIndex',
@@ -92,9 +116,7 @@ class _HomeScreenState extends State<HomeScreen>
       String postId, int currentLikes, String userId, int index) async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     if (!authProvider.isAuthenticated || authProvider.token == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Authorization required')),
-      );
+      Navigator.pushReplacementNamed(context, '/sign_in');
       return;
     }
     try {
@@ -123,6 +145,11 @@ class _HomeScreenState extends State<HomeScreen>
           });
         }
       });
+    } on AuthenticationException catch (e) {
+      developer.log('Authentication error: ${e.message}',
+          name: 'HomeScreen', stackTrace: StackTrace.current);
+      await authProvider.clearAuth();
+      Navigator.pushReplacementNamed(context, '/sign_in');
     } catch (e, stackTrace) {
       developer.log('Like post error: $e',
           name: 'HomeScreen', stackTrace: stackTrace);
@@ -135,9 +162,7 @@ class _HomeScreenState extends State<HomeScreen>
   void _joinEvent(String eventId, String eventText) async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     if (!authProvider.isAuthenticated || authProvider.token == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Authorization required')),
-      );
+      Navigator.pushReplacementNamed(context, '/sign_in');
       return;
     }
     try {
@@ -146,6 +171,11 @@ class _HomeScreenState extends State<HomeScreen>
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('You have joined $eventText')),
       );
+    } on AuthenticationException catch (e) {
+      developer.log('Authentication error: ${e.message}',
+          name: 'HomeScreen', stackTrace: StackTrace.current);
+      await authProvider.clearAuth();
+      Navigator.pushReplacementNamed(context, '/sign_in');
     } catch (e, stackTrace) {
       developer.log('Join event error: $e',
           name: 'HomeScreen', stackTrace: stackTrace);
@@ -158,11 +188,11 @@ class _HomeScreenState extends State<HomeScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF9F6F2), // Светло-бежевый фон
+      backgroundColor: const Color(0xFFF9F6F2),
       appBar: AppBar(
         elevation: 0,
-        backgroundColor: const Color(0xFFF9F6F2), // Светло-бежевый
-        automaticallyImplyLeading: false, // Убираем кнопку назад
+        backgroundColor: const Color(0xFFF9F6F2),
+        automaticallyImplyLeading: false,
         title: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
@@ -173,8 +203,7 @@ class _HomeScreenState extends State<HomeScreen>
                     const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
                   color: _selectedTabIndex == 0
-                      ? const Color.fromRGBO(
-                          175, 203, 234, 0.1) // Голубой с прозрачностью
+                      ? const Color.fromRGBO(175, 203, 234, 0.1)
                       : Colors.transparent,
                   borderRadius: BorderRadius.circular(8),
                 ),
@@ -184,8 +213,8 @@ class _HomeScreenState extends State<HomeScreen>
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
                     color: _selectedTabIndex == 0
-                        ? const Color(0xFFAFCBEA) // Голубой
-                        : const Color(0xFF1A1A1A), // Тёмно-серый
+                        ? const Color(0xFFAFCBEA)
+                        : const Color(0xFF1A1A1A),
                   ),
                 ),
               ),
@@ -251,8 +280,7 @@ class _HomeScreenState extends State<HomeScreen>
         if (groupedPosts.isEmpty) {
           return const Center(child: Text('No posts available'));
         }
-        developer.log('Posts data: $groupedPosts',
-            name: 'HomeScreen'); // Отладка
+        developer.log('Posts data: $groupedPosts', name: 'HomeScreen');
         return SingleChildScrollView(
           padding: const EdgeInsets.all(16),
           child: Column(
@@ -272,7 +300,7 @@ class _HomeScreenState extends State<HomeScreen>
                       style: const TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
-                        color: Color(0xFF000000), // Чёрный
+                        color: Color(0xFF000000),
                       ),
                     ),
                   ),
@@ -284,12 +312,11 @@ class _HomeScreenState extends State<HomeScreen>
                       final post = posts[index];
                       developer.log(
                           'Post[$index]: text=${post.text}, id=${post.id}',
-                          name: 'HomeScreen'); // Отладка
+                          name: 'HomeScreen');
                       final isLiked = _likedPosts.contains(post.id);
                       return Card(
-                        color: const Color(
-                            0xFFDDDDDD), // Светло-серый фон для карточки
-                        elevation: 2, // Лёгкая тень
+                        color: const Color(0xFFDDDDDD),
+                        elevation: 2,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
@@ -306,8 +333,7 @@ class _HomeScreenState extends State<HomeScreen>
                                         post.user.avatarUrl.isNotEmpty
                                             ? NetworkImage(post.user.avatarUrl)
                                             : null,
-                                    backgroundColor:
-                                        const Color(0xFF333333), // Серый
+                                    backgroundColor: const Color(0xFF333333),
                                     radius: 20,
                                   ),
                                   const SizedBox(width: 12),
@@ -320,7 +346,7 @@ class _HomeScreenState extends State<HomeScreen>
                                           post.user.username,
                                           style: const TextStyle(
                                             fontWeight: FontWeight.bold,
-                                            color: Color(0xFF000000), // Чёрный
+                                            color: Color(0xFF000000),
                                           ),
                                         ),
                                         Text(
@@ -330,7 +356,7 @@ class _HomeScreenState extends State<HomeScreen>
                                               .split(' ')[0],
                                           style: const TextStyle(
                                             fontSize: 12,
-                                            color: Color(0xFF333333), // Серый
+                                            color: Color(0xFF333333),
                                           ),
                                         ),
                                       ],
@@ -340,11 +366,10 @@ class _HomeScreenState extends State<HomeScreen>
                               ),
                               const SizedBox(height: 8),
                               Text(
-                                post.text ??
-                                    'No description', // Попробуем 'description' если 'text' пуст
+                                post.text ?? 'No description',
                                 style: const TextStyle(
                                   fontSize: 16,
-                                  color: Color(0xFF1A1A1A), // Тёмно-серый
+                                  color: Color(0xFF1A1A1A),
                                 ),
                               ),
                               const SizedBox(height: 8),
@@ -362,8 +387,7 @@ class _HomeScreenState extends State<HomeScreen>
                                                     : Icons.favorite_border,
                                                 color: isLiked
                                                     ? Colors.red
-                                                    : const Color(
-                                                        0xFF333333), // Серый
+                                                    : const Color(0xFF333333),
                                               ),
                                               onPressed: () => _likePost(
                                                   post.id,
@@ -374,8 +398,7 @@ class _HomeScreenState extends State<HomeScreen>
                                             Text(
                                               '${post.likes}',
                                               style: const TextStyle(
-                                                color: Color(
-                                                    0xFF1A1A1A), // Тёмно-серый
+                                                color: Color(0xFF1A1A1A),
                                               ),
                                             ),
                                           ],
@@ -384,10 +407,10 @@ class _HomeScreenState extends State<HomeScreen>
                                           onPressed: () => _joinEvent(
                                               post.id, post.text ?? ''),
                                           style: ElevatedButton.styleFrom(
-                                            backgroundColor: const Color(
-                                                0xFFAFCBEA), // Голубой
-                                            foregroundColor: const Color(
-                                                0xFF000000), // Чёрный текст
+                                            backgroundColor:
+                                                const Color(0xFFAFCBEA),
+                                            foregroundColor:
+                                                const Color(0xFF000000),
                                             shape: RoundedRectangleBorder(
                                               borderRadius:
                                                   BorderRadius.circular(8),

@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'dart:developer' as developer;
 import '../providers/auth_provider.dart';
 import '../services/api_services.dart';
+import '../services/exceptions.dart';
 import 'navbar.dart';
 
 class AddScreen extends StatefulWidget {
@@ -21,9 +22,6 @@ class _AddScreenState extends State<AddScreen> {
   final _pointBController = TextEditingController();
   final _dateTimeController = TextEditingController();
   final _taskController = TextEditingController();
-  // // Комментарий: Закомментировано для удаления функционала фотографий
-  // final ImagePicker _picker = ImagePicker();
-  // List<XFile> _images = [];
 
   int _selectedTabIndex = 0;
   String? _selectedInterest;
@@ -34,22 +32,20 @@ class _AddScreenState extends State<AddScreen> {
   @override
   void initState() {
     super.initState();
-    _loadInitialData();
+    _checkAuth();
   }
 
-  Future<void> _loadInitialData() async {
-    setState(() {
-      _isLoading = true;
-    });
-    try {
-      // Здесь мог быть вызов API для предзагрузки
-    } catch (e) {
-      setState(() {
-        _errorMessage = 'Failed to load initial data: $e';
+  void _checkAuth() {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    if (!authProvider.isInitialized) {
+      authProvider.initialize().then((_) {
+        if (mounted && authProvider.shouldRedirectToSignIn()) {
+          Navigator.pushReplacementNamed(context, '/sign_in');
+        }
       });
-    } finally {
-      setState(() {
-        _isLoading = false;
+    } else if (authProvider.shouldRedirectToSignIn()) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        Navigator.pushReplacementNamed(context, '/sign_in');
       });
     }
   }
@@ -64,35 +60,6 @@ class _AddScreenState extends State<AddScreen> {
     _taskController.dispose();
     super.dispose();
   }
-
-  // // Комментарий: Закомментировано для удаления функционала фотографий
-  // Future<void> _pickImage() async {
-  //   if (_images.length >= 3) {
-  //     ScaffoldMessenger.of(context)
-  //         .showSnackBar(const SnackBar(content: Text('Maximum 3 photos')));
-  //     return;
-  //   }
-  //   try {
-  //     final pickedFile = await _picker.pickImage(source: ImageSource.gallery);
-  //     if (pickedFile != null) {
-  //       developer.log('Picked image: ${pickedFile.path}', name: 'AddScreen');
-  //       setState(() => _images.add(pickedFile));
-  //     } else {
-  //       developer.log('No image picked', name: 'AddScreen');
-  //     }
-  //   } catch (e) {
-  //     developer.log('Error picking image: $e', name: 'AddScreen');
-  //     ScaffoldMessenger.of(context)
-  //         .showSnackBar(SnackBar(content: Text('Failed to pick image: $e')));
-  //   }
-  // }
-
-  // // Комментарий: Закомментировано для удаления функционала фотографий
-  // void _removeImage(int index) {
-  //   setState(() {
-  //     _images.removeAt(index);
-  //   });
-  // }
 
   Future<void> _saveData() async {
     if (_selectedTabIndex == 0 && _selectedInterest == null) {
@@ -112,9 +79,7 @@ class _AddScreenState extends State<AddScreen> {
       if (!authProvider.isAuthenticated ||
           authProvider.userId == null ||
           authProvider.token == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Authorization required')),
-        );
+        Navigator.pushReplacementNamed(context, '/sign_in');
         return;
       }
       try {
@@ -130,7 +95,7 @@ class _AddScreenState extends State<AddScreen> {
               const Center(child: CircularProgressIndicator()),
         );
 
-        final imageUrls = <String>[]; // Пустой список для imageUrls
+        final imageUrls = <String>[];
         final String userId = authProvider.userId!;
         final String token = authProvider.token!;
 
@@ -178,6 +143,26 @@ class _AddScreenState extends State<AddScreen> {
             _errorMessage = '';
           });
         }
+      } on AuthenticationException catch (e) {
+        developer.log('Authentication error: ${e.message}',
+            name: 'AddScreen', stackTrace: StackTrace.current);
+        if (mounted) {
+          Navigator.pop(context);
+          await authProvider.clearAuth();
+          Navigator.pushReplacementNamed(context, '/sign_in');
+        }
+      } on DataValidationException catch (e) {
+        developer.log('Validation error: ${e.message}',
+            name: 'AddScreen', stackTrace: StackTrace.current);
+        if (mounted) {
+          Navigator.pop(context);
+          setState(() {
+            _errorMessage = e.message;
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(e.message)),
+          );
+        }
       } catch (e, stackTrace) {
         developer.log('Save data error: $e',
             name: 'AddScreen', stackTrace: stackTrace);
@@ -189,11 +174,6 @@ class _AddScreenState extends State<AddScreen> {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('Error saving data: $e')),
           );
-          if (e.toString().contains('Неавторизован')) {
-            // TODO: Убедитесь, что метод logout реализован в AuthProvider
-            // await authProvider.logout();
-            Navigator.pushReplacementNamed(context, '/sign_in');
-          }
         }
       } finally {
         if (mounted) {
@@ -246,14 +226,13 @@ class _AddScreenState extends State<AddScreen> {
     final padding = size.width * 0.05;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF9F6F2), // Светло-бежевый фон
+      backgroundColor: const Color(0xFFF9F6F2),
       appBar: AppBar(
         elevation: 0,
         backgroundColor: const Color(0xFFF9F6F2),
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Color(0xFF333333)), // Серый
-          onPressed: () => Navigator.pushReplacementNamed(
-              context, '/profile'), // Ведёт на ProfileScreen
+          icon: const Icon(Icons.arrow_back, color: Color(0xFF333333)),
+          onPressed: () => Navigator.pushReplacementNamed(context, '/profile'),
         ),
       ),
       body: _isLoading
@@ -262,7 +241,7 @@ class _AddScreenState extends State<AddScreen> {
               children: [
                 Container(
                   padding: const EdgeInsets.symmetric(vertical: 8),
-                  color: const Color(0xFFF9F6F2), // Светло-бежевый
+                  color: const Color(0xFFF9F6F2),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
@@ -273,8 +252,7 @@ class _AddScreenState extends State<AddScreen> {
                               horizontal: 16, vertical: 8),
                           decoration: BoxDecoration(
                             color: _selectedTabIndex == 0
-                                ? const Color.fromRGBO(175, 203, 234,
-                                    0.1) // Голубой с прозрачностью
+                                ? const Color.fromRGBO(175, 203, 234, 0.1)
                                 : Colors.transparent,
                             borderRadius: BorderRadius.circular(8),
                           ),
@@ -284,8 +262,8 @@ class _AddScreenState extends State<AddScreen> {
                               fontSize: 16,
                               fontWeight: FontWeight.bold,
                               color: _selectedTabIndex == 0
-                                  ? const Color(0xFFAFCBEA) // Голубой
-                                  : const Color(0xFF333333), // Серый
+                                  ? const Color(0xFFAFCBEA)
+                                  : const Color(0xFF333333),
                             ),
                           ),
                         ),
@@ -329,20 +307,19 @@ class _AddScreenState extends State<AddScreen> {
                             controller: _descriptionController,
                             decoration: InputDecoration(
                               labelText: 'Description',
-                              labelStyle: const TextStyle(
-                                  color: Color(0xFF1A1A1A)), // Тёмно-серый
+                              labelStyle:
+                                  const TextStyle(color: Color(0xFF1A1A1A)),
                               filled: true,
-                              fillColor: const Color.fromRGBO(
-                                  221, 221, 221, 0.2), // Светло-серый
+                              fillColor:
+                                  const Color.fromRGBO(221, 221, 221, 0.2),
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(10),
                                 borderSide: BorderSide.none,
                               ),
                               prefixIcon: const Icon(Icons.description,
-                                  color: Color(0xFF333333)), // Серый
+                                  color: Color(0xFF333333)),
                             ),
-                            style: const TextStyle(
-                                color: Color(0xFF1A1A1A)), // Тёмно-серый
+                            style: const TextStyle(color: Color(0xFF1A1A1A)),
                             validator: (value) => value?.isEmpty ?? true
                                 ? 'Enter description'
                                 : null,
@@ -378,7 +355,7 @@ class _AddScreenState extends State<AddScreen> {
                                   'Interests',
                                   style: TextStyle(
                                     fontWeight: FontWeight.bold,
-                                    color: Color(0xFF000000), // Чёрный
+                                    color: Color(0xFF000000),
                                   ),
                                 ),
                                 const SizedBox(height: 8),
@@ -400,16 +377,14 @@ class _AddScreenState extends State<AddScreen> {
                                       onSelected: (selected) => setState(() =>
                                           _selectedInterest =
                                               selected ? interest : null),
-                                      selectedColor:
-                                          const Color(0xFFAFCBEA), // Голубой
+                                      selectedColor: const Color(0xFFAFCBEA),
                                       labelStyle: TextStyle(
                                         color: _selectedInterest == interest
-                                            ? const Color(0xFF000000) // Чёрный
-                                            : const Color(
-                                                0xFF1A1A1A), // Тёмно-серый
+                                            ? const Color(0xFF000000)
+                                            : const Color(0xFF1A1A1A),
                                       ),
                                       backgroundColor: const Color.fromRGBO(
-                                          221, 221, 221, 0.2), // Светло-серый
+                                          221, 221, 221, 0.2),
                                     );
                                   }).toList(),
                                 ),
@@ -485,7 +460,7 @@ class _AddScreenState extends State<AddScreen> {
                               'Tasks',
                               style: TextStyle(
                                 fontWeight: FontWeight.bold,
-                                color: Color(0xFF000000), // Чёрный
+                                color: Color(0xFF000000),
                               ),
                             ),
                             ListView.builder(
@@ -499,13 +474,12 @@ class _AddScreenState extends State<AddScreen> {
                                       child: Text(
                                         _tasks[index]['title'],
                                         style: const TextStyle(
-                                            color: Color(
-                                                0xFF1A1A1A)), // Тёмно-серый
+                                            color: Color(0xFF1A1A1A)),
                                       ),
                                     ),
                                     IconButton(
                                       icon: const Icon(Icons.close,
-                                          color: Color(0xFF333333)), // Серый
+                                          color: Color(0xFF333333)),
                                       onPressed: () => _removeTask(index),
                                     ),
                                   ],
@@ -520,7 +494,7 @@ class _AddScreenState extends State<AddScreen> {
                                     decoration: InputDecoration(
                                       hintText: 'Add a task',
                                       hintStyle: const TextStyle(
-                                          color: Color(0xFF333333)), // Серый
+                                          color: Color(0xFF333333)),
                                       filled: true,
                                       fillColor: const Color.fromRGBO(
                                           221, 221, 221, 0.2),
@@ -537,7 +511,7 @@ class _AddScreenState extends State<AddScreen> {
                                 ),
                                 IconButton(
                                   icon: const Icon(Icons.add,
-                                      color: Color(0xFFAFCBEA)), // Голубой
+                                      color: Color(0xFFAFCBEA)),
                                   onPressed: _addTask,
                                 ),
                               ],
@@ -549,10 +523,8 @@ class _AddScreenState extends State<AddScreen> {
                             child: ElevatedButton(
                               onPressed: _saveData,
                               style: ElevatedButton.styleFrom(
-                                backgroundColor:
-                                    const Color(0xFFAFCBEA), // Голубой
-                                foregroundColor:
-                                    const Color(0xFF000000), // Чёрный
+                                backgroundColor: const Color(0xFFAFCBEA),
+                                foregroundColor: const Color(0xFF000000),
                                 padding: EdgeInsets.symmetric(
                                     vertical: size.height * 0.02),
                                 shape: RoundedRectangleBorder(
