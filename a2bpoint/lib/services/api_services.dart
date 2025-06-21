@@ -119,7 +119,7 @@ class ApiService {
       if (session == null) {
         throw Exception('No session received after OAuth');
       }
-      final supabaseToken = session.accessToken;
+      final supabaseToken = await session.accessToken;
       developer.log('Supabase token obtained', name: 'ApiService');
       final response = await _client
           .post(
