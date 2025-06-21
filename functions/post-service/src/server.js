@@ -301,45 +301,44 @@ app.get('/goals/:id', verifyToken, async (req, res) => {
       return res.status(400).json({ error: 'Missing user ID' });
     }
 
-    const { data: usersGoals, error: fetchError } = await supabase
+    const { data: goals, error: fetchError} = await supabase
     .schema('posts')
     .from('goals')
-    .select('id')
+    .select('*')
     .eq('userID', id)
-
     if (fetchError) {
       console.error('Error of fetching: ', fetchError.message);
       res.status(400).json({ error: fetchError.message });
     }
 
-    if (!usersGoals || usersGoals.length === 0) {
+    if (!goals || goals.length === 0) {
       console.log('No goals found for user:', id);
       return res.status(200).json([]);
     }
 
 
-    const userGoalsPhotos = await Promise.all(
-      usersGoals.map(async (goal) => {
-        const {data: photo, error: photoFetchError } = await supabase
-        .schema('posts')
-        .from('goalsPhotos')
-        .select('photoUrl')
-        .eq('goalId', goal.id)
+    // const userGoalsPhotos = await Promise.all(
+    //   usersGoals.map(async (goal) => {
+    //     const {data: photo, error: photoFetchError } = await supabase
+    //     .schema('posts')
+    //     .from('goalsPhotos')
+    //     .select('photoUrl')
+    //     .eq('goalId', goal.id)
 
-        if (fetchError) {
-          console.error('Error with fetching photo url', fetchError.message);
-          res.status(400).json({error: photoFetchError.message});
-        }
+    //     if (fetchError) {
+    //       console.error('Error with fetching photo url', fetchError.message);
+    //       res.status(400).json({error: photoFetchError.message});
+    //     }
 
-        return {
-          id: goal.id,
-          photoURL: photo.photoURL,
-        };
-      }) 
-    );
+    //     return {
+    //       id: goal.id,
+    //       photoURL: photo.photoURL,
+    //     };
+    //   }) 
+    // );
 
-    console.log('photos url: ', userGoalsPhotos);
-    res.status(200).json(userGoalsPhotos);
+    console.log('photos url: ', goals);
+    res.status(200).json(goals);
   } catch (error) {
     console.error('Error of fetching photos url: ', error.message);
     res.status(400).json({error: error.message});
@@ -357,7 +356,7 @@ app.get('/events/:id', verifyToken, async (req, res) => {
     const { data: usersEvents, error: fetchError } = await supabase
     .schema('posts')
     .from('events')
-    .select('id')
+    .select('*')
     .eq('userID', id)
 
     if (fetchError) {
@@ -370,28 +369,28 @@ app.get('/events/:id', verifyToken, async (req, res) => {
       return res.status(200).json([]);
     }
     
-    const userEventsPhotos = await Promise.all(
-      usersEvents.map(async (event) => {
-        const {data: photo, error: photoFetchError } = await supabase
-        .schema('posts')
-        .from('eventsPhotos')
-        .select('photoUrl')
-        .eq('eventId', event.id)
+    // const userEventsPhotos = await Promise.all(
+    //   usersEvents.map(async (event) => {
+    //     const {data: photo, error: photoFetchError } = await supabase
+    //     .schema('posts')
+    //     .from('eventsPhotos')
+    //     .select('photoUrl')
+    //     .eq('eventId', event.id)
 
-        if (fetchError) {
-          console.error('Error with fetching photo url', fetchError.message);
-          res.status(400).json({error: photoFetchError.message});
-        }
+    //     if (fetchError) {
+    //       console.error('Error with fetching photo url', fetchError.message);
+    //       res.status(400).json({error: photoFetchError.message});
+    //     }
 
-        return {
-          id: event.id,
-          photoURL: photo.photoURL,
-        };
-      }) 
-    );
+    //     return {
+    //       id: event.id,
+    //       photoURL: photo.photoURL,
+    //     };
+    //   }) 
+    // );
 
-    console.log('photos url: ', userEventsPhotos);
-    res.status(200).json(userEventsPhotos);
+    console.log('photos url: ', usersEvents);
+    res.status(200).json(userEvents);
   } catch (error) {
     console.error('Error of fetching photos url: ', error.message);
     res.status(400).json({error: error.message});
