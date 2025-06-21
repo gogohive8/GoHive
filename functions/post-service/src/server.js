@@ -398,6 +398,42 @@ app.get('/events/:id', verifyToken, async (req, res) => {
   }
 });
 
+app.post('/like', verifyToken, async (req, res) => {
+  try{
+    const { postId } = req.body;
+
+    const {data: getLike, error: getLikeError} = await supabase
+    .schema('posts')
+    .from('goals')
+    .select('id, numOfLikes')
+    .eq('id', postId)
+    .single()
+
+    if (getLikeError) {
+      console.error('Error of fetch num of likes: ', getLikeError.message);
+      res.status(400).json({ error: getLikeError.message})
+    }
+
+    const likes = getLike.numOfLikes + 1;
+
+    const {data: insertLike, error: updateError} = await supabase
+    .schema('posts')
+    .from('goals')
+    .update({ numOfLikes: likes })
+    .eq('id', postId)
+
+    if (updateError) {
+      console.error('Error of update num of likes: ', updateErrorError.message);
+      res.status(400).json({ error: updateErrorError.message})
+    }
+
+    res.status(200).json({message: 'Like update successfully'});
+
+  } catch (error) {
+    console.error('Error of like: ', error.message);
+    res.status(400).json({error: error.message});
+  }
+})
 
 app.post('/upload', upload.array('images', 10), async (req, res) => {
   try {

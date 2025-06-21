@@ -285,7 +285,7 @@ class ApiService {
       developer.log('LikePost request: postId=$postId', name: 'ApiService');
       final response = await _client
           .post(
-            Uri.parse('$_baseUrl/like'),
+            Uri.parse('$_postsUrl/like'),
             headers: {
               'Content-Type': 'application/json',
               'Authorization': 'Bearer $token',

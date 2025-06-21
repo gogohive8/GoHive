@@ -132,10 +132,24 @@ app.post('/register/email', async (req, res) => {
       return res.status(400).json({ error: error.message });
     }
 
+
+    const {data: profile, error: createProfileError} = await supabase
+    .schema('public')
+    .from('profiles')
+    .insert([
+      {
+        id: authData.user.id
+      }
+    ]);
+    if (createProfileError){
+      await supabase.auth.admin.deleteUser(authData.user.id);
+      console.error('Error of insert new profile', createProfileError.message);
+      return res.status(400).json({ error: createProfileError.message });
+    }
     // Generate JWT
     const token = jwt.sign({ id: authData.user.id }, process.env.JWT_SECRET, {expiresIn: '1h'});
 
-   res.json({
+   res.status(200).json({
       'token' : token,
       'userID' : authData.user.id,
     });
@@ -190,8 +204,22 @@ app.post('/register/oauth/google', async (req, res) => {
         .select()
         .single();
       if (insertError) {
+        await supabase.auth.admin.deleteUser(authData.user.id);
         console.error('Error inserting user:', insertError.message);
         return res.status(400).json({ error: insertError.message });
+      }
+      const {data: profile, error: createProfileError} = await supabase
+        .schema('public')
+        .from('profiles')
+        .insert([
+      {
+        id: authUser.id,
+      }
+    ]);
+      if (createProfileError){
+        await supabase.auth.admin.deleteUser(authData.user.id);
+        console.error('Error of insert new profile', createProfileError.message);
+        return res.status(400).json({ error: createProfileError.message });
       }
       user = newUser;
     } else if (fetchError) {
@@ -202,7 +230,7 @@ app.post('/register/oauth/google', async (req, res) => {
     // Generate JWT
     const token = jwt.sign({ id: authUser.id }, process.env.JWT_SECRET, { expiresIn: '1h' });
 
-    res.json({
+    res.status(200).json({
       token: token,
       userID: authUser.id,
     });
@@ -235,7 +263,7 @@ app.post('/login', async (req, res) => {
     // Generate JWT
     const token = jwt.sign({ id: authData.user.id }, process.env.JWT_SECRET, { expiresIn: '1h' });
 
-    res.json({
+    res.status(200).json({
       'token' : token,
       'userID' : authData.user.id,
     });
@@ -248,7 +276,7 @@ app.post('/login', async (req, res) => {
 app.post('/logout', verifyToken, async (req, res) => {
   try {
     const token = req.headers['authorization'].split(' ')[1];
-    res.json({ message: 'Logged out' });
+    res.status(200).json({ message: 'Logged out' });
   } catch (error) {
     res.status(400).json({ error: error.message });
   }
@@ -304,7 +332,7 @@ app.get('/profile/:id', verifyToken, async (req, res) => {
       return res.status(404).json({ error: 'User not found' });
     }
 
-    res.json({
+    res.status(200).json({
       id: user.id,
       username: user.username,
       biography: profileInfo.biography,
