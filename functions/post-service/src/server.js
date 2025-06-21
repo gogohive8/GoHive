@@ -92,7 +92,7 @@ const upload = multer({
 
 app.post('/goals/create', verifyToken, async (req, res) => {
   try{
-    const { user_id, description, location, interest, point_a, point_b, tasks, image_urls } = req.body;
+    const { user_id, description, location, interest, point_a, point_b, tasks } = req.body;
 
     const { data: goalInfo, error: insertGoalError } = await supabase
     .schema('posts')
@@ -142,7 +142,7 @@ app.post('/goals/create', verifyToken, async (req, res) => {
   //   }
   // };
 
-    res.status(200);
+    res.status(200).json({ message: 'Goals created successfully'});
 
   } catch (error) {
     console.error('Error on create goals: ', error.message);
@@ -187,7 +187,7 @@ app.post('/events/create', verifyToken, async (req, res) => {
   //     res.status(400).json({ error: insertPhotoError });
   //   }
   // };
-    res.status(200);
+    res.status(200).json({ message: 'Event created successfully'});
 
   } catch (error) {
     console.error('Error on create events: ', error.message);
