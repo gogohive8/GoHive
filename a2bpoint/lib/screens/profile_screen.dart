@@ -200,14 +200,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                   children: [
                                     CircleAvatar(
                                       radius: avatarRadius,
-                                      backgroundImage: _profile?[
-                                                      'avatar_url'] !=
-                                                  null &&
-                                              _profile?['avatar_url'].isNotEmpty
-                                          ? NetworkImage(
-                                              _profile!['avatar_url'])
-                                          : const AssetImage(
-                                              'assets/images/default_avatar.png'),
+                                      backgroundImage: const AssetImage(
+                                          'assets/images/default_avatar.png'),
                                       backgroundColor:
                                           const Color(0xFF333333), // Серый
                                     ),

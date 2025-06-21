@@ -112,7 +112,6 @@ class _AddScreenState extends State<AddScreen> {
                 ? _pointBController.text
                 : null,
             tasks: _tasks.isNotEmpty ? _tasks : null,
-            imageUrls: imageUrls.isNotEmpty ? imageUrls : null,
             token: token,
           );
         } else {

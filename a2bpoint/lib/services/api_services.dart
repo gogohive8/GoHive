@@ -329,7 +329,6 @@ class ApiService {
     String? pointA,
     String? pointB,
     List<Map<String, dynamic>>? tasks,
-    List<String>? imageUrls,
     required String token,
   }) async {
     try {
@@ -344,7 +343,6 @@ class ApiService {
           'tasks': tasks
               .map((task) => {'title': task['title'], 'completed': false})
               .toList(),
-        if (imageUrls != null && imageUrls.isNotEmpty) 'image_urls': imageUrls,
       };
 
       developer.log(
