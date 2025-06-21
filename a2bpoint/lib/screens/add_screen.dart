@@ -39,11 +39,11 @@ class _AddScreenState extends State<AddScreen> {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     if (!authProvider.isInitialized) {
       authProvider.initialize().then((_) {
-        if (mounted && authProvider.shouldRedirectToSignIn()) {
+        if (mounted && authProvider.shouldRedirectTo()) {
           Navigator.pushReplacementNamed(context, '/sign_in');
         }
       });
-    } else if (authProvider.shouldRedirectToSignIn()) {
+    } else if (authProvider.shouldRedirectTo()) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         Navigator.pushReplacementNamed(context, '/sign_in');
       });
@@ -62,6 +62,7 @@ class _AddScreenState extends State<AddScreen> {
   }
 
   Future<void> _saveData() async {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
     if (_selectedTabIndex == 0 && _selectedInterest == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please select an interest')),
@@ -75,11 +76,11 @@ class _AddScreenState extends State<AddScreen> {
       return;
     }
     if (_formKey.currentState!.validate()) {
-      final authProvider = Provider.of<AuthProvider>(context, listen: false);
       if (!authProvider.isAuthenticated ||
           authProvider.userId == null ||
           authProvider.token == null) {
-        Navigator.pushReplacementNamed(context, '/sign_in');
+        authProvider.handleAuthError(
+            context, AuthenticationException('Not authenticated'));
         return;
       }
       try {
@@ -112,7 +113,6 @@ class _AddScreenState extends State<AddScreen> {
                 ? _pointBController.text
                 : null,
             tasks: _tasks.isNotEmpty ? _tasks : null,
-            imageUrls: imageUrls.isNotEmpty ? imageUrls : null,
             token: token,
           );
         } else {
@@ -143,36 +143,19 @@ class _AddScreenState extends State<AddScreen> {
             _errorMessage = '';
           });
         }
-      } on AuthenticationException catch (e) {
-        developer.log('Authentication error: ${e.message}',
-            name: 'AddScreen', stackTrace: StackTrace.current);
-        if (mounted) {
-          Navigator.pop(context);
-          await authProvider.clearAuth();
-          Navigator.pushReplacementNamed(context, '/sign_in');
-        }
-      } on DataValidationException catch (e) {
-        developer.log('Validation error: ${e.message}',
-            name: 'AddScreen', stackTrace: StackTrace.current);
-        if (mounted) {
-          Navigator.pop(context);
-          setState(() {
-            _errorMessage = e.message;
-          });
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(e.message)),
-          );
-        }
       } catch (e, stackTrace) {
         developer.log('Save data error: $e',
             name: 'AddScreen', stackTrace: stackTrace);
-        if (mounted) {
+        authProvider.handleAuthError(context, e);
+        if (mounted && e is! AuthenticationException) {
           Navigator.pop(context);
           setState(() {
-            _errorMessage = 'Error saving data: $e';
+            _errorMessage = e is DataValidationException
+                ? e.message
+                : 'Error saving data: $e';
           });
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Error saving data: $e')),
+            SnackBar(content: Text(_errorMessage)),
           );
         }
       } finally {
