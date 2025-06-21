@@ -1,6 +1,7 @@
-import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:developer' as developer;
+import '../services/exceptions.dart'; // Import for AuthenticationException
 
 class AuthProvider with ChangeNotifier {
   String? _token;
@@ -12,7 +13,6 @@ class AuthProvider with ChangeNotifier {
   bool get isAuthenticated => _token != null && _userId != null;
   bool get isInitialized => _isInitialized;
 
-  // Инициализация провайдера с автоматической загрузкой из кэша
   Future<void> initialize() async {
     if (!_isInitialized) {
       developer.log('Initializing AuthProvider', name: 'AuthProvider');
@@ -22,7 +22,6 @@ class AuthProvider with ChangeNotifier {
     }
   }
 
-  // Загрузка данных из кэша
   Future<void> loadFromCache() async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -38,7 +37,6 @@ class AuthProvider with ChangeNotifier {
     }
   }
 
-  // Сохранение данных в кэш
   Future<void> setAuthData(String token, String userId) async {
     try {
       _token = token;
@@ -54,15 +52,15 @@ class AuthProvider with ChangeNotifier {
     }
   }
 
-  // Очистка данных авторизации
   Future<void> clearAuth() async {
     try {
+      developer.log('Clearing auth data, stack trace: ${StackTrace.current}',
+          name: 'AuthProvider');
       _token = null;
       _userId = null;
       final prefs = await SharedPreferences.getInstance();
       await prefs.remove('token');
       await prefs.remove('userId');
-      developer.log('Auth data cleared', name: 'AuthProvider');
       notifyListeners();
     } catch (e, stackTrace) {
       developer.log('Error clearing auth data: $e',
@@ -70,13 +68,23 @@ class AuthProvider with ChangeNotifier {
     }
   }
 
-  // Проверка необходимости редиректа на страницу авторизации
-  bool shouldRedirectToSignIn() {
+  bool shouldRedirectTo() {
     final shouldRedirect = !isAuthenticated && _isInitialized;
     if (shouldRedirect) {
-      developer.log('Redirecting to sign-in: not authenticated',
+      developer.log('Should redirect to sign-in: not authenticated',
           name: 'AuthProvider');
     }
     return shouldRedirect;
+  }
+
+  Future<void> handleAuthError(BuildContext context, dynamic error) async {
+    if (error is AuthenticationException) {
+      developer.log('Authentication error detected: ${error.message}',
+          name: 'AuthProvider');
+      await clearAuth();
+      if (context.mounted) {
+        Navigator.pushReplacementNamed(context, '/sign_in');
+      }
+    }
   }
 }

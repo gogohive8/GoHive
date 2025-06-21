@@ -3,8 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/post.dart';
 import '../services/api_services.dart';
-import '../providers/auth_provider.dart';
 import '../services/exceptions.dart';
+import '../providers/auth_provider.dart';
 import 'navbar.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -42,7 +42,6 @@ class _HomeScreenState extends State<HomeScreen>
   void _checkAuthAndFetchPosts() {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     if (!authProvider.isInitialized) {
-      // Ждем инициализации AuthProvider
       authProvider.initialize().then((_) {
         if (mounted) {
           _redirectIfNotAuthenticated(authProvider);
@@ -56,7 +55,7 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   void _redirectIfNotAuthenticated(AuthProvider authProvider) {
-    if (authProvider.shouldRedirectToSignIn()) {
+    if (authProvider.shouldRedirectTo()) {
       developer.log('No token found, redirecting to sign-in',
           name: 'HomeScreen');
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -87,9 +86,14 @@ class _HomeScreenState extends State<HomeScreen>
     }
     developer.log('Fetching posts: tabIndex=$_selectedTabIndex',
         name: 'HomeScreen');
-    _postsFuture = _selectedTabIndex == 0
-        ? _apiService.getAllGoals(token, userId).then(_groupPostsByUser)
-        : _apiService.getAllEvents(token, userId).then(_groupPostsByUser);
+    _postsFuture = (_selectedTabIndex == 0
+            ? _apiService.getAllGoals(token, userId)
+            : _apiService.getAllEvents(token, userId))
+        .then(_groupPostsByUser)
+        .catchError((e) {
+      authProvider.handleAuthError(context, e);
+      return <String, List<Post>>{};
+    });
   }
 
   Future<Map<String, List<Post>>> _groupPostsByUser(List<Post> posts) async {
@@ -116,7 +120,8 @@ class _HomeScreenState extends State<HomeScreen>
       String postId, int currentLikes, String userId, int index) async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     if (!authProvider.isAuthenticated || authProvider.token == null) {
-      Navigator.pushReplacementNamed(context, '/sign_in');
+      authProvider.handleAuthError(
+          context, AuthenticationException('Not authenticated'));
       return;
     }
     try {
@@ -145,14 +150,10 @@ class _HomeScreenState extends State<HomeScreen>
           });
         }
       });
-    } on AuthenticationException catch (e) {
-      developer.log('Authentication error: ${e.message}',
-          name: 'HomeScreen', stackTrace: StackTrace.current);
-      await authProvider.clearAuth();
-      Navigator.pushReplacementNamed(context, '/sign_in');
     } catch (e, stackTrace) {
       developer.log('Like post error: $e',
           name: 'HomeScreen', stackTrace: stackTrace);
+      authProvider.handleAuthError(context, e);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error liking post: $e')),
       );
@@ -162,7 +163,8 @@ class _HomeScreenState extends State<HomeScreen>
   void _joinEvent(String eventId, String eventText) async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     if (!authProvider.isAuthenticated || authProvider.token == null) {
-      Navigator.pushReplacementNamed(context, '/sign_in');
+      authProvider.handleAuthError(
+          context, AuthenticationException('Not authenticated'));
       return;
     }
     try {
@@ -171,14 +173,10 @@ class _HomeScreenState extends State<HomeScreen>
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('You have joined $eventText')),
       );
-    } on AuthenticationException catch (e) {
-      developer.log('Authentication error: ${e.message}',
-          name: 'HomeScreen', stackTrace: StackTrace.current);
-      await authProvider.clearAuth();
-      Navigator.pushReplacementNamed(context, '/sign_in');
     } catch (e, stackTrace) {
       developer.log('Join event error: $e',
           name: 'HomeScreen', stackTrace: stackTrace);
+      authProvider.handleAuthError(context, e);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error joining event: $e')),
       );
@@ -274,10 +272,13 @@ class _HomeScreenState extends State<HomeScreen>
           return const Center(child: CircularProgressIndicator());
         }
         if (snapshot.hasError) {
+          developer.log('Snapshot error: ${snapshot.error}',
+              name: 'HomeScreen', stackTrace: snapshot.stackTrace);
           return Center(child: Text('Error: ${snapshot.error}'));
         }
         final groupedPosts = snapshot.data ?? {};
         if (groupedPosts.isEmpty) {
+          developer.log('No posts to display', name: 'HomeScreen');
           return const Center(child: Text('No posts available'));
         }
         developer.log('Posts data: $groupedPosts', name: 'HomeScreen');
