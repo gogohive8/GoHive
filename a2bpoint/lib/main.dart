@@ -9,6 +9,7 @@ import 'screens/profile_screen.dart';
 import 'screens/ai_mentor_screen.dart';
 import 'providers/auth_provider.dart';
 import 'screens/search_screen.dart';
+import 'dart:developer' as developer;
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -19,14 +20,14 @@ void main() async {
       anonKey:
           'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9zeWFqcWx0Ymt1ZHNmY3BwcWdoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDkyOTA2MjIsImV4cCI6MjA2NDg2NjYyMn0.nL4ENxcHrchOK3HgCyG6sQkxsj_KXwpriZhpmmV7liA',
     );
-    print('Supabase initialized successfully');
+    developer.log('Supabase initialized successfully', name: 'Main');
   } catch (e) {
-    print('Supabase initialization error: $e');
+    developer.log('Supabase initialization error: $e', name: 'Main');
   }
 
   runApp(
     ChangeNotifierProvider(
-      create: (_) => AuthProvider(),
+      create: (_) => AuthProvider()..initialize(),
       child: MyApp(),
     ),
   );
@@ -37,28 +38,21 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider(
-      create: (context) {
-        final authProvider = AuthProvider();
-        authProvider.initialize(); // Инициализация при старте
-        return authProvider;
-      },
-      child: MaterialApp(
-        title: 'GoHive',
-        theme: ThemeData(
-          primarySwatch: Colors.blue,
-        ),
-        initialRoute: '/sign_in',
-        routes: {
-          '/sign_in': (context) => const SignInScreen(),
-          '/sign_up': (context) => const SignUpScreen(),
-          '/home': (context) => const HomeScreen(),
-          '/add': (context) => const AddScreen(),
-          '/profile': (context) => const ProfileScreen(),
-          '/search': (context) => const SearchScreen(),
-          '/ai-mentor': (context) => const AIMentorScreen(),
-        },
+    return MaterialApp(
+      title: 'GoHive',
+      theme: ThemeData(
+        primarySwatch: Colors.blue,
       ),
+      initialRoute: '/sign_in',
+      routes: {
+        '/sign_in': (context) => const SignInScreen(),
+        '/sign_up': (context) => const SignUpScreen(),
+        '/home': (context) => const HomeScreen(),
+        '/add': (context) => const AddScreen(),
+        '/profile': (context) => const ProfileScreen(),
+        '/search': (context) => const SearchScreen(),
+        '/ai-mentor': (context) => const AIMentorScreen(),
+      },
     );
   }
 }

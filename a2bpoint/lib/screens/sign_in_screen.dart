@@ -27,7 +27,8 @@ class _SignInScreenState extends State<SignInScreen> {
 
   Future<void> _signInWithEmail() async {
     if (_formKey.currentState!.validate()) {
-      developer.log('SignIn with email: email=${_emailController.text}',
+      developer.log(
+          'Attempting to sign in with email: ${_emailController.text}',
           name: 'SignInScreen');
       try {
         showDialog(
@@ -38,13 +39,32 @@ class _SignInScreenState extends State<SignInScreen> {
         );
         final authData = await _apiService.login(
             _emailController.text, _passwordController.text);
-        if (!mounted) return;
-        Navigator.pop(context);
-        if (authData != null) {
-          Provider.of<AuthProvider>(context, listen: false)
-              .setAuthData(authData['token'] ?? '', authData['userId'] ?? '');
-          Navigator.pushReplacementNamed(context, '/home');
+        developer.log('Login response: $authData', name: 'SignInScreen');
+        Navigator.pop(context); // Закрываем диалог
+        if (authData != null &&
+            authData['token']?.isNotEmpty == true &&
+            authData['userId']?.isNotEmpty == true) {
+          developer.log(
+              'Setting auth data: token=${authData['token']}, userId=${authData['userId']}',
+              name: 'SignInScreen');
+          final authProvider =
+              Provider.of<AuthProvider>(context, listen: false);
+          await authProvider.setAuthData(
+              authData['token']!, authData['userId']!); // Добавляем await
+          if (authProvider.isAuthenticated) {
+            developer.log('User authenticated, navigating to /home',
+                name: 'SignInScreen');
+            Navigator.pushReplacementNamed(context, '/home');
+          } else {
+            developer.log('Authentication failed: AuthProvider not updated',
+                name: 'SignInScreen');
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                  content: Text('Failed to authenticate. Please try again.')),
+            );
+          }
         } else {
+          developer.log('Invalid auth data: $authData', name: 'SignInScreen');
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Invalid email or password')),
           );
@@ -55,15 +75,17 @@ class _SignInScreenState extends State<SignInScreen> {
         if (mounted) {
           Navigator.pop(context);
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Login error: $e')),
+            SnackBar(content: Text('Login error: ${e.toString()}')),
           );
         }
       }
+    } else {
+      developer.log('Form validation failed', name: 'SignInScreen');
     }
   }
 
   Future<void> _signInWithGoogle() async {
-    developer.log('SignIn with Google', name: 'SignInScreen');
+    developer.log('Attempting Google sign-in', name: 'SignInScreen');
     try {
       showDialog(
         context: context,
@@ -71,13 +93,32 @@ class _SignInScreenState extends State<SignInScreen> {
         builder: (context) => const Center(child: CircularProgressIndicator()),
       );
       final authData = await _apiService.signInWithGoogle();
-      if (!mounted) return;
+      developer.log('Google sign-in response: $authData', name: 'SignInScreen');
       Navigator.pop(context);
-      if (authData != null) {
-        Provider.of<AuthProvider>(context, listen: false)
-            .setAuthData(authData['token'] ?? '', authData['userId'] ?? '');
-        Navigator.pushReplacementNamed(context, '/home');
+      if (authData != null &&
+          authData['token']?.isNotEmpty == true &&
+          authData['userId']?.isNotEmpty == true) {
+        developer.log(
+            'Setting auth data: token=${authData['token']}, userId=${authData['userId']}',
+            name: 'SignInScreen');
+        final authProvider = Provider.of<AuthProvider>(context, listen: false);
+        await authProvider.setAuthData(
+            authData['token']!, authData['userId']!); // Добавляем await
+        if (authProvider.isAuthenticated) {
+          developer.log('User authenticated, navigating to /home',
+              name: 'SignInScreen');
+          Navigator.pushReplacementNamed(context, '/home');
+        } else {
+          developer.log('Authentication failed: AuthProvider not updated',
+              name: 'SignInScreen');
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+                content: Text(
+                    'Failed to authenticate with Google. Please try again.')),
+          );
+        }
       } else {
+        developer.log('Google sign-in failed: $authData', name: 'SignInScreen');
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Google sign-in failed')),
         );
@@ -88,7 +129,7 @@ class _SignInScreenState extends State<SignInScreen> {
       if (mounted) {
         Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Google sign-in error: $e')),
+          SnackBar(content: Text('Google sign-in error: ${e.toString()}')),
         );
       }
     }
@@ -100,7 +141,7 @@ class _SignInScreenState extends State<SignInScreen> {
     final padding = size.width * 0.05;
 
     return Scaffold(
-        backgroundColor: const Color(0xFFF9F6F2), // Светло-бежевый фон
+        backgroundColor: const Color(0xFFF9F6F2),
         body: SafeArea(
           child: Center(
             child: SingleChildScrollView(
@@ -112,20 +153,18 @@ class _SignInScreenState extends State<SignInScreen> {
                   children: [
                     Image.asset(
                       'assets/logo_background.png',
-                      height: size.height * 0.15, // Уменьшенный размер логотипа
+                      height: size.height * 0.15,
                       fit: BoxFit.contain,
                     ),
-                    const SizedBox(
-                        height: 8), // Отступ между логотипом и надписью
+                    const SizedBox(height: 8),
                     const Text(
                       'GoHive',
                       style: TextStyle(
-                        fontWeight: FontWeight.bold, // Эквивалент 700
+                        fontWeight: FontWeight.bold,
                         fontSize: 32,
-                        height: 40 /
-                            32, // Высота строки: 40px / размер шрифта: 32px
-                        letterSpacing: -0.02 * 32, // Отступ между буквами: -2%
-                        color: Color(0xFF000000), // Чёрный текст
+                        height: 40 / 32,
+                        letterSpacing: -0.02 * 32,
+                        color: Color(0xFF000000),
                       ),
                       textAlign: TextAlign.center,
                     ),
@@ -134,21 +173,18 @@ class _SignInScreenState extends State<SignInScreen> {
                       controller: _emailController,
                       decoration: InputDecoration(
                         labelText: 'Email',
-                        labelStyle: const TextStyle(
-                            color: Color(0xFF1A1A1A)), // Тёмно-серый
+                        labelStyle: const TextStyle(color: Color(0xFF1A1A1A)),
                         filled: true,
-                        fillColor: const Color.fromRGBO(
-                            221, 221, 221, 0.2), // Светло-серый с прозрачностью
+                        fillColor: const Color.fromRGBO(221, 221, 221, 0.2),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(10),
                           borderSide: BorderSide.none,
                         ),
-                        prefixIcon: const Icon(Icons.email,
-                            color: Color(0xFF333333)), // Серый
+                        prefixIcon:
+                            const Icon(Icons.email, color: Color(0xFF333333)),
                       ),
                       keyboardType: TextInputType.emailAddress,
-                      style: const TextStyle(
-                          color: Color(0xFF1A1A1A)), // Тёмно-серый
+                      style: const TextStyle(color: Color(0xFF1A1A1A)),
                       validator: (value) {
                         if (value == null || value.isEmpty) {
                           return 'Please enter your email';
@@ -165,27 +201,23 @@ class _SignInScreenState extends State<SignInScreen> {
                       controller: _passwordController,
                       decoration: InputDecoration(
                         labelText: 'Password',
-                        labelStyle: const TextStyle(
-                            color: Color(0xFF1A1A1A)), // Тёмно-серый
+                        labelStyle: const TextStyle(color: Color(0xFF1A1A1A)),
                         filled: true,
-                        fillColor: const Color.fromRGBO(
-                            221, 221, 221, 0.2), // Светло-серый
+                        fillColor: const Color.fromRGBO(221, 221, 221, 0.2),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(10),
                           borderSide: BorderSide.none,
                         ),
-                        prefixIcon: const Icon(Icons.lock,
-                            color: Color(0xFF333333)), // Серый
+                        prefixIcon:
+                            const Icon(Icons.lock, color: Color(0xFF333333)),
                         suffixIcon: IconButton(
                           icon: const Icon(Icons.visibility_off,
                               color: Color(0xFF333333)),
-                          onPressed: () =>
-                              setState(() {}), // Заглушка для видимости пароля
+                          onPressed: () => setState(() {}),
                         ),
                       ),
                       obscureText: true,
-                      style: const TextStyle(
-                          color: Color(0xFF1A1A1A)), // Тёмно-серый
+                      style: const TextStyle(color: Color(0xFF1A1A1A)),
                       validator: (value) {
                         if (value == null || value.isEmpty) {
                           return 'Please enter your password';
@@ -204,9 +236,8 @@ class _SignInScreenState extends State<SignInScreen> {
                       child: ElevatedButton(
                         onPressed: _signInWithEmail,
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFFAFCBEA), // Голубой
-                          foregroundColor:
-                              const Color(0xFF000000), // Чёрный текст
+                          backgroundColor: const Color(0xFFAFCBEA),
+                          foregroundColor: const Color(0xFF000000),
                           padding: EdgeInsets.symmetric(
                               vertical: size.height * 0.02),
                           shape: RoundedRectangleBorder(
@@ -222,7 +253,7 @@ class _SignInScreenState extends State<SignInScreen> {
                     SizedBox(height: size.height * 0.03),
                     const Text(
                       'Or',
-                      style: TextStyle(color: Color(0xFF333333)), // Серый
+                      style: TextStyle(color: Color(0xFF333333)),
                     ),
                     SizedBox(height: size.height * 0.03),
                     SizedBox(
@@ -231,18 +262,16 @@ class _SignInScreenState extends State<SignInScreen> {
                         onPressed: () =>
                             Navigator.pushNamed(context, '/sign-up'),
                         style: OutlinedButton.styleFrom(
-                          side: const BorderSide(
-                              color: Color(0xFF333333)), // Серый
+                          side: const BorderSide(color: Color(0xFF333333)),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(10),
                           ),
-                          backgroundColor: const Color.fromRGBO(
-                              221, 221, 221, 0.1), // Светло-серый
+                          backgroundColor:
+                              const Color.fromRGBO(221, 221, 221, 0.1),
                         ),
                         child: const Text(
                           'Sign Up',
-                          style: TextStyle(
-                              color: Color(0xFF1A1A1A)), // Тёмно-серый
+                          style: TextStyle(color: Color(0xFF1A1A1A)),
                         ),
                       ),
                     ),
@@ -254,17 +283,15 @@ class _SignInScreenState extends State<SignInScreen> {
                         icon: Image.asset('assets/google_icon.png', height: 24),
                         label: const Text(
                           'Sign in with Google',
-                          style: TextStyle(
-                              color: Color(0xFF1A1A1A)), // Тёмно-серый
+                          style: TextStyle(color: Color(0xFF1A1A1A)),
                         ),
                         style: OutlinedButton.styleFrom(
-                          side: const BorderSide(
-                              color: Color(0xFF333333)), // Серый
+                          side: const BorderSide(color: Color(0xFF333333)),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(10),
                           ),
-                          backgroundColor: const Color.fromRGBO(
-                              221, 221, 221, 0.1), // Светло-серый
+                          backgroundColor:
+                              const Color.fromRGBO(221, 221, 221, 0.1),
                         ),
                       ),
                     ),
