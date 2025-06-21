@@ -1,6 +1,6 @@
-import 'dart:developer' as developer;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'dart:developer' as developer;
 import '../providers/auth_provider.dart';
 import '../services/api_services.dart';
 import 'navbar.dart';
@@ -27,7 +27,7 @@ class _AddScreenState extends State<AddScreen> {
 
   int _selectedTabIndex = 0;
   String? _selectedInterest;
-  List<String> _tasks = [];
+  List<Map<String, dynamic>> _tasks = [];
   bool _isLoading = false;
   String _errorMessage = '';
 
@@ -62,7 +62,6 @@ class _AddScreenState extends State<AddScreen> {
     _pointBController.dispose();
     _dateTimeController.dispose();
     _taskController.dispose();
-    _apiService.dispose();
     super.dispose();
   }
 
@@ -131,26 +130,16 @@ class _AddScreenState extends State<AddScreen> {
               const Center(child: CircularProgressIndicator()),
         );
 
-        // // Комментарий: Закомментировано для удаления функционала фотографий
-        // // Upload images and get URLs
-        // final imageUrls = _images.isNotEmpty
-        //     ? await _apiService.uploadImages(
-        //         authProvider.userId!,
-        //         _images.map((file) => file.path).toList(),
-        //         authProvider.token!,
-        //       )
-        //     : <String>[];
         final imageUrls = <String>[]; // Пустой список для imageUrls
-
         final String userId = authProvider.userId!;
         final String token = authProvider.token!;
 
         if (_selectedTabIndex == 0) {
           await _apiService.createGoal(
-            userId,
-            _descriptionController.text,
-            _locationController.text,
-            _selectedInterest!,
+            userId: userId,
+            description: _descriptionController.text,
+            location: _locationController.text,
+            interest: _selectedInterest!,
             pointA: _pointAController.text.isNotEmpty
                 ? _pointAController.text
                 : null,
@@ -158,17 +147,17 @@ class _AddScreenState extends State<AddScreen> {
                 ? _pointBController.text
                 : null,
             tasks: _tasks.isNotEmpty ? _tasks : null,
-            imageUrls: imageUrls,
+            imageUrls: imageUrls.isNotEmpty ? imageUrls : null,
             token: token,
           );
         } else {
           await _apiService.createEvent(
-            userId,
-            _descriptionController.text,
-            _locationController.text,
-            _selectedInterest!,
-            _dateTimeController.text,
-            imageUrls: imageUrls,
+            userId: userId,
+            description: _descriptionController.text,
+            location: _locationController.text,
+            interest: _selectedInterest!,
+            dateTime: _dateTimeController.text,
+            imageUrls: imageUrls.isNotEmpty ? imageUrls : null,
             token: token,
           );
         }
@@ -185,7 +174,6 @@ class _AddScreenState extends State<AddScreen> {
           _dateTimeController.clear();
           setState(() {
             _selectedInterest = null;
-            // _images.clear(); // Закомментировано
             _tasks.clear();
             _errorMessage = '';
           });
@@ -201,11 +189,18 @@ class _AddScreenState extends State<AddScreen> {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('Error saving data: $e')),
           );
+          if (e.toString().contains('Неавторизован')) {
+            // TODO: Убедитесь, что метод logout реализован в AuthProvider
+            // await authProvider.logout();
+            Navigator.pushReplacementNamed(context, '/sign_in');
+          }
         }
       } finally {
-        setState(() {
-          _isLoading = false;
-        });
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+          });
+        }
       }
     }
   }
@@ -213,7 +208,7 @@ class _AddScreenState extends State<AddScreen> {
   void _addTask() {
     if (_taskController.text.isNotEmpty) {
       setState(() {
-        _tasks.add(_taskController.text);
+        _tasks.add({'title': _taskController.text, 'completed': false});
         _taskController.clear();
       });
     }
@@ -502,7 +497,7 @@ class _AddScreenState extends State<AddScreen> {
                                   children: [
                                     Expanded(
                                       child: Text(
-                                        _tasks[index],
+                                        _tasks[index]['title'],
                                         style: const TextStyle(
                                             color: Color(
                                                 0xFF1A1A1A)), // Тёмно-серый

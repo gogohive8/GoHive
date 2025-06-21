@@ -1,9 +1,6 @@
-import 'dart:convert';
 import 'dart:developer' as developer;
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
-import 'dart:io';
 import '../providers/auth_provider.dart';
 import '../services/api_services.dart';
 import '../models/post.dart';
@@ -109,46 +106,46 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
-  Future<void> _uploadAvatar() async {
-    final picker = ImagePicker();
-    final pickedFile = await picker.pickImage(source: ImageSource.gallery);
+  // Future<void> _uploadAvatar() async {
+  //   final picker = ImagePicker();
+  //   final pickedFile = await picker.pickImage(source: ImageSource.gallery);
 
-    if (pickedFile == null) return;
+  //   if (pickedFile == null) return;
 
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    final userId = authProvider.userId ?? '';
-    final token = authProvider.token ?? '';
+  //   final authProvider = Provider.of<AuthProvider>(context, listen: false);
+  //   final userId = authProvider.userId ?? '';
+  //   final token = authProvider.token ?? '';
 
-    if (userId.isEmpty || token.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please log in to upload an avatar')),
-      );
-      return;
-    }
+  //   if (userId.isEmpty || token.isEmpty) {
+  //     ScaffoldMessenger.of(context).showSnackBar(
+  //       const SnackBar(content: Text('Please log in to upload an avatar')),
+  //     );
+  //     return;
+  //   }
 
-    try {
-      developer.log('Uploading avatar for userId=$userId',
-          name: 'ProfileScreen');
-      final urls =
-          await _apiService.uploadImages(userId, [pickedFile.path], token);
-      if (urls.isNotEmpty && mounted) {
-        setState(() {
-          _profile?['avatar_url'] = urls.first;
-        });
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Avatar updated successfully')),
-        );
-      }
-    } catch (e, stackTrace) {
-      developer.log('Upload avatar error: $e',
-          name: 'ProfileScreen', stackTrace: stackTrace);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error uploading avatar: $e')),
-        );
-      }
-    }
-  }
+  //   try {
+  //     developer.log('Uploading avatar for userId=$userId',
+  //         name: 'ProfileScreen');
+  //     final urls =
+  //         await _apiService.uploadImages(userId, [pickedFile.path], token);
+  //     if (urls.isNotEmpty && mounted) {
+  //       setState(() {
+  //         _profile?['avatar_url'] = urls.first;
+  //       });
+  //       ScaffoldMessenger.of(context).showSnackBar(
+  //         const SnackBar(content: Text('Avatar updated successfully')),
+  //       );
+  //     }
+  //   } catch (e, stackTrace) {
+  //     developer.log('Upload avatar error: $e',
+  //         name: 'ProfileScreen', stackTrace: stackTrace);
+  //     if (mounted) {
+  //       ScaffoldMessenger.of(context).showSnackBar(
+  //         SnackBar(content: Text('Error uploading avatar: $e')),
+  //       );
+  //     }
+  //   }
+  // }
 
   @override
   Widget build(BuildContext context) {
@@ -213,18 +210,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                               'assets/images/default_avatar.png'),
                                       backgroundColor:
                                           const Color(0xFF333333), // Серый
-                                    ),
-                                    Positioned(
-                                      bottom: -avatarRadius * 0.2,
-                                      right: -avatarRadius * 0.2,
-                                      child: IconButton(
-                                        icon: const Icon(Icons.camera_alt,
-                                            color:
-                                                Color(0xFFAFCBEA)), // Голубой
-                                        onPressed: _uploadAvatar,
-                                        padding:
-                                            EdgeInsets.all(avatarRadius * 0.1),
-                                      ),
                                     ),
                                   ],
                                 ),
