@@ -19,6 +19,7 @@ class _SignInScreenState extends State<SignInScreen> {
   final ApiService _apiService = ApiService();
   bool _isPasswordVisible = false;
   bool _isLoading = false;
+  bool _isSupabaseInitialized = false;
 
   @override
   void dispose() {
@@ -30,7 +31,15 @@ class _SignInScreenState extends State<SignInScreen> {
 
   Future<void> _handleSignIn(
       Future<Map<String, String>?> signInMethod, bool isGoogleLogin) async {
-    if (_isLoading) return; // Предотвращаем повторные запросы
+    if (_isLoading || !_isSupabaseInitialized) {
+      if (!_isSupabaseInitialized) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Service not initialized')),
+        );
+      }
+      return;
+    }
+
     setState(() => _isLoading = true);
     try {
       showDialog(
@@ -38,9 +47,11 @@ class _SignInScreenState extends State<SignInScreen> {
         barrierDismissible: false,
         builder: (context) => const Center(child: CircularProgressIndicator()),
       );
+
       final authData = await signInMethod;
       if (!mounted) return;
       Navigator.pop(context);
+
       if (authData != null &&
           authData['token']?.isNotEmpty == true &&
           authData['userId']?.isNotEmpty == true) {
@@ -48,13 +59,18 @@ class _SignInScreenState extends State<SignInScreen> {
         await authProvider.setAuthData(
           authData['token']!,
           authData['userId']!,
-          authData['username'], // Может быть null для Google Sign-In
+          authData['username'],
           isGoogleLogin,
         );
+
         if (authProvider.isAuthenticated) {
           developer.log('User authenticated, navigating to /home',
               name: 'SignInScreen');
-          Navigator.pushReplacementNamed(context, '/home');
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) {
+              Navigator.pushReplacementNamed(context, '/home');
+            }
+          });
         } else {
           developer.log('Authentication failed: AuthProvider not updated',
               name: 'SignInScreen');
@@ -75,13 +91,9 @@ class _SignInScreenState extends State<SignInScreen> {
           name: 'SignInScreen', stackTrace: stackTrace);
       if (mounted) {
         Navigator.pop(context);
-        if (e is AuthenticationException) {
-          Navigator.pushReplacementNamed(context, '/sign-up');
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Login error: ${e.toString()}')),
-          );
-        }
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Login error: ${e.toString()}')),
+        );
       }
     } finally {
       if (mounted) {
@@ -118,7 +130,7 @@ class _SignInScreenState extends State<SignInScreen> {
     final padding = size.width * 0.05;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF9F6F2), // Светло-бежевый фон
+      backgroundColor: const Color(0xFFF9F6F2),
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
