@@ -61,13 +61,30 @@ class _SignUpScreenState extends State<SignUpScreen> {
           _phoneController.text,
         );
         developer.log('SignUp response: $authData', name: 'SignUpScreen');
-        if (!mounted) return;
         Navigator.pop(context);
-        if (authData != null) {
-          Provider.of<AuthProvider>(context, listen: false)
-              .setAuthData(authData['token'] ?? '', authData['userId'] ?? '');
-          Navigator.pushReplacementNamed(context, '/home');
+        if (authData != null &&
+            authData['token']?.isNotEmpty == true &&
+            authData['userId']?.isNotEmpty == true) {
+          final authProvider =
+              Provider.of<AuthProvider>(context, listen: false);
+          await authProvider.setAuthData(
+              authData['token']!, authData['userId']!); // Добавляем await
+          if (authProvider.isAuthenticated) {
+            developer.log(
+                'User registered and authenticated, navigating to /home',
+                name: 'SignUpScreen');
+            Navigator.pushReplacementNamed(context, '/home');
+          } else {
+            developer.log('Registration failed: AuthProvider not updated',
+                name: 'SignUpScreen');
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                  content: Text('Failed to authenticate. Please try again.')),
+            );
+          }
         } else {
+          developer.log('Registration failed: invalid auth data $authData',
+              name: 'SignUpScreen');
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
                 content: Text('Registration failed. Please try again.')),
@@ -99,7 +116,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
     final padding = size.width * 0.05;
 
     return Scaffold(
-        backgroundColor: const Color(0xFFF9F6F2), // Светло-бежевый фон
+        backgroundColor: const Color(0xFFF9F6F2),
         body: SafeArea(
           child: SingleChildScrollView(
             padding: EdgeInsets.all(padding),
@@ -111,20 +128,18 @@ class _SignUpScreenState extends State<SignUpScreen> {
                   SizedBox(height: size.height * 0.1),
                   Image.asset(
                     'assets/logo_background.png',
-                    height: size.height * 0.15, // Уменьшенный размер логотипа
+                    height: size.height * 0.15,
                     fit: BoxFit.contain,
                   ),
-                  const SizedBox(
-                      height: 8), // Отступ между логотипом и надписью
+                  const SizedBox(height: 8),
                   const Text(
                     'GoHive',
                     style: TextStyle(
-                      fontWeight: FontWeight.bold, // Эквивалент 700
+                      fontWeight: FontWeight.bold,
                       fontSize: 32,
-                      height:
-                          40 / 32, // Высота строки: 40px / размер шрифта: 32px
-                      letterSpacing: -0.02 * 32, // Отступ между буквами: -2%
-                      color: Color(0xFF000000), // Чёрный текст
+                      height: 40 / 32,
+                      letterSpacing: -0.02 * 32,
+                      color: Color(0xFF000000),
                     ),
                     textAlign: TextAlign.center,
                   ),
@@ -134,7 +149,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                     style: TextStyle(
                       fontSize: 24,
                       fontWeight: FontWeight.bold,
-                      color: Color(0xFF000000), // Чёрный
+                      color: Color(0xFF000000),
                     ),
                   ),
                   SizedBox(height: size.height * 0.02),
@@ -142,20 +157,17 @@ class _SignUpScreenState extends State<SignUpScreen> {
                     controller: _firstNameController,
                     decoration: InputDecoration(
                       labelText: 'First Name',
-                      labelStyle: const TextStyle(
-                          color: Color(0xFF1A1A1A)), // Тёмно-серый
+                      labelStyle: const TextStyle(color: Color(0xFF1A1A1A)),
                       filled: true,
-                      fillColor: const Color.fromRGBO(
-                          221, 221, 221, 0.2), // Светло-серый
+                      fillColor: const Color.fromRGBO(221, 221, 221, 0.2),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(10),
                         borderSide: BorderSide.none,
                       ),
-                      prefixIcon: const Icon(Icons.person,
-                          color: Color(0xFF333333)), // Серый
+                      prefixIcon:
+                          const Icon(Icons.person, color: Color(0xFF333333)),
                     ),
-                    style: const TextStyle(
-                        color: Color(0xFF1A1A1A)), // Тёмно-серый
+                    style: const TextStyle(color: Color(0xFF1A1A1A)),
                     validator: (value) => value?.isEmpty ?? true
                         ? 'Please enter your first name'
                         : null,
@@ -362,9 +374,8 @@ class _SignUpScreenState extends State<SignUpScreen> {
                     child: ElevatedButton(
                       onPressed: _signUp,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFAFCBEA), // Голубой
-                        foregroundColor:
-                            const Color(0xFF000000), // Чёрный текст
+                        backgroundColor: const Color(0xFFAFCBEA),
+                        foregroundColor: const Color(0xFF000000),
                         padding:
                             EdgeInsets.symmetric(vertical: size.height * 0.02),
                         shape: RoundedRectangleBorder(
@@ -380,7 +391,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                     children: [
                       const Text(
                         'Already have an account?',
-                        style: TextStyle(color: Color(0xFF333333)), // Серый
+                        style: TextStyle(color: Color(0xFF333333)),
                       ),
                       TextButton(
                         onPressed: () {
@@ -390,7 +401,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                         },
                         child: const Text(
                           'Sign In',
-                          style: TextStyle(color: Color(0xFFAFCBEA)), // Голубой
+                          style: TextStyle(color: Color(0xFFAFCBEA)),
                         ),
                       ),
                     ],

@@ -42,6 +42,8 @@ class _HomeScreenState extends State<HomeScreen>
   void _checkAuthAndFetchPosts() {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     if (!authProvider.isInitialized) {
+      developer.log('AuthProvider not initialized, waiting for initialization',
+          name: 'HomeScreen');
       authProvider.initialize().then((_) {
         if (mounted) {
           _redirectIfNotAuthenticated(authProvider);
@@ -49,17 +51,26 @@ class _HomeScreenState extends State<HomeScreen>
         }
       });
     } else {
+      developer.log('AuthProvider initialized, checking authentication',
+          name: 'HomeScreen');
       _redirectIfNotAuthenticated(authProvider);
       _fetchPosts();
     }
   }
 
   void _redirectIfNotAuthenticated(AuthProvider authProvider) {
+    if (!authProvider.isInitialized) {
+      developer.log('AuthProvider not initialized, skipping redirect',
+          name: 'HomeScreen');
+      return;
+    }
     if (authProvider.shouldRedirectTo()) {
       developer.log('No token found, redirecting to sign-in',
           name: 'HomeScreen');
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        Navigator.pushReplacementNamed(context, '/sign_in');
+        if (mounted) {
+          Navigator.pushReplacementNamed(context, '/sign_in');
+        }
       });
     }
   }
@@ -79,6 +90,7 @@ class _HomeScreenState extends State<HomeScreen>
     final userId = authProvider.userId ?? '';
 
     if (token.isEmpty || userId.isEmpty) {
+      developer.log('No token or userId, skipping fetch', name: 'HomeScreen');
       setState(() {
         _postsFuture = Future.value({});
       });
@@ -185,6 +197,12 @@ class _HomeScreenState extends State<HomeScreen>
 
   @override
   Widget build(BuildContext context) {
+    final authProvider = Provider.of<AuthProvider>(context);
+    if (!authProvider.isInitialized) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
     return Scaffold(
       backgroundColor: const Color(0xFFF9F6F2),
       appBar: AppBar(
