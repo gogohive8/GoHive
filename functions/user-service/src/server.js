@@ -362,8 +362,8 @@ app.put('/profile/:id/bio', verifyToken, async (req, res) => {
       .from('profiles')
       .update({ biography: bio })
       .eq('id', id)
-      .select()
-      .single();
+      // .select()
+      // .single();
 
     if (error) {
       console.error('Error updating bio:', error.message, 'Code:', error.code);
@@ -373,7 +373,8 @@ app.put('/profile/:id/bio', verifyToken, async (req, res) => {
       return res.status(400).json({ error: error.message });
     }
 
-    res.status(200).json({ message: 'Biography updated', biography: data.biography });
+    // res.status(200).json({ message: 'Biography updated', biography: data.biography });
+    res.status(200).json({message: 'Biography updated'});
   } catch (error) {
     console.error('Error in /profile/:id/bio:', error.message);
     res.status(400).json({ error: error.message });
