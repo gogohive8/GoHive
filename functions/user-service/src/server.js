@@ -204,7 +204,7 @@ app.post('/register/oauth/google', async (req, res) => {
         .select()
         .single();
       if (insertError) {
-        await supabase.auth.admin.deleteUser(authData.user.id);
+        await supabase.auth.admin.deleteUser(authUser.user.id);
         console.error('Error inserting user:', insertError.message);
         return res.status(400).json({ error: insertError.message });
       }
@@ -217,7 +217,7 @@ app.post('/register/oauth/google', async (req, res) => {
       }
     ]);
       if (createProfileError){
-        await supabase.auth.admin.deleteUser(authData.user.id);
+        await supabase.auth.admin.deleteUser(authUser.user.id);
         console.error('Error of insert new profile', createProfileError.message);
         return res.status(400).json({ error: createProfileError.message });
       }

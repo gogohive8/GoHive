@@ -400,13 +400,13 @@ app.get('/events/:id', verifyToken, async (req, res) => {
 
 app.post('/like', verifyToken, async (req, res) => {
   try{
-    const { postId } = req.body;
+    const { post_id } = req.body;
 
     const {data: getLike, error: getLikeError} = await supabase
     .schema('posts')
     .from('goals')
     .select('id, numOfLikes')
-    .eq('id', postId)
+    .eq('id', post_id)
     .single()
 
     if (getLikeError) {
@@ -420,7 +420,7 @@ app.post('/like', verifyToken, async (req, res) => {
     .schema('posts')
     .from('goals')
     .update({ numOfLikes: likes })
-    .eq('id', postId)
+    .eq('id', post_id)
 
     if (updateError) {
       console.error('Error of update num of likes: ', updateErrorError.message);
