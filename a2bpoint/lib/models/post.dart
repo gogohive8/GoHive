@@ -34,16 +34,18 @@ class Post {
         name: 'Post.fromJson');
     try {
       String? textValue = json['description']?.toString() ??
-          json['goalInfo']?.toString() ??
-          json['title']?.toString() ??
+          json['text']?.toString() ??
           'No description available';
+      String? titleValue = json['title']?.toString() ??
+          json['goalInfo']?.toString() ??
+          json['description']?.toString();
       return Post(
         id: json['id']?.toString() ?? '',
         userId: json['user_id']?.toString() ?? json['userID']?.toString() ?? '',
         username: json['username']?.toString() ?? 'Unknown',
-        title: json['title']?.toString(),
+        title: titleValue,
         text: textValue,
-        category: json['category']?.toString(),
+        category: json['interest']?.toString() ?? json['category']?.toString(),
         createdAt: json['created_at'] != null
             ? DateTime.tryParse(json['created_at'] as String) ?? DateTime.now()
             : DateTime.now(),

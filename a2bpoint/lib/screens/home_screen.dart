@@ -89,7 +89,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
     try {
       await _apiService.likePost(postId, authProvider.token!);
-      _loadPosts(); // Reload to update likes count
+      _loadPosts();
     } catch (e, stackTrace) {
       developer.log('Like post error: $e',
           name: 'HomeScreen', stackTrace: stackTrace);

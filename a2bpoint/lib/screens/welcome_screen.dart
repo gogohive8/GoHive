@@ -48,43 +48,25 @@ class WelcomeScreen extends StatelessWidget {
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 32),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  ElevatedButton(
-                    onPressed: () async {
-                      developer.log('Welcome screen: Next pressed',
-                          name: 'WelcomeScreen');
-                      await authProvider.markWelcomeShown();
-                      Navigator.pushReplacementNamed(context, '/home');
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFFAFCBEA),
-                      foregroundColor: const Color(0xFF000000),
-                      padding: EdgeInsets.symmetric(
-                        horizontal: size.width * 0.1,
-                        vertical: size.height * 0.02,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                    ),
-                    child: const Text('Далее'),
+              ElevatedButton(
+                onPressed: () async {
+                  developer.log('Welcome screen: Next pressed',
+                      name: 'WelcomeScreen');
+                  await authProvider.markWelcomeShown();
+                  Navigator.pushReplacementNamed(context, '/home');
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFAFCBEA),
+                  foregroundColor: const Color(0xFF000000),
+                  padding: EdgeInsets.symmetric(
+                    horizontal: size.width * 0.1,
+                    vertical: size.height * 0.02,
                   ),
-                  const SizedBox(width: 16),
-                  TextButton(
-                    onPressed: () async {
-                      developer.log('Welcome screen: Skip pressed',
-                          name: 'WelcomeScreen');
-                      await authProvider.markWelcomeShown();
-                      Navigator.pushReplacementNamed(context, '/home');
-                    },
-                    child: const Text(
-                      'Пропустить',
-                      style: TextStyle(color: Color(0xFFAFCBEA)),
-                    ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
                   ),
-                ],
+                ),
+                child: const Text('Далее'),
               ),
             ],
           ),

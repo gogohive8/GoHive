@@ -16,13 +16,15 @@ class AddScreen extends StatefulWidget {
 class _AddScreenState extends State<AddScreen> {
   final ApiService _apiService = ApiService();
   final _formKey = GlobalKey<FormState>();
-  final _titleController = TextEditingController();
   final _descriptionController = TextEditingController();
+  final _locationController = TextEditingController();
+  final _pointAController = TextEditingController();
+  final _pointBController = TextEditingController();
   final _dateTimeController = TextEditingController();
   final _taskController = TextEditingController();
 
   int _selectedTabIndex = 0;
-  String? _selectedCategory;
+  String? _selectedInterest;
   List<Map<String, dynamic>> _tasks = [];
   bool _isLoading = false;
   String _errorMessage = '';
@@ -50,8 +52,10 @@ class _AddScreenState extends State<AddScreen> {
 
   @override
   void dispose() {
-    _titleController.dispose();
     _descriptionController.dispose();
+    _locationController.dispose();
+    _pointAController.dispose();
+    _pointBController.dispose();
     _dateTimeController.dispose();
     _taskController.dispose();
     _apiService.dispose();
@@ -60,9 +64,9 @@ class _AddScreenState extends State<AddScreen> {
 
   Future<void> _saveData() async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    if (_selectedCategory == null) {
+    if (_selectedInterest == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select a category')),
+        const SnackBar(content: Text('Please select an interest')),
       );
       return;
     }
@@ -98,21 +102,27 @@ class _AddScreenState extends State<AddScreen> {
 
         if (_selectedTabIndex == 0) {
           await _apiService.createGoal(
-            token: token,
             userId: userId,
-            title: _titleController.text,
             description: _descriptionController.text,
-            category: _selectedCategory!,
+            location: _locationController.text,
+            interest: _selectedInterest!,
+            pointA: _pointAController.text.isNotEmpty
+                ? _pointAController.text
+                : null,
+            pointB: _pointBController.text.isNotEmpty
+                ? _pointBController.text
+                : null,
             tasks: _tasks.isNotEmpty ? _tasks : null,
+            token: token,
           );
         } else {
           await _apiService.createEvent(
-            token: token,
             userId: userId,
-            title: _titleController.text,
             description: _descriptionController.text,
-            category: _selectedCategory!,
+            location: _locationController.text,
+            interest: _selectedInterest!,
             dateTime: _dateTimeController.text,
+            token: token,
           );
         }
 
@@ -121,16 +131,16 @@ class _AddScreenState extends State<AddScreen> {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Data saved successfully')),
           );
-          _titleController.clear();
           _descriptionController.clear();
+          _locationController.clear();
+          _pointAController.clear();
+          _pointBController.clear();
           _dateTimeController.clear();
-          _taskController.clear();
           setState(() {
-            _selectedCategory = null;
+            _selectedInterest = null;
             _tasks.clear();
             _errorMessage = '';
           });
-          Navigator.pushReplacementNamed(context, '/home');
         }
       } catch (e, stackTrace) {
         developer.log('Save data error: $e',
@@ -198,7 +208,7 @@ class _AddScreenState extends State<AddScreen> {
     final padding = size.width * 0.05;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF9F6F2),
+      backgroundColor: const Color(0xFFFAF6F2),
       appBar: AppBar(
         elevation: 0,
         backgroundColor: const Color(0xFFF9F6F2),
@@ -276,27 +286,6 @@ class _AddScreenState extends State<AddScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           TextFormField(
-                            controller: _titleController,
-                            decoration: InputDecoration(
-                              labelText: 'Title',
-                              labelStyle:
-                                  const TextStyle(color: Color(0xFF1A1A1A)),
-                              filled: true,
-                              fillColor:
-                                  const Color.fromRGBO(221, 221, 221, 0.2),
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(10),
-                                borderSide: BorderSide.none,
-                              ),
-                              prefixIcon: const Icon(Icons.title,
-                                  color: Color(0xFF333333)),
-                            ),
-                            style: const TextStyle(color: Color(0xFF1A1A1A)),
-                            validator: (value) =>
-                                value?.isEmpty ?? true ? 'Enter title' : null,
-                          ),
-                          SizedBox(height: size.height * 0.02),
-                          TextFormField(
                             controller: _descriptionController,
                             decoration: InputDecoration(
                               labelText: 'Description',
@@ -318,11 +307,33 @@ class _AddScreenState extends State<AddScreen> {
                                 : null,
                           ),
                           SizedBox(height: size.height * 0.02),
+                          TextFormField(
+                            controller: _locationController,
+                            decoration: InputDecoration(
+                              labelText: 'Location',
+                              labelStyle:
+                                  const TextStyle(color: Color(0xFF1A1A1A)),
+                              filled: true,
+                              fillColor:
+                                  const Color.fromRGBO(221, 221, 221, 0.2),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(10),
+                                borderSide: BorderSide.none,
+                              ),
+                              prefixIcon: const Icon(Icons.location_on,
+                                  color: Color(0xFF333333)),
+                            ),
+                            style: const TextStyle(color: Color(0xFF1A1A1A)),
+                            validator: (value) => value?.isEmpty ?? true
+                                ? 'Enter location'
+                                : null,
+                          ),
+                          SizedBox(height: size.height * 0.02),
                           Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               const Text(
-                                'Category',
+                                'Interests',
                                 style: TextStyle(
                                   fontWeight: FontWeight.bold,
                                   color: Color(0xFF000000),
@@ -340,16 +351,16 @@ class _AddScreenState extends State<AddScreen> {
                                   'Science',
                                   'Book',
                                   'Swimming',
-                                ].map((category) {
+                                ].map((interest) {
                                   return ChoiceChip(
-                                    label: Text(category),
-                                    selected: _selectedCategory == category,
+                                    label: Text(interest),
+                                    selected: _selectedInterest == interest,
                                     onSelected: (selected) => setState(() =>
-                                        _selectedCategory =
-                                            selected ? category : null),
+                                        _selectedInterest =
+                                            selected ? interest : null),
                                     selectedColor: const Color(0xFFAFCBEA),
                                     labelStyle: TextStyle(
-                                      color: _selectedCategory == category
+                                      color: _selectedInterest == interest
                                           ? const Color(0xFF000000)
                                           : const Color(0xFF1A1A1A),
                                     ),
@@ -388,6 +399,44 @@ class _AddScreenState extends State<AddScreen> {
                             ),
                           SizedBox(height: size.height * 0.02),
                           if (_selectedTabIndex == 0) ...[
+                            TextFormField(
+                              controller: _pointAController,
+                              decoration: InputDecoration(
+                                labelText: 'Point A',
+                                labelStyle:
+                                    const TextStyle(color: Color(0xFF1A1A1A)),
+                                filled: true,
+                                fillColor:
+                                    const Color.fromRGBO(221, 221, 221, 0.2),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                  borderSide: BorderSide.none,
+                                ),
+                                prefixIcon: const Icon(Icons.place,
+                                    color: Color(0xFF333333)),
+                              ),
+                              style: const TextStyle(color: Color(0xFF1A1A1A)),
+                            ),
+                            SizedBox(height: size.height * 0.02),
+                            TextFormField(
+                              controller: _pointBController,
+                              decoration: InputDecoration(
+                                labelText: 'Point B',
+                                labelStyle:
+                                    const TextStyle(color: Color(0xFF1A1A1A)),
+                                filled: true,
+                                fillColor:
+                                    const Color.fromRGBO(221, 221, 221, 0.2),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                  borderSide: BorderSide.none,
+                                ),
+                                prefixIcon: const Icon(Icons.place,
+                                    color: Color(0xFF333333)),
+                              ),
+                              style: const TextStyle(color: Color(0xFF1A1A1A)),
+                            ),
+                            SizedBox(height: size.height * 0.02),
                             const Text(
                               'Tasks',
                               style: TextStyle(
