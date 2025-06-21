@@ -1,16 +1,35 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'providers/auth_provider.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'screens/sign_in_screen.dart';
+import 'screens/sign_up_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/add_screen.dart';
 import 'screens/profile_screen.dart';
-import 'screens/search_screen.dart';
 import 'screens/ai_mentor_screen.dart';
+import 'providers/auth_provider.dart';
+import 'screens/search_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  runApp(const MyApp());
+
+  try {
+    await Supabase.initialize(
+      url: 'https://osyajqltbkudsfcppqgh.supabase.co',
+      anonKey:
+          'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9zeWFqcWx0Ymt1ZHNmY3BwcWdoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDkyOTA2MjIsImV4cCI6MjA2NDg2NjYyMn0.nL4ENxcHrchOK3HgCyG6sQkxsj_KXwpriZhpmmV7liA',
+    );
+    print('Supabase initialized successfully');
+  } catch (e) {
+    print('Supabase initialization error: $e');
+  }
+
+  runApp(
+    ChangeNotifierProvider(
+      create: (_) => AuthProvider(),
+      child: MyApp(),
+    ),
+  );
 }
 
 class MyApp extends StatelessWidget {
@@ -21,33 +40,23 @@ class MyApp extends StatelessWidget {
     return ChangeNotifierProvider(
       create: (context) {
         final authProvider = AuthProvider();
-        authProvider.initialize();
+        authProvider.initialize(); // Инициализация при старте
         return authProvider;
       },
-      child: Consumer<AuthProvider>(
-        builder: (context, authProvider, child) {
-          return MaterialApp(
-            title: 'Your App',
-            theme: ThemeData(primarySwatch: Colors.blue),
-            initialRoute: authProvider.isAuthenticated ? '/home' : '/sign_in',
-            routes: {
-              '/sign_in': (context) => const SignInScreen(),
-              '/home': (context) => const HomeScreen(),
-              '/add': (context) => const AddScreen(),
-              '/profile': (context) => const ProfileScreen(),
-              '/search': (context) => const SearchScreen(),
-              '/ai-mentor': (context) => const AIMentorScreen(),
-            },
-            onGenerateRoute: (settings) {
-              if (!authProvider.isAuthenticated &&
-                  settings.name != '/sign_in') {
-                return MaterialPageRoute(
-                  builder: (context) => const SignInScreen(),
-                );
-              }
-              return null;
-            },
-          );
+      child: MaterialApp(
+        title: 'GoHive',
+        theme: ThemeData(
+          primarySwatch: Colors.blue,
+        ),
+        initialRoute: '/sign_in',
+        routes: {
+          '/sign_in': (context) => const SignInScreen(),
+          '/sign_up': (context) => const SignUpScreen(),
+          '/home': (context) => const HomeScreen(),
+          '/add': (context) => const AddScreen(),
+          '/profile': (context) => const ProfileScreen(),
+          '/search': (context) => const SearchScreen(),
+          '/ai-mentor': (context) => const AIMentorScreen(),
         },
       ),
     );
