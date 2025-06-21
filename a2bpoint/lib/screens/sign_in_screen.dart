@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../services/api_services.dart';
-import '../services/exceptions.dart';
 
 class SignInScreen extends StatefulWidget {
   const SignInScreen({super.key});
@@ -19,7 +18,6 @@ class _SignInScreenState extends State<SignInScreen> {
   final ApiService _apiService = ApiService();
   bool _isPasswordVisible = false;
   bool _isLoading = false;
-  bool _isSupabaseInitialized = false;
 
   @override
   void dispose() {
@@ -31,14 +29,7 @@ class _SignInScreenState extends State<SignInScreen> {
 
   Future<void> _handleSignIn(
       Future<Map<String, String>?> signInMethod, bool isGoogleLogin) async {
-    if (_isLoading || !_isSupabaseInitialized) {
-      if (!_isSupabaseInitialized) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Service not initialized')),
-        );
-      }
-      return;
-    }
+    if (_isLoading) return;
 
     setState(() => _isLoading = true);
     try {
@@ -55,6 +46,9 @@ class _SignInScreenState extends State<SignInScreen> {
       if (authData != null &&
           authData['token']?.isNotEmpty == true &&
           authData['userId']?.isNotEmpty == true) {
+        developer.log(
+            'Setting auth data: token=${authData['token']}, userId=${authData['userId']}',
+            name: 'SignInScreen');
         final authProvider = Provider.of<AuthProvider>(context, listen: false);
         await authProvider.setAuthData(
           authData['token']!,
@@ -80,10 +74,9 @@ class _SignInScreenState extends State<SignInScreen> {
           );
         }
       } else {
-        developer.log('Sign-in failed: invalid auth data $authData',
-            name: 'SignInScreen');
+        developer.log('Invalid auth data: $authData', name: 'SignInScreen');
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Invalid credentials or server error')),
+          const SnackBar(content: Text('Invalid email or password')),
         );
       }
     } catch (e, stackTrace) {
@@ -104,15 +97,14 @@ class _SignInScreenState extends State<SignInScreen> {
 
   Future<void> _signInWithEmail() async {
     if (_formKey.currentState!.validate()) {
-      developer.log('SignIn with email: email=${_emailController.text}',
+      developer.log(
+          'Attempting to sign in with email: ${_emailController.text}',
           name: 'SignInScreen');
       await _handleSignIn(
-        _apiService.login(_emailController.text, _passwordController.text),
-        false,
-      );
+          _apiService.login(_emailController.text, _passwordController.text),
+          false);
     } else {
-      developer.log('Form validation failed: email=${_emailController.text}',
-          name: 'SignInScreen');
+      developer.log('Form validation failed', name: 'SignInScreen');
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please check your input fields')),
       );
@@ -120,7 +112,7 @@ class _SignInScreenState extends State<SignInScreen> {
   }
 
   Future<void> _signInWithGoogle() async {
-    developer.log('SignIn with Google', name: 'SignInScreen');
+    developer.log('Attempting Google sign-in', name: 'SignInScreen');
     await _handleSignIn(_apiService.signInWithGoogle(), true);
   }
 
@@ -238,7 +230,7 @@ class _SignInScreenState extends State<SignInScreen> {
                           borderRadius: BorderRadius.circular(10),
                         ),
                         disabledBackgroundColor:
-                            const Color(0xFFAFCBEA).withOpacity(0.5),
+                            const Color(0xFFAFCBEA).withValues(alpha: 0.5),
                       ),
                       child: Text(
                         'Sign In',
