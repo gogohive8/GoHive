@@ -390,7 +390,7 @@ app.get('/events/:id', verifyToken, async (req, res) => {
     // );
 
     console.log('photos url: ', usersEvents);
-    res.status(200).json(userEvents);
+    res.status(200).json(usersEvents);
   } catch (error) {
     console.error('Error of fetching photos url: ', error.message);
     res.status(400).json({error: error.message});
