@@ -40,7 +40,7 @@ class ApiService {
       required String token,
       required String userId}) async {
     final response = await http.post(
-      Uri.parse('https://your-backend.com/search'),
+      Uri.parse('$_baseUrl/search/users'),
       headers: {'Authorization': 'Bearer $token'},
       body: jsonEncode({'query': query, 'filter': filter, 'userId': userId}),
     );

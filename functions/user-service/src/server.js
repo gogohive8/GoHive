@@ -381,6 +381,33 @@ app.put('/profile/:id/bio', verifyToken, async (req, res) => {
   }
 });
 
+app.post('/search/users', verifyToken, async (req, res) => {
+  try {
+    const { query, filter, userID } = req.body;
+    if (!query) {
+      return res.status(400).json({ error: 'Missing search query' });
+    }
+
+    console.log(`Searching users with query: ${query}`);
+    const { data: users, error } = await supabase
+      .schema('public')
+      .from('users')
+      .select('id, username')
+      .ilike('username', `%${query}%`)
+      .limit(20); // Limit to prevent excessive results
+
+    if (error) {
+      console.error('Error searching users:', error.message, 'Code:', error.code);
+      return res.status(400).json({ error: error.message });
+    }
+
+    console.log('Found users:', users);
+    res.status(200).json({ users });
+  } catch (error) {
+    console.error('Error in /search/users:', error.message);
+    res.status(400).json({ error: error.message });
+  }
+});
 
 const PORT = process.env.PORT || 3001; // Fallback for local testing
 app.listen(PORT, '0.0.0.0', () => {
