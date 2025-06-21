@@ -347,6 +347,40 @@ app.get('/profile/:id', verifyToken, async (req, res) => {
   }
 });
 
+app.put('/profile/:id/bio', verifyToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { bio } = req.body;
+    console.log(`Updating bio for user: ${id}, bio: ${bio}`);
+
+    if (!bio) {
+      return res.status(400).json({ error: 'Missing biography' });
+    }
+
+    const { data, error } = await supabase
+      .schema('public')
+      .from('profiles')
+      .update({ biography: bio })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error updating bio:', error.message, 'Code:', error.code);
+      if (error.code === 'PGRST116') {
+        return res.status(404).json({ error: 'Profile not found' });
+      }
+      return res.status(400).json({ error: error.message });
+    }
+
+    res.status(200).json({ message: 'Biography updated', biography: data.biography });
+  } catch (error) {
+    console.error('Error in /profile/:id/bio:', error.message);
+    res.status(400).json({ error: error.message });
+  }
+});
+
+
 const PORT = process.env.PORT || 3001; // Fallback for local testing
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`Server running on port ${PORT}`);
