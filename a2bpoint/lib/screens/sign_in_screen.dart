@@ -1,10 +1,9 @@
-import 'dart:async';
 import 'dart:developer' as developer;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../services/api_services.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import '../services/exceptions.dart';
 
 class SignInScreen extends StatefulWidget {
   const SignInScreen({super.key});
@@ -18,6 +17,8 @@ class _SignInScreenState extends State<SignInScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final ApiService _apiService = ApiService();
+  bool _isPasswordVisible = false;
+  bool _isLoading = false;
 
   @override
   void dispose() {
@@ -27,160 +28,88 @@ class _SignInScreenState extends State<SignInScreen> {
     super.dispose();
   }
 
-  Future<void> _signInWithEmail() async {
-    if (_formKey.currentState!.validate()) {
-      developer.log(
-          'Attempting to sign in with email: ${_emailController.text}',
-          name: 'SignInScreen');
-      try {
-        showDialog(
-          context: context,
-          barrierDismissible: false,
-          builder: (context) =>
-              const Center(child: CircularProgressIndicator()),
-        );
-        final authData = await _apiService.login(
-            _emailController.text, _passwordController.text);
-        Navigator.pop(context);
-        if (authData != null &&
-            authData['token'].isNotEmpty &&
-            authData['userId'].isNotEmpty) {
-          final authProvider =
-              Provider.of<AuthProvider>(context, listen: false);
-          await authProvider.setAuthData(authData['token'], authData['userId'],
-              authData['username'], false);
-          if (authProvider.isAuthenticated) {
-            developer.log('User authenticated, navigating to /home',
-                name: 'SignInScreen');
-            final prefs = await SharedPreferences.getInstance();
-            developer.log(
-                'SharedPreferences: token=${prefs.getString('token')}, userId=${prefs.getString('userId')}, username=${prefs.getString('username')}',
-                name: 'SignInScreen');
-            Navigator.pushReplacementNamed(context, '/home');
-          } else {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                  content: Text('Failed to authenticate. Please try again.')),
-            );
-          }
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Invalid email or password')),
-          );
-        }
-      } catch (e, stackTrace) {
-        developer.log('SignIn error: $e',
-            name: 'SignInScreen', stackTrace: stackTrace);
-        if (mounted) {
-          Navigator.pop(context);
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Login error: ${e.toString()}')),
-          );
-        }
-      }
-    }
-  }
-
-  Future<void> _signInWithGoogle() async {
-    developer.log('Attempting Google sign-in', name: 'SignInScreen');
+  Future<void> _handleSignIn(
+      Future<Map<String, String>?> signInMethod, bool isGoogleLogin) async {
+    if (_isLoading) return; // Предотвращаем повторные запросы
+    setState(() => _isLoading = true);
     try {
       showDialog(
         context: context,
         barrierDismissible: false,
         builder: (context) => const Center(child: CircularProgressIndicator()),
       );
-
-      bool oauthSuccess = await _apiService.signInWithGoogle();
-      if (!oauthSuccess) {
-        if (mounted) {
-          Navigator.pop(context);
+      final authData = await signInMethod;
+      if (!mounted) return;
+      Navigator.pop(context);
+      if (authData != null &&
+          authData['token']?.isNotEmpty == true &&
+          authData['userId']?.isNotEmpty == true) {
+        final authProvider = Provider.of<AuthProvider>(context, listen: false);
+        await authProvider.setAuthData(
+          authData['token']!,
+          authData['userId']!,
+          authData['username'], // Может быть null для Google Sign-In
+          isGoogleLogin,
+        );
+        if (authProvider.isAuthenticated) {
+          developer.log('User authenticated, navigating to /home',
+              name: 'SignInScreen');
+          Navigator.pushReplacementNamed(context, '/home');
+        } else {
+          developer.log('Authentication failed: AuthProvider not updated',
+              name: 'SignInScreen');
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-                content: Text('Google sign-in failed: OAuth flow incomplete')),
+                content: Text('Failed to authenticate. Please try again.')),
           );
         }
-        return;
-      }
-
-      for (int attempt = 1; attempt <= 3; attempt++) {
-        try {
-          developer.log('Attempting to get session, attempt $attempt',
-              name: 'SignInScreen');
-          final session = _apiService.supabase.auth.currentSession;
-          if (session == null) {
-            if (attempt == 3) {
-              throw TimeoutException('No session available after OAuth');
-            }
-            await Future.delayed(Duration(seconds: attempt * 2));
-            continue;
-          }
-
-          final authData = await _apiService
-              .exchangeSupabaseTokenForAuthData(session.accessToken);
-          Navigator.pop(context);
-          if (authData != null &&
-              authData['token'].isNotEmpty &&
-              authData['userId'].isNotEmpty) {
-            final authProvider =
-                Provider.of<AuthProvider>(context, listen: false);
-            await authProvider.setAuthData(authData['token'],
-                authData['userId'], authData['username'], true);
-            if (authProvider.isAuthenticated) {
-              developer.log('User authenticated, navigating to /welcome',
-                  name: 'SignInScreen');
-              final prefs = await SharedPreferences.getInstance();
-              developer.log(
-                  'SharedPreferences: token=${prefs.getString('token')}, userId=${prefs.getString('userId')}, username=${prefs.getString('username')}',
-                  name: 'SignInScreen');
-              if (mounted) {
-                Navigator.pushReplacementNamed(context, '/welcome');
-              }
-              return;
-            } else {
-              if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                      content: Text(
-                          'Failed to authenticate with Google. Please try again.')),
-                );
-              }
-            }
-          } else {
-            if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                    content:
-                        Text('Google sign-in failed: Invalid server response')),
-              );
-            }
-          }
-          return;
-        } catch (e, stackTrace) {
-          developer.log('Session fetch error, attempt $attempt: $e',
-              name: 'SignInScreen', stackTrace: stackTrace);
-          if (attempt == 3) {
-            if (mounted) {
-              Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                    content: Text('Google sign-in error: ${e.toString()}')),
-              );
-            }
-            return;
-          }
-          await Future.delayed(Duration(seconds: attempt * 2));
-        }
+      } else {
+        developer.log('Sign-in failed: invalid auth data $authData',
+            name: 'SignInScreen');
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Invalid credentials or server error')),
+        );
       }
     } catch (e, stackTrace) {
-      developer.log('Google sign-in error: $e',
+      developer.log('Sign-in error: $e',
           name: 'SignInScreen', stackTrace: stackTrace);
       if (mounted) {
         Navigator.pop(context);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Google sign-in error: ${e.toString()}')),
-        );
+        if (e is AuthenticationException) {
+          Navigator.pushReplacementNamed(context, '/sign-up');
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Login error: ${e.toString()}')),
+          );
+        }
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
       }
     }
+  }
+
+  Future<void> _signInWithEmail() async {
+    if (_formKey.currentState!.validate()) {
+      developer.log('SignIn with email: email=${_emailController.text}',
+          name: 'SignInScreen');
+      await _handleSignIn(
+        _apiService.login(_emailController.text, _passwordController.text),
+        false,
+      );
+    } else {
+      developer.log('Form validation failed: email=${_emailController.text}',
+          name: 'SignInScreen');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please check your input fields')),
+      );
+    }
+  }
+
+  Future<void> _signInWithGoogle() async {
+    developer.log('SignIn with Google', name: 'SignInScreen');
+    await _handleSignIn(_apiService.signInWithGoogle(), true);
   }
 
   @override
@@ -189,7 +118,7 @@ class _SignInScreenState extends State<SignInScreen> {
     final padding = size.width * 0.05;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF9F6F2),
+      backgroundColor: const Color(0xFFF9F6F2), // Светло-бежевый фон
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
@@ -259,12 +188,17 @@ class _SignInScreenState extends State<SignInScreen> {
                       prefixIcon:
                           const Icon(Icons.lock, color: Color(0xFF333333)),
                       suffixIcon: IconButton(
-                        icon: const Icon(Icons.visibility_off,
-                            color: Color(0xFF333333)),
-                        onPressed: () => setState(() {}),
+                        icon: Icon(
+                          _isPasswordVisible
+                              ? Icons.visibility
+                              : Icons.visibility_off,
+                          color: const Color(0xFF333333),
+                        ),
+                        onPressed: () => setState(
+                            () => _isPasswordVisible = !_isPasswordVisible),
                       ),
                     ),
-                    obscureText: true,
+                    obscureText: !_isPasswordVisible,
                     style: const TextStyle(color: Color(0xFF1A1A1A)),
                     validator: (value) {
                       if (value == null || value.isEmpty) {
@@ -282,7 +216,7 @@ class _SignInScreenState extends State<SignInScreen> {
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(
-                      onPressed: _signInWithEmail,
+                      onPressed: _isLoading ? null : _signInWithEmail,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFFAFCBEA),
                         foregroundColor: const Color(0xFF000000),
@@ -291,6 +225,8 @@ class _SignInScreenState extends State<SignInScreen> {
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(10),
                         ),
+                        disabledBackgroundColor:
+                            const Color(0xFFAFCBEA).withOpacity(0.5),
                       ),
                       child: Text(
                         'Sign In',
@@ -307,30 +243,45 @@ class _SignInScreenState extends State<SignInScreen> {
                   SizedBox(
                     width: double.infinity,
                     child: OutlinedButton(
-                      onPressed: _signInWithGoogle,
+                      onPressed: _isLoading
+                          ? null
+                          : () => Navigator.pushNamed(context, '/sign-up'),
                       style: OutlinedButton.styleFrom(
                         side: const BorderSide(color: Color(0xFF333333)),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(10),
                         ),
-                        padding:
-                            EdgeInsets.symmetric(vertical: size.height * 0.02),
+                        backgroundColor:
+                            const Color.fromRGBO(221, 221, 221, 0.1),
+                        disabledBackgroundColor:
+                            const Color.fromRGBO(221, 221, 221, 0.1),
                       ),
-                      child: Text(
-                        'Sign in with Google',
-                        style: TextStyle(
-                          color: const Color(0xFF333333),
-                          fontSize: size.width * 0.045,
-                        ),
+                      child: const Text(
+                        'Sign Up',
+                        style: TextStyle(color: Color(0xFF1A1A1A)),
                       ),
                     ),
                   ),
-                  SizedBox(height: size.height * 0.02),
-                  TextButton(
-                    onPressed: () => Navigator.pushNamed(context, '/sign-up'),
-                    child: const Text(
-                      'Don’t have an account? Sign Up',
-                      style: TextStyle(color: Color(0xFFAFCBEA)),
+                  SizedBox(height: size.height * 0.01),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: _isLoading ? null : _signInWithGoogle,
+                      icon: Image.asset('assets/google_icon.png', height: 24),
+                      label: const Text(
+                        'Sign in with Google',
+                        style: TextStyle(color: Color(0xFF1A1A1A)),
+                      ),
+                      style: OutlinedButton.styleFrom(
+                        side: const BorderSide(color: Color(0xFF333333)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        backgroundColor:
+                            const Color.fromRGBO(221, 221, 221, 0.1),
+                        disabledBackgroundColor:
+                            const Color.fromRGBO(221, 221, 221, 0.1),
+                      ),
                     ),
                   ),
                 ],

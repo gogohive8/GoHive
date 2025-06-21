@@ -6,6 +6,7 @@ import '../providers/auth_provider.dart';
 import '../services/api_services.dart';
 import '../models/post.dart';
 import 'navbar.dart';
+import '../services/exceptions.dart';
 
 class SearchScreen extends StatefulWidget {
   const SearchScreen({super.key});
@@ -57,22 +58,21 @@ class _SearchScreenState extends State<SearchScreen> {
       if (!authProvider.isAuthenticated ||
           authProvider.token == null ||
           authProvider.userId == null) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Authorization required')),
-          );
-        }
+        authProvider.handleAuthError(
+            context, AuthenticationException('Authorization required'));
         setState(() {
           _isLoading = false;
         });
         return;
       }
       final token = authProvider.token!;
+      final userId = authProvider.userId!;
       final apiService = ApiService();
       final results = await apiService.search(
-        token,
         _searchController.text,
-        _selectedFilter,
+        filter: _selectedFilter,
+        token: token,
+        userId: userId,
       );
       if (mounted) {
         setState(() {

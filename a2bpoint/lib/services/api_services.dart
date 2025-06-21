@@ -1,38 +1,71 @@
 import 'dart:convert';
+import 'dart:developer' as developer;
 import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/post.dart';
-import '../services/exceptions.dart';
-import 'dart:developer' as developer;
+import 'exceptions.dart';
 
 class ApiService {
-  static const _baseUrl =
-      'https://gohive-user-service-efb5dea164ed.herokuapp.com';
   final http.Client _client = http.Client();
   final SupabaseClient _supabase = Supabase.instance.client;
+  static const String _baseUrl =
+      'https://gohive-user-service-efb5dea164ed.herokuapp.com';
+  static const String _postsUrl =
+      'https://gohive-post-service-9ac288c0fa11.herokuapp.com';
 
   SupabaseClient get supabase => _supabase;
 
-  void dispose() {
-    _client.close();
-  }
-
   Future<dynamic> _handleResponse(http.Response response) async {
-    developer.log(
-        'Handling response: status=${response.statusCode}, body=${response.body}',
+    developer.log('Response: ${response.statusCode}, ${response.body}',
         name: 'ApiService');
     if (response.statusCode >= 200 && response.statusCode < 300) {
-      return response.body.isNotEmpty ? jsonDecode(response.body) : null;
+      if (response.statusCode == 204) return {};
+      return response.body.isNotEmpty ? jsonDecode(response.body) : {};
     }
-    if (response.statusCode == 400 &&
-        jsonDecode(response.body).containsKey('id')) {
-      return jsonDecode(response.body);
+    if (response.statusCode == 400) {
+      final errorBody = jsonDecode(response.body);
+      final errorMessage = errorBody['error']?.toString() ?? 'Invalid data';
+      developer.log('Validation error: $errorMessage', name: 'ApiService');
+      throw DataValidationException('Invalid data: $errorMessage');
     }
-    throw AuthenticationException(
-        'Request failed with status: ${response.statusCode}');
+    if (response.statusCode == 401) {
+      developer.log('Unauthorized: ${response.body}', name: 'ApiService');
+      throw AuthenticationException('Unauthorized: ${response.body}');
+    }
+    throw Exception('Request failed: ${response.statusCode} ${response.body}');
   }
 
-  Future<Map<String, dynamic>?> login(String email, String password) async {
+  Future<List<Post>> search(String query,
+      {required String filter,
+      required String token,
+      required String userId}) async {
+    try {
+      final url = filter == 'Goals'
+          ? '$_postsUrl/goals/search'
+          : '$_postsUrl/events/search';
+      final response = await _client
+          .post(
+            Uri.parse(url),
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer $token',
+            },
+            body: jsonEncode({'query': query, 'userId': userId}),
+          )
+          .timeout(const Duration(seconds: 30));
+      final data = await _handleResponse(response);
+      final postsData = data is List ? data : (data['results'] as List?) ?? [];
+      return postsData
+          .map((json) => Post.fromJson({...json, 'type': filter.toLowerCase()}))
+          .toList();
+    } catch (e, stackTrace) {
+      developer.log('Search error: $e',
+          name: 'ApiService', stackTrace: stackTrace);
+      rethrow;
+    }
+  }
+
+  Future<Map<String, String>?> login(String email, String password) async {
     try {
       developer.log('Login request: email=$email', name: 'ApiService');
       final response = await _client
@@ -43,268 +76,105 @@ class ApiService {
           )
           .timeout(const Duration(seconds: 30));
       final data = await _handleResponse(response);
-      if (data == null || data['token'] == null || data['userID'] == null) {
-        developer.log('Invalid response data: $data', name: 'ApiService');
-        return null;
-      }
-      return {
-        'token': data['token'] as String,
-        'userId': data['userID'] as String,
-        'username': data['username'] as String? ?? 'Unknown',
-      };
+      return {'token': data['token'] ?? '', 'userId': data['userID'] ?? ''};
     } catch (e, stackTrace) {
       developer.log('Login error: $e',
           name: 'ApiService', stackTrace: stackTrace);
-      throw AuthenticationException('Failed to login: $e');
+      throw AuthenticationException('Login failed: $e');
     }
   }
 
-  Future<bool> signInWithGoogle() async {
-    try {
-      developer.log('Starting Google OAuth', name: 'ApiService');
-      final success = await _supabase.auth.signInWithOAuth(
-        OAuthProvider.google,
-        redirectTo: 'https://gohive-d4359.firebaseapp.com',
-      );
-      developer.log('OAuth initiated: success=$success', name: 'ApiService');
-      return success;
-    } catch (e, stackTrace) {
-      developer.log('Google OAuth error: $e',
-          name: 'ApiService', stackTrace: stackTrace);
-      throw AuthenticationException('Failed to initiate Google OAuth: $e');
-    }
-  }
-
-  Future<Map<String, dynamic>?> exchangeSupabaseTokenForAuthData(
-      String supabaseToken) async {
-    for (int attempt = 1; attempt <= 3; attempt++) {
-      try {
-        developer.log('Exchanging Supabase token, attempt $attempt',
-            name: 'ApiService');
-        final response = await _client.post(
-          Uri.parse('$_baseUrl/register/oauth/google'),
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': 'Bearer $supabaseToken',
-          },
-        ).timeout(const Duration(seconds: 30));
-        final data = await _handleResponse(response);
-        if (data == null || data['token'] == null || data['userID'] == null) {
-          developer.log('Invalid response data: $data', name: 'ApiService');
-          return null;
-        }
-        return {
-          'token': data['token'] as String,
-          'userId': data['userID'] as String,
-          'username': data['username'] as String? ?? 'Unknown',
-        };
-      } catch (e, stackTrace) {
-        developer.log('Token exchange error (attempt $attempt): $e',
-            name: 'ApiService', stackTrace: stackTrace);
-        if (attempt == 3) return null;
-        await Future.delayed(Duration(seconds: attempt * 2));
-      }
-    }
-    return null;
-  }
-
-  Future<Map<String, dynamic>?> signUp(
+  Future<Map<String, String>?> signUp(
     String username,
     String email,
     String password,
     String firstName,
     String lastName,
     int age,
-    String phone,
+    String phoneNumber,
   ) async {
     try {
+      developer.log('SignUp request: username=$username, email=$email',
+          name: 'ApiService');
       final response = await _client
           .post(
-            Uri.parse('$_baseUrl/register'),
+            Uri.parse('$_baseUrl/register/email'),
             headers: {'Content-Type': 'application/json'},
             body: jsonEncode({
+              'name': firstName,
+              'surname': lastName,
               'username': username,
-              'mail': email,
-              'password': password,
-              'first_name': firstName,
-              'last_name': lastName,
               'age': age,
-              'phone': phone,
+              'mail': email,
+              'phone': phoneNumber,
+              'password': password,
             }),
           )
           .timeout(const Duration(seconds: 30));
       final data = await _handleResponse(response);
-      if (data == null || data['token'] == null || data['userID'] == null) {
-        developer.log('Invalid response data: $data', name: 'ApiService');
-        return null;
-      }
-      return {
-        'token': data['token'] as String,
-        'userId': data['userID'] as String,
-        'username': data['username'] as String? ?? 'Unknown',
-      };
+      return {'token': data['token'] ?? '', 'userId': data['userID'] ?? ''};
     } catch (e, stackTrace) {
       developer.log('SignUp error: $e',
           name: 'ApiService', stackTrace: stackTrace);
-      throw AuthenticationException('Failed to sign up: $e');
+      throw AuthenticationException('SignUp failed: $e');
     }
   }
 
-  Future<List<Post>> getAllGoals(String token, String userId) async {
+  Future<Map<String, String>?> signInWithGoogle() async {
     try {
-      final response = await _client.get(
-        Uri.parse('$_baseUrl/goals?user_id=$userId'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
-      ).timeout(const Duration(seconds: 30));
-      final data = await _handleResponse(response);
-      return (data['goals'] as List<dynamic>)
-          .map((e) => Post.fromJson(e as Map<String, dynamic>, type: 'goal'))
-          .toList();
-    } catch (e, stackTrace) {
-      developer.log('Get goals error: $e',
-          name: 'ApiService', stackTrace: stackTrace);
-      throw AuthenticationException('Failed to fetch goals: $e');
-    }
-  }
-
-  Future<List<Post>> getAllEvents(String token, String userId) async {
-    try {
-      final response = await _client.get(
-        Uri.parse('$_baseUrl/events?user_id=$userId'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
-      ).timeout(const Duration(seconds: 30));
-      final data = await _handleResponse(response);
-      return (data['events'] as List<dynamic>)
-          .map((e) => Post.fromJson(e as Map<String, dynamic>, type: 'event'))
-          .toList();
-    } catch (e, stackTrace) {
-      developer.log('Get events error: $e',
-          name: 'ApiService', stackTrace: stackTrace);
-      throw AuthenticationException('Failed to fetch events: $e');
-    }
-  }
-
-  Future<void> likePost(String postId, String token) async {
-    try {
-      final response = await _client.post(
-        Uri.parse('$_baseUrl/likes/$postId'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
-      ).timeout(const Duration(seconds: 30));
-      await _handleResponse(response);
-    } catch (e, stackTrace) {
-      developer.log('Like post error: $e',
-          name: 'ApiService', stackTrace: stackTrace);
-      throw AuthenticationException('Failed to like post: $e');
-    }
-  }
-
-  Future<void> joinEvent(String eventId, String token) async {
-    try {
-      final response = await _client.post(
-        Uri.parse('$_baseUrl/events/$eventId/join'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
-      ).timeout(const Duration(seconds: 30));
-      await _handleResponse(response);
-    } catch (e, stackTrace) {
-      developer.log('Join event error: $e',
-          name: 'ApiService', stackTrace: stackTrace);
-      throw AuthenticationException('Failed to join event: $e');
-    }
-  }
-
-  Future<void> createGoal({
-    required String token,
-    required String userId,
-    required String title,
-    required String description,
-    required String category,
-    List<Map<String, dynamic>>? tasks,
-  }) async {
-    try {
+      developer.log('Google OAuth request', name: 'ApiService');
+      await _supabase.auth.signInWithOAuth(
+        OAuthProvider.google,
+        redirectTo: 'https://gohive-d4359.firebaseapp.com',
+      );
+      final session = await _supabase.auth.onAuthStateChange
+          .firstWhere((event) => event.event == AuthChangeEvent.signedIn)
+          .then((event) => event.session);
+      if (session == null) {
+        throw Exception('No session received after OAuth');
+      }
+      final supabaseToken = await session.accessToken;
+      developer.log('Supabase token obtained', name: 'ApiService');
       final response = await _client
           .post(
-            Uri.parse('$_baseUrl/goals'),
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': 'Bearer $token',
-            },
-            body: jsonEncode({
-              'user_id': userId,
-              'title': title,
-              'description': description,
-              'category': category,
-              if (tasks != null && tasks.isNotEmpty) 'tasks': tasks,
-            }),
+            Uri.parse('$_baseUrl/register/oauth/google'),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({'supabase_token': supabaseToken}),
           )
           .timeout(const Duration(seconds: 30));
-      developer.log(
-          'Create goal response: status=${response.statusCode}, body=${response.body}',
-          name: 'ApiService');
-      await _handleResponse(response);
+      final data = await _handleResponse(response);
+      return {'token': data['token'] ?? '', 'userId': data['userID'] ?? ''};
     } catch (e, stackTrace) {
-      developer.log('Create goal error: $e',
+      developer.log('Google sign-in error: $e',
           name: 'ApiService', stackTrace: stackTrace);
-      throw DataValidationException('Failed to create goal: $e');
+      throw AuthenticationException('Google sign-in failed: $e');
     }
   }
 
-  Future<void> createEvent({
-    required String token,
-    required String userId,
-    required String title,
-    required String description,
-    required String category,
-    required String dateTime,
-  }) async {
+  Future<Map<String, dynamic>?> getProfile(String userId, String token) async {
     try {
-      final response = await _client
-          .post(
-            Uri.parse('$_baseUrl/events'),
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': 'Bearer $token',
-            },
-            body: jsonEncode({
-              'user_id': userId,
-              'title': title,
-              'description': description,
-              'category': category,
-              'date_time': dateTime,
-            }),
-          )
-          .timeout(const Duration(seconds: 30));
-      developer.log(
-          'Create event response: status=${response.statusCode}, body=${response.body}',
-          name: 'ApiService');
-      await _handleResponse(response);
+      developer.log('GetProfile request: userId=$userId', name: 'ApiService');
+      final response = await _client.get(
+        Uri.parse('$_baseUrl/profile/$userId'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      ).timeout(const Duration(seconds: 30));
+      return await _handleResponse(response);
     } catch (e, stackTrace) {
-      developer.log('Create event error: $e',
+      developer.log('GetProfile error: $e',
           name: 'ApiService', stackTrace: stackTrace);
-      throw DataValidationException('Failed to create event: $e');
+      return null;
     }
   }
 
-  Future<void> updateBio({
-    required String token,
-    required String userId,
-    required String bio,
-  }) async {
+  Future<bool> updateBio(String userId, String bio, String token) async {
     try {
+      developer.log('UpdateBio request: userId=$userId', name: 'ApiService');
       final response = await _client
-          .patch(
-            Uri.parse('$_baseUrl/users/$userId'),
+          .put(
+            Uri.parse('$_baseUrl/profile/$userId/bio'),
             headers: {
               'Content-Type': 'application/json',
               'Authorization': 'Bearer $token',
@@ -312,39 +182,240 @@ class ApiService {
             body: jsonEncode({'bio': bio}),
           )
           .timeout(const Duration(seconds: 30));
-      developer.log(
-          'Update bio response: status=${response.statusCode}, body=${response.body}',
-          name: 'ApiService');
-      final data = await _handleResponse(response);
-      if (data == null || data['bio'] != bio) {
-        throw DataValidationException('Bio not updated on server');
-      }
+      await _handleResponse(response);
+      return true;
     } catch (e, stackTrace) {
-      developer.log('Update bio error: $e',
+      developer.log('UpdateBio error: $e',
           name: 'ApiService', stackTrace: stackTrace);
-      throw DataValidationException('Failed to update bio: $e');
+      return false;
     }
   }
 
-  Future<List<Post>> search(String token, String query, String filter) async {
+  Future<List<Post>> getGoals(String userId, String token) async {
     try {
+      developer.log('GetGoals request: userId=$userId', name: 'ApiService');
       final response = await _client.get(
-        Uri.parse(
-            '$_baseUrl/search?query=$query&filter=${filter.toLowerCase()}'),
+        Uri.parse('$_postsUrl/goals/$userId'),
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $token',
         },
       ).timeout(const Duration(seconds: 30));
       final data = await _handleResponse(response);
-      return (data['results'] as List<dynamic>)
-          .map((e) => Post.fromJson(e as Map<String, dynamic>,
-              type: filter.toLowerCase()))
+      return (data['goals'] as List)
+          .map((json) => Post.fromJson({...json, 'type': 'goal'}))
           .toList();
     } catch (e, stackTrace) {
-      developer.log('Search error: $e',
+      developer.log('GetGoals error: $e',
           name: 'ApiService', stackTrace: stackTrace);
-      throw DataValidationException('Failed to search: $e');
+      return [];
     }
+  }
+
+  Future<List<Post>> getEvents(String userId, String token) async {
+    try {
+      developer.log('GetEvents request: userId=$userId', name: 'ApiService');
+      final response = await _client.get(
+        Uri.parse('$_postsUrl/events/$userId'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      ).timeout(const Duration(seconds: 30));
+      final data = await _handleResponse(response);
+      return (data['events'] as List)
+          .map((json) => Post.fromJson({...json, 'type': 'event'}))
+          .toList();
+    } catch (e, stackTrace) {
+      developer.log('GetEvents error: $e', stackTrace: stackTrace);
+      return [];
+    }
+  }
+
+  Future<List<Post>> getAllGoals(String token, String userId) async {
+    try {
+      developer.log('GetAllGoals request: userId=$userId, token=$token',
+          name: 'ApiService');
+      final response = await _client.get(
+        Uri.parse('$_postsUrl/goals/all'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      ).timeout(const Duration(seconds: 30));
+      final data = await _handleResponse(response);
+      final postsData = data is List ? data : (data['goals'] as List?) ?? [];
+      return postsData
+          .map((json) => Post.fromJson({...json, 'type': 'goal'}))
+          .toList();
+    } catch (e, stackTrace) {
+      developer.log('GetAllGoals error: $e',
+          name: 'ApiService', stackTrace: stackTrace);
+      return [];
+    }
+  }
+
+  Future<List<Post>> getAllEvents(String token, String userId) async {
+    try {
+      developer.log('GetAllEvents request: userId=$userId, token=$token',
+          name: 'ApiService');
+      final response = await _client.get(
+        Uri.parse('$_postsUrl/events/all'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      ).timeout(const Duration(seconds: 30));
+      final data = await _handleResponse(response);
+      return (data['events'] as List)
+          .map((json) => Post.fromJson({...json, 'type': 'event'}))
+          .toList();
+    } catch (e, stackTrace) {
+      developer.log('GetAllEvents error: $e',
+          name: 'ApiService', stackTrace: stackTrace);
+      return [];
+    }
+  }
+
+  Future<void> likePost(String postId, String token) async {
+    try {
+      developer.log('LikePost request: postId=$postId', name: 'ApiService');
+      final response = await _client
+          .post(
+            Uri.parse('$_postsUrl/like'),
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer $token',
+            },
+            body: jsonEncode({'post_id': postId}),
+          )
+          .timeout(const Duration(seconds: 30));
+      await _handleResponse(response);
+    } catch (e, stackTrace) {
+      developer.log('LikePost error: $e',
+          name: 'ApiService', stackTrace: stackTrace);
+      rethrow;
+    }
+  }
+
+  Future<void> joinEvent(String eventId, String token) async {
+    try {
+      developer.log('JoinEvent request: eventId=$eventId', name: 'ApiService');
+      final response = await _client
+          .post(
+            Uri.parse('$_baseUrl/join'),
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer $token',
+            },
+            body: jsonEncode({'event_id': eventId}),
+          )
+          .timeout(const Duration(seconds: 30));
+      await _handleResponse(response);
+    } catch (e, stackTrace) {
+      developer.log('JoinEvent error: $e',
+          name: 'ApiService', stackTrace: stackTrace);
+      rethrow;
+    }
+  }
+
+  Future<void> createGoal({
+    required String userId,
+    required String description,
+    required String location,
+    required String interest,
+    String? pointA,
+    String? pointB,
+    List<Map<String, dynamic>>? tasks,
+    required String token,
+  }) async {
+    try {
+      final body = {
+        'user_id': userId,
+        'description': description,
+        'location': location,
+        'interest': interest,
+        if (pointA != null && pointA.isNotEmpty) 'point_a': pointA,
+        if (pointB != null && pointB.isNotEmpty) 'point_b': pointB,
+        if (tasks != null && tasks.isNotEmpty)
+          'tasks': tasks
+              .map((task) => {'title': task['title'], 'completed': false})
+              .toList(),
+      };
+
+      developer.log(
+          'Creating goal for user: $userId, body: ${jsonEncode(body)}',
+          name: 'ApiService');
+
+      final response = await _client
+          .post(
+            Uri.parse('$_postsUrl/goals/create'),
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer $token',
+            },
+            body: jsonEncode(body),
+          )
+          .timeout(const Duration(seconds: 30));
+
+      developer.log(
+          'CreateGoal response: ${response.statusCode}, ${response.body}',
+          name: 'ApiService');
+
+      await _handleResponse(response);
+    } catch (e, stackTrace) {
+      developer.log('CreateGoal error: $e',
+          name: 'ApiService', stackTrace: stackTrace);
+      rethrow;
+    }
+  }
+
+  Future<void> createEvent({
+    required String userId,
+    required String description,
+    required String location,
+    required String interest,
+    required String dateTime,
+    required String token,
+  }) async {
+    try {
+      final body = {
+        'user_id': userId,
+        'description': description,
+        'location': location,
+        'interest': interest,
+        'date_time': dateTime,
+      };
+
+      developer.log(
+          'Creating event for user: $userId, body: ${jsonEncode(body)}',
+          name: 'ApiService');
+
+      final response = await _client
+          .post(
+            Uri.parse('$_postsUrl/events/create'),
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer $token',
+            },
+            body: jsonEncode(body),
+          )
+          .timeout(const Duration(seconds: 30));
+
+      developer.log(
+          'CreateEvent response: ${response.statusCode}, ${response.body}',
+          name: 'ApiService');
+
+      await _handleResponse(response);
+    } catch (e, stackTrace) {
+      developer.log('CreateEvent error: $e',
+          name: 'ApiService', stackTrace: stackTrace);
+      rethrow;
+    }
+  }
+
+  void dispose() {
+    developer.log('Disposing ApiService', name: 'ApiService');
+    _client.close();
   }
 }

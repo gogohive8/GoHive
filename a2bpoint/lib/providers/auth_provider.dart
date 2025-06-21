@@ -65,6 +65,13 @@ class AuthProvider with ChangeNotifier {
     } catch (e, stackTrace) {
       developer.log('Error setting auth data: $e',
           name: 'AuthProvider', stackTrace: stackTrace);
+      if (e is AuthenticationException) {
+        _token = null;
+        _userId = null;
+        _username = null;
+        _isFirstLogin = true;
+        notifyListeners();
+      }
     }
   }
 
@@ -73,7 +80,7 @@ class AuthProvider with ChangeNotifier {
       _bio = bio;
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('bio', bio);
-      developer.log('Bio set: $bio', name: 'AuthProvider');
+      developer.log('Bio updated: $bio', name: 'AuthProvider');
       notifyListeners();
     } catch (e, stackTrace) {
       developer.log('Error setting bio: $e',
@@ -81,52 +88,45 @@ class AuthProvider with ChangeNotifier {
     }
   }
 
-  Future<void> clearAuth() async {
+  Future<void> markWelcomeShown() async {
     try {
-      developer.log('Clearing auth data, stack trace: ${StackTrace.current}',
-          name: 'AuthProvider');
+      _isFirstLogin = false;
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('isFirstLogin', false);
+      developer.log('Welcome screen marked as shown', name: 'AuthProvider');
+      notifyListeners();
+    } catch (e, stackTrace) {
+      developer.log('Error marking welcome shown: $e',
+          name: 'AuthProvider', stackTrace: stackTrace);
+    }
+  }
+
+  Future<void> logout() async {
+    try {
       _token = null;
       _userId = null;
       _username = null;
       _bio = null;
       _isFirstLogin = true;
       final prefs = await SharedPreferences.getInstance();
-      await prefs.remove('token');
-      await prefs.remove('userId');
-      await prefs.remove('username');
-      await prefs.remove('bio');
-      await prefs.setBool('isFirstLogin', true);
+      await prefs.clear();
+      developer.log('Logged out and cleared cache', name: 'AuthProvider');
       notifyListeners();
     } catch (e, stackTrace) {
-      developer.log('Error clearing auth data: $e',
+      developer.log('Error during logout: $e',
           name: 'AuthProvider', stackTrace: stackTrace);
     }
   }
 
-  bool shouldRedirectTo() {
-    final shouldRedirect = !isAuthenticated && _isInitialized;
-    if (shouldRedirect) {
-      developer.log('Should redirect to sign-in: not authenticated',
-          name: 'AuthProvider');
-    }
-    return shouldRedirect;
-  }
-
-  Future<void> handleAuthError(BuildContext context, dynamic error) async {
+  void handleAuthError(BuildContext context, dynamic error) {
+    developer.log('Handling auth error: $error', name: 'AuthProvider');
     if (error is AuthenticationException) {
-      developer.log('Authentication error detected: ${error.message}',
-          name: 'AuthProvider');
-      await clearAuth();
-      if (context.mounted) {
-        Navigator.pushReplacementNamed(context, '/sign_in');
-      }
+      logout();
+      Navigator.pushReplacementNamed(context, '/sign-in');
     }
   }
 
-  Future<void> markWelcomeShown() async {
-    _isFirstLogin = false;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('isFirstLogin', false);
-    notifyListeners();
+  bool shouldRedirectTo() {
+    return !isAuthenticated && _isInitialized;
   }
 }
