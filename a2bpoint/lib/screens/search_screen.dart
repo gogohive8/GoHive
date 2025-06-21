@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../services/api_services.dart';
+import '../models/post.dart';
 import 'navbar.dart';
 
 class SearchScreen extends StatefulWidget {
@@ -16,7 +17,7 @@ class SearchScreen extends StatefulWidget {
 class _SearchScreenState extends State<SearchScreen> {
   final TextEditingController _searchController = TextEditingController();
   String _selectedFilter = 'Goals';
-  List<dynamic> _searchResults = [];
+  List<Post> _searchResults = [];
   bool _isLoading = false;
   Timer? _debounce;
 
@@ -67,17 +68,15 @@ class _SearchScreenState extends State<SearchScreen> {
         return;
       }
       final token = authProvider.token!;
-      final userId = authProvider.userId!;
       final apiService = ApiService();
-      final response = await apiService.search(
+      final results = await apiService.search(
+        token,
         _searchController.text,
-        filter: _selectedFilter,
-        token: token,
-        userId: userId,
+        _selectedFilter,
       );
       if (mounted) {
         setState(() {
-          _searchResults = response['data'] ?? [];
+          _searchResults = results;
           _isLoading = false;
         });
       }
@@ -131,9 +130,8 @@ class _SearchScreenState extends State<SearchScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final size = MediaQuery.of(context).size;
     return Scaffold(
-      backgroundColor: const Color(0xFFF9F6F2), // Светло-бежевый фон
+      backgroundColor: const Color(0xFFF9F6F2),
       body: SafeArea(
         child: Column(
           children: [
@@ -146,10 +144,9 @@ class _SearchScreenState extends State<SearchScreen> {
                       controller: _searchController,
                       decoration: InputDecoration(
                         hintText: 'Search $_selectedFilter...',
-                        hintStyle:
-                            const TextStyle(color: Color(0xFF333333)), // Серый
+                        hintStyle: const TextStyle(color: Color(0xFF333333)),
                         filled: true,
-                        fillColor: const Color(0xFFDDDDDD), // Светло-серый
+                        fillColor: const Color(0xFFDDDDDD),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(10),
                           borderSide: BorderSide.none,
@@ -169,8 +166,7 @@ class _SearchScreenState extends State<SearchScreen> {
                               )
                             : null,
                       ),
-                      style: const TextStyle(
-                          color: Color(0xFF1A1A1A)), // Тёмно-серый
+                      style: const TextStyle(color: Color(0xFF1A1A1A)),
                     ),
                   ),
                   const SizedBox(width: 8),
@@ -182,7 +178,7 @@ class _SearchScreenState extends State<SearchScreen> {
                   IconButton(
                     icon: Image.asset('assets/images/messages_icon.png',
                         height: 24),
-                    onPressed: () {}, // Заглушка для сообщений
+                    onPressed: () {},
                   ),
                 ],
               ),
@@ -197,17 +193,12 @@ class _SearchScreenState extends State<SearchScreen> {
                         : ListView.builder(
                             itemCount: _searchResults.length,
                             itemBuilder: (context, index) {
-                              final item = _searchResults[index];
+                              final post = _searchResults[index];
                               return _buildCard(
-                                imageUrl: item['user']?['avatarUrl'] ?? '',
-                                title: item['text'] ?? 'No text',
-                                username:
-                                    item['user']?['username'] ?? 'Unknown',
-                                likes: item['likes'] ?? 0,
-                                createdAt: item['createdAt'] != null
-                                    ? DateTime.parse(item['createdAt'])
-                                        .toLocal()
-                                    : DateTime.now(),
+                                title: post.title ?? 'No title',
+                                username: post.username,
+                                likes: post.numOfLikes,
+                                createdAt: post.createdAt,
                               );
                             },
                           ),
@@ -227,14 +218,13 @@ class _SearchScreenState extends State<SearchScreen> {
   }
 
   Widget _buildCard({
-    required String imageUrl,
     required String title,
     required String username,
     required int likes,
     required DateTime createdAt,
   }) {
     return Card(
-      color: const Color(0xFFDDDDDD), // Светло-серый фон
+      color: const Color(0xFFDDDDDD),
       elevation: 2,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       margin: const EdgeInsets.only(bottom: 16.0),
@@ -245,10 +235,13 @@ class _SearchScreenState extends State<SearchScreen> {
           children: [
             Row(
               children: [
-                CircleAvatar(
-                  backgroundImage:
-                      imageUrl.isNotEmpty ? NetworkImage(imageUrl) : null,
-                  backgroundColor: const Color(0xFF333333), // Серый
+                const CircleAvatar(
+                  backgroundColor: Color(0xFF333333),
+                  child: Icon(
+                    Icons.person,
+                    color: Color(0xFFF9F6F2),
+                    size: 20,
+                  ),
                   radius: 20,
                 ),
                 const SizedBox(width: 12),
@@ -260,14 +253,14 @@ class _SearchScreenState extends State<SearchScreen> {
                         username,
                         style: const TextStyle(
                           fontWeight: FontWeight.bold,
-                          color: Color(0xFF000000), // Чёрный
+                          color: Color(0xFF000000),
                         ),
                       ),
                       Text(
                         createdAt.toString().split(' ')[0],
                         style: const TextStyle(
                           fontSize: 12,
-                          color: Color(0xFF333333), // Серый
+                          color: Color(0xFF333333),
                         ),
                       ),
                     ],
@@ -280,7 +273,7 @@ class _SearchScreenState extends State<SearchScreen> {
               title,
               style: const TextStyle(
                 fontSize: 16,
-                color: Color(0xFF1A1A1A), // Тёмно-серый
+                color: Color(0xFF1A1A1A),
               ),
             ),
             const SizedBox(height: 8),
@@ -291,8 +284,7 @@ class _SearchScreenState extends State<SearchScreen> {
                 const SizedBox(width: 4),
                 Text(
                   '$likes',
-                  style:
-                      const TextStyle(color: Color(0xFF1A1A1A)), // Тёмно-серый
+                  style: const TextStyle(color: Color(0xFF1A1A1A)),
                 ),
               ],
             ),

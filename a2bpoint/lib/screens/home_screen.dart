@@ -1,10 +1,9 @@
-import 'dart:developer' as developer;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../models/post.dart';
-import '../services/api_services.dart';
-import '../services/exceptions.dart';
+import 'dart:developer' as developer;
 import '../providers/auth_provider.dart';
+import '../services/api_services.dart';
+import '../models/post.dart';
 import 'navbar.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -14,252 +13,109 @@ class HomeScreen extends StatefulWidget {
   _HomeScreenState createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen>
-    with SingleTickerProviderStateMixin {
-  int _selectedIndex = 0;
-  int _selectedTabIndex = 0;
+class _HomeScreenState extends State<HomeScreen> {
   final ApiService _apiService = ApiService();
-  late TabController _tabController;
-  late Future<Map<String, List<Post>>> _postsFuture;
-  final Set<String> _likedPosts = {};
+  List<Post> _goals = [];
+  List<Post> _events = [];
+  bool _isLoading = true;
+  int _selectedTab = 0;
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
-    _tabController.addListener(_handleTabSelection);
-    _checkAuthAndFetchPosts();
+    _checkAuth();
+    _loadPosts();
   }
 
   @override
   void dispose() {
-    _tabController.removeListener(_handleTabSelection);
-    _tabController.dispose();
     _apiService.dispose();
     super.dispose();
   }
 
-  void _checkAuthAndFetchPosts() {
+  Future<void> _checkAuth() async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    if (!authProvider.isInitialized) {
-      developer.log('AuthProvider not initialized, waiting for initialization',
-          name: 'HomeScreen');
-      authProvider.initialize().then((_) {
-        if (mounted) {
-          _redirectIfNotAuthenticated(authProvider);
-          _fetchPosts();
-        }
-      });
-    } else {
-      developer.log('AuthProvider initialized, checking authentication',
-          name: 'HomeScreen');
-      _redirectIfNotAuthenticated(authProvider);
-      _fetchPosts();
-    }
-  }
-
-  void _redirectIfNotAuthenticated(AuthProvider authProvider) {
-    if (!authProvider.isInitialized) {
-      developer.log('AuthProvider not initialized, skipping redirect',
-          name: 'HomeScreen');
-      return;
-    }
+    await authProvider.initialize();
     if (authProvider.shouldRedirectTo()) {
-      developer.log('No token found, redirecting to sign-in',
-          name: 'HomeScreen');
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) {
-          Navigator.pushReplacementNamed(context, '/sign_in');
-        }
-      });
+      Navigator.pushReplacementNamed(context, '/sign_in');
+    } else if (authProvider.isFirstLogin) {
+      Navigator.pushReplacementNamed(context, '/welcome');
     }
   }
 
-  void _handleTabSelection() {
-    if (_tabController.index != _selectedTabIndex) {
-      setState(() {
-        _selectedTabIndex = _tabController.index;
-      });
-      _fetchPosts();
-    }
-  }
-
-  void _fetchPosts() {
+  Future<void> _loadPosts() async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    final token = authProvider.token ?? '';
-    final userId = authProvider.userId ?? '';
-
-    if (token.isEmpty || userId.isEmpty) {
-      developer.log('No token or userId, skipping fetch', name: 'HomeScreen');
-      setState(() {
-        _postsFuture = Future.value({});
-      });
+    if (!authProvider.isAuthenticated ||
+        authProvider.token == null ||
+        authProvider.userId == null) {
+      setState(() => _isLoading = false);
       return;
     }
-    developer.log('Fetching posts: tabIndex=$_selectedTabIndex',
-        name: 'HomeScreen');
-    _postsFuture = (_selectedTabIndex == 0
-            ? _apiService.getAllGoals(token, userId)
-            : _apiService.getAllEvents(token, userId))
-        .then(_groupPostsByUser)
-        .catchError((e) {
-      authProvider.handleAuthError(context, e);
-      return <String, List<Post>>{};
-    });
-  }
 
-  Future<Map<String, List<Post>>> _groupPostsByUser(List<Post> posts) async {
-    final Map<String, List<Post>> groupedPosts = {};
-    for (var post in posts) {
-      final userId = post.user.id;
-      if (!groupedPosts.containsKey(userId)) {
-        groupedPosts[userId] = [];
+    try {
+      developer.log('Loading posts for userId=${authProvider.userId}',
+          name: 'HomeScreen');
+      final goals = await _apiService.getAllGoals(
+          authProvider.token!, authProvider.userId!);
+      final events = await _apiService.getAllEvents(
+          authProvider.token!, authProvider.userId!);
+      if (mounted) {
+        setState(() {
+          _goals = goals;
+          _events = events;
+          _isLoading = false;
+        });
       }
-      groupedPosts[userId]!.add(post);
+    } catch (e, stackTrace) {
+      developer.log('Load posts error: $e',
+          name: 'HomeScreen', stackTrace: stackTrace);
+      if (mounted) {
+        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error loading posts: $e')),
+        );
+      }
     }
-    return groupedPosts;
   }
 
-  void _onItemTapped(int index) {
-    setState(() {
-      _selectedIndex = index;
-    });
-    final routes = ['/home', '/search', '/add', '/profile', '/ai-mentor'];
-    Navigator.pushReplacementNamed(context, routes[index]);
-  }
-
-  void _likePost(
-      String postId, int currentLikes, String userId, int index) async {
+  Future<void> _likePost(String postId) async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     if (!authProvider.isAuthenticated || authProvider.token == null) {
-      authProvider.handleAuthError(
-          context, AuthenticationException('Not authenticated'));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please log in to like posts')),
+      );
       return;
     }
+
     try {
-      developer.log('Liking post: postId=$postId', name: 'HomeScreen');
       await _apiService.likePost(postId, authProvider.token!);
-      setState(() {
-        if (_likedPosts.contains(postId)) {
-          _likedPosts.remove(postId);
-          _postsFuture.then((groupedPosts) {
-            if (groupedPosts.containsKey(userId)) {
-              final posts = groupedPosts[userId]!;
-              if (index >= 0 && index < posts.length) {
-                posts[index].likes = currentLikes - 1;
-              }
-            }
-          });
-        } else {
-          _likedPosts.add(postId);
-          _postsFuture.then((groupedPosts) {
-            if (groupedPosts.containsKey(userId)) {
-              final posts = groupedPosts[userId]!;
-              if (index >= 0 && index < posts.length) {
-                posts[index].likes = currentLikes + 1;
-              }
-            }
-          });
-        }
-      });
+      _loadPosts(); // Reload to update likes count
     } catch (e, stackTrace) {
       developer.log('Like post error: $e',
           name: 'HomeScreen', stackTrace: stackTrace);
-      authProvider.handleAuthError(context, e);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error liking post: $e')),
-      );
-    }
-  }
-
-  void _joinEvent(String eventId, String eventText) async {
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    if (!authProvider.isAuthenticated || authProvider.token == null) {
-      authProvider.handleAuthError(
-          context, AuthenticationException('Not authenticated'));
-      return;
-    }
-    try {
-      developer.log('Joining event: eventId=$eventId', name: 'HomeScreen');
-      await _apiService.joinEvent(eventId, authProvider.token!);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('You have joined $eventText')),
-      );
-    } catch (e, stackTrace) {
-      developer.log('Join event error: $e',
-          name: 'HomeScreen', stackTrace: stackTrace);
-      authProvider.handleAuthError(context, e);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error joining event: $e')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error liking post: $e')),
+        );
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final authProvider = Provider.of<AuthProvider>(context);
-    if (!authProvider.isInitialized) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
-    }
+    final size = MediaQuery.of(context).size;
     return Scaffold(
       backgroundColor: const Color(0xFFF9F6F2),
       appBar: AppBar(
-        elevation: 0,
         backgroundColor: const Color(0xFFF9F6F2),
-        automaticallyImplyLeading: false,
-        title: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            GestureDetector(
-              onTap: () => _tabController.animateTo(0),
-              child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  color: _selectedTabIndex == 0
-                      ? const Color.fromRGBO(175, 203, 234, 0.1)
-                      : Colors.transparent,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  'Goals',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: _selectedTabIndex == 0
-                        ? const Color(0xFFAFCBEA)
-                        : const Color(0xFF1A1A1A),
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(width: 8),
-            GestureDetector(
-              onTap: () => _tabController.animateTo(1),
-              child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  color: _selectedTabIndex == 1
-                      ? const Color.fromRGBO(175, 203, 234, 0.1)
-                      : Colors.transparent,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  'Events',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: _selectedTabIndex == 1
-                        ? const Color(0xFFAFCBEA)
-                        : const Color(0xFF1A1A1A),
-                  ),
-                ),
-              ),
-            ),
-          ],
+        elevation: 0,
+        title: const Text(
+          'GoHive',
+          style: TextStyle(
+            fontSize: 24,
+            fontWeight: FontWeight.bold,
+            color: Color(0xFF1A1A1A),
+          ),
         ),
         actions: [
           IconButton(
@@ -268,186 +124,171 @@ class _HomeScreenState extends State<HomeScreen>
           ),
         ],
       ),
-      body: TabBarView(
-        controller: _tabController,
-        children: [
-          _buildPostsView(),
-          _buildPostsView(),
-        ],
-      ),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : Column(
+              children: [
+                Padding(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    children: [
+                      GestureDetector(
+                        onTap: () => setState(() => _selectedTab = 0),
+                        child: Text(
+                          'Goals',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: _selectedTab == 0
+                                ? const Color(0xFFAFCBEA)
+                                : const Color(0xFF333333),
+                          ),
+                        ),
+                      ),
+                      GestureDetector(
+                        onTap: () => setState(() => _selectedTab = 1),
+                        child: Text(
+                          'Events',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: _selectedTab == 1
+                                ? const Color(0xFFAFCBEA)
+                                : const Color(0xFF333333),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Expanded(
+                  child: _selectedTab == 0
+                      ? _buildPostList(_goals)
+                      : _buildPostList(_events),
+                ),
+              ],
+            ),
       bottomNavigationBar: Navbar(
-        selectedIndex: _selectedIndex,
-        onTap: _onItemTapped,
+        selectedIndex: 0,
+        onTap: (index) {
+          final routes = ['/home', '/search', '/add', '/profile', '/ai-mentor'];
+          Navigator.pushReplacementNamed(context, routes[index]);
+        },
       ),
     );
   }
 
-  Widget _buildPostsView() {
-    return FutureBuilder<Map<String, List<Post>>>(
-      future: _postsFuture,
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
-        }
-        if (snapshot.hasError) {
-          developer.log('Snapshot error: ${snapshot.error}',
-              name: 'HomeScreen', stackTrace: snapshot.stackTrace);
-          return Center(child: Text('Error: ${snapshot.error}'));
-        }
-        final groupedPosts = snapshot.data ?? {};
-        if (groupedPosts.isEmpty) {
-          developer.log('No posts to display', name: 'HomeScreen');
-          return const Center(child: Text('No posts available'));
-        }
-        developer.log('Posts data: $groupedPosts', name: 'HomeScreen');
-        return SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: groupedPosts.entries.map((entry) {
-              final userId = entry.key;
-              final posts = entry.value;
-              final username =
-                  posts.isNotEmpty ? posts[0].user.username : 'Unknown';
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                    child: Text(
-                      username,
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF000000),
+  Widget _buildPostList(List<Post> posts) {
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: posts.length,
+      itemBuilder: (context, index) {
+        final post = posts[index];
+        return Card(
+          color: const Color(0xFFDDDDDD),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          margin: const EdgeInsets.only(bottom: 16),
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const CircleAvatar(
+                      backgroundColor: Color(0xFF333333),
+                      child: Icon(
+                        Icons.person,
+                        color: Color(0xFFF9F6F2),
+                        size: 20,
+                      ),
+                      radius: 20,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            post.username,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF000000),
+                            ),
+                          ),
+                          Text(
+                            post.createdAt.toString().split(' ')[0],
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: Color(0xFF333333),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  post.title ?? 'No title',
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF1A1A1A),
                   ),
-                  ListView.builder(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    itemCount: posts.length,
-                    itemBuilder: (context, index) {
-                      final post = posts[index];
-                      developer.log(
-                          'Post[$index]: text=${post.text}, id=${post.id}',
-                          name: 'HomeScreen');
-                      final isLiked = _likedPosts.contains(post.id);
-                      return Card(
-                        color: const Color(0xFFDDDDDD),
-                        elevation: 2,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        margin: const EdgeInsets.symmetric(vertical: 8),
-                        child: Padding(
-                          padding: const EdgeInsets.all(12),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  CircleAvatar(
-                                    backgroundImage:
-                                        post.user.avatarUrl.isNotEmpty
-                                            ? NetworkImage(post.user.avatarUrl)
-                                            : null,
-                                    backgroundColor: const Color(0xFF333333),
-                                    radius: 20,
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          post.user.username,
-                                          style: const TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                            color: Color(0xFF000000),
-                                          ),
-                                        ),
-                                        Text(
-                                          post.createdAt
-                                              .toLocal()
-                                              .toString()
-                                              .split(' ')[0],
-                                          style: const TextStyle(
-                                            fontSize: 12,
-                                            color: Color(0xFF333333),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                post.text ?? 'No description',
-                                style: const TextStyle(
-                                  fontSize: 16,
-                                  color: Color(0xFF1A1A1A),
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
-                                children: [
-                                  _selectedTabIndex == 0
-                                      ? Row(
-                                          children: [
-                                            IconButton(
-                                              icon: Icon(
-                                                isLiked
-                                                    ? Icons.favorite
-                                                    : Icons.favorite_border,
-                                                color: isLiked
-                                                    ? Colors.red
-                                                    : const Color(0xFF333333),
-                                              ),
-                                              onPressed: () => _likePost(
-                                                  post.id,
-                                                  post.likes,
-                                                  userId,
-                                                  index),
-                                            ),
-                                            Text(
-                                              '${post.likes}',
-                                              style: const TextStyle(
-                                                color: Color(0xFF1A1A1A),
-                                              ),
-                                            ),
-                                          ],
-                                        )
-                                      : ElevatedButton(
-                                          onPressed: () => _joinEvent(
-                                              post.id, post.text ?? ''),
-                                          style: ElevatedButton.styleFrom(
-                                            backgroundColor:
-                                                const Color(0xFFAFCBEA),
-                                            foregroundColor:
-                                                const Color(0xFF000000),
-                                            shape: RoundedRectangleBorder(
-                                              borderRadius:
-                                                  BorderRadius.circular(8),
-                                            ),
-                                          ),
-                                          child: const Text('Join'),
-                                        ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ),
-                      );
-                    },
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  post.text ?? 'No description',
+                  style: const TextStyle(
+                    fontSize: 14,
+                    color: Color(0xFF1A1A1A),
                   ),
-                ],
-              );
-            }).toList(),
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.favorite_border,
+                          color: Color(0xFF333333)),
+                      onPressed: () => _likePost(post.id),
+                    ),
+                    Text(
+                      '${post.numOfLikes}',
+                      style: const TextStyle(color: Color(0xFF1A1A1A)),
+                    ),
+                    const SizedBox(width: 16),
+                    if (post.type == 'event' && post.dateTime != null)
+                      Text(
+                        post.dateTime!,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Color(0xFF333333),
+                        ),
+                      ),
+                  ],
+                ),
+                if (post.type == 'goal' && post.tasks != null)
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const SizedBox(height: 8),
+                      Text(
+                        'Tasks: ${post.tasks!.where((task) => task['completed'] ?? false).length}/${post.tasks!.length}',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Color(0xFF333333),
+                        ),
+                      ),
+                    ],
+                  ),
+              ],
+            ),
           ),
         );
       },

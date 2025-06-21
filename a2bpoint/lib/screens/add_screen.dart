@@ -16,15 +16,13 @@ class AddScreen extends StatefulWidget {
 class _AddScreenState extends State<AddScreen> {
   final ApiService _apiService = ApiService();
   final _formKey = GlobalKey<FormState>();
+  final _titleController = TextEditingController();
   final _descriptionController = TextEditingController();
-  final _locationController = TextEditingController();
-  final _pointAController = TextEditingController();
-  final _pointBController = TextEditingController();
   final _dateTimeController = TextEditingController();
   final _taskController = TextEditingController();
 
   int _selectedTabIndex = 0;
-  String? _selectedInterest;
+  String? _selectedCategory;
   List<Map<String, dynamic>> _tasks = [];
   bool _isLoading = false;
   String _errorMessage = '';
@@ -52,20 +50,19 @@ class _AddScreenState extends State<AddScreen> {
 
   @override
   void dispose() {
+    _titleController.dispose();
     _descriptionController.dispose();
-    _locationController.dispose();
-    _pointAController.dispose();
-    _pointBController.dispose();
     _dateTimeController.dispose();
     _taskController.dispose();
+    _apiService.dispose();
     super.dispose();
   }
 
   Future<void> _saveData() async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    if (_selectedTabIndex == 0 && _selectedInterest == null) {
+    if (_selectedCategory == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select an interest')),
+        const SnackBar(content: Text('Please select a category')),
       );
       return;
     }
@@ -96,34 +93,26 @@ class _AddScreenState extends State<AddScreen> {
               const Center(child: CircularProgressIndicator()),
         );
 
-        final imageUrls = <String>[];
         final String userId = authProvider.userId!;
         final String token = authProvider.token!;
 
         if (_selectedTabIndex == 0) {
           await _apiService.createGoal(
-            userId: userId,
-            description: _descriptionController.text,
-            location: _locationController.text,
-            interest: _selectedInterest!,
-            pointA: _pointAController.text.isNotEmpty
-                ? _pointAController.text
-                : null,
-            pointB: _pointBController.text.isNotEmpty
-                ? _pointBController.text
-                : null,
-            tasks: _tasks.isNotEmpty ? _tasks : null,
             token: token,
+            userId: userId,
+            title: _titleController.text,
+            description: _descriptionController.text,
+            category: _selectedCategory!,
+            tasks: _tasks.isNotEmpty ? _tasks : null,
           );
         } else {
           await _apiService.createEvent(
-            userId: userId,
-            description: _descriptionController.text,
-            location: _locationController.text,
-            interest: _selectedInterest!,
-            dateTime: _dateTimeController.text,
-            imageUrls: imageUrls.isNotEmpty ? imageUrls : null,
             token: token,
+            userId: userId,
+            title: _titleController.text,
+            description: _descriptionController.text,
+            category: _selectedCategory!,
+            dateTime: _dateTimeController.text,
           );
         }
 
@@ -132,16 +121,16 @@ class _AddScreenState extends State<AddScreen> {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Data saved successfully')),
           );
+          _titleController.clear();
           _descriptionController.clear();
-          _locationController.clear();
-          _pointAController.clear();
-          _pointBController.clear();
           _dateTimeController.clear();
+          _taskController.clear();
           setState(() {
-            _selectedInterest = null;
+            _selectedCategory = null;
             _tasks.clear();
             _errorMessage = '';
           });
+          Navigator.pushReplacementNamed(context, '/home');
         }
       } catch (e, stackTrace) {
         developer.log('Save data error: $e',
@@ -287,6 +276,27 @@ class _AddScreenState extends State<AddScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           TextFormField(
+                            controller: _titleController,
+                            decoration: InputDecoration(
+                              labelText: 'Title',
+                              labelStyle:
+                                  const TextStyle(color: Color(0xFF1A1A1A)),
+                              filled: true,
+                              fillColor:
+                                  const Color.fromRGBO(221, 221, 221, 0.2),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(10),
+                                borderSide: BorderSide.none,
+                              ),
+                              prefixIcon: const Icon(Icons.title,
+                                  color: Color(0xFF333333)),
+                            ),
+                            style: const TextStyle(color: Color(0xFF1A1A1A)),
+                            validator: (value) =>
+                                value?.isEmpty ?? true ? 'Enter title' : null,
+                          ),
+                          SizedBox(height: size.height * 0.02),
+                          TextFormField(
                             controller: _descriptionController,
                             decoration: InputDecoration(
                               labelText: 'Description',
@@ -308,71 +318,48 @@ class _AddScreenState extends State<AddScreen> {
                                 : null,
                           ),
                           SizedBox(height: size.height * 0.02),
-                          TextFormField(
-                            controller: _locationController,
-                            decoration: InputDecoration(
-                              labelText: 'Location',
-                              labelStyle:
-                                  const TextStyle(color: Color(0xFF1A1A1A)),
-                              filled: true,
-                              fillColor:
-                                  const Color.fromRGBO(221, 221, 221, 0.2),
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(10),
-                                borderSide: BorderSide.none,
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Category',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: Color(0xFF000000),
+                                ),
                               ),
-                              prefixIcon: const Icon(Icons.location_on,
-                                  color: Color(0xFF333333)),
-                            ),
-                            style: const TextStyle(color: Color(0xFF1A1A1A)),
-                            validator: (value) => value?.isEmpty ?? true
-                                ? 'Enter location'
-                                : null,
+                              const SizedBox(height: 8),
+                              Wrap(
+                                spacing: 8,
+                                runSpacing: 8,
+                                children: [
+                                  'Health',
+                                  'Yoga',
+                                  'Sport',
+                                  'Music',
+                                  'Science',
+                                  'Book',
+                                  'Swimming',
+                                ].map((category) {
+                                  return ChoiceChip(
+                                    label: Text(category),
+                                    selected: _selectedCategory == category,
+                                    onSelected: (selected) => setState(() =>
+                                        _selectedCategory =
+                                            selected ? category : null),
+                                    selectedColor: const Color(0xFFAFCBEA),
+                                    labelStyle: TextStyle(
+                                      color: _selectedCategory == category
+                                          ? const Color(0xFF000000)
+                                          : const Color(0xFF1A1A1A),
+                                    ),
+                                    backgroundColor: const Color.fromRGBO(
+                                        221, 221, 221, 0.2),
+                                  );
+                                }).toList(),
+                              ),
+                            ],
                           ),
-                          SizedBox(height: size.height * 0.02),
-                          if (_selectedTabIndex == 0)
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Text(
-                                  'Interests',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    color: Color(0xFF000000),
-                                  ),
-                                ),
-                                const SizedBox(height: 8),
-                                Wrap(
-                                  spacing: 8,
-                                  runSpacing: 8,
-                                  children: [
-                                    'Health',
-                                    'Yoga',
-                                    'Sport',
-                                    'Music',
-                                    'Science',
-                                    'Book',
-                                    'Swimming',
-                                  ].map((interest) {
-                                    return ChoiceChip(
-                                      label: Text(interest),
-                                      selected: _selectedInterest == interest,
-                                      onSelected: (selected) => setState(() =>
-                                          _selectedInterest =
-                                              selected ? interest : null),
-                                      selectedColor: const Color(0xFFAFCBEA),
-                                      labelStyle: TextStyle(
-                                        color: _selectedInterest == interest
-                                            ? const Color(0xFF000000)
-                                            : const Color(0xFF1A1A1A),
-                                      ),
-                                      backgroundColor: const Color.fromRGBO(
-                                          221, 221, 221, 0.2),
-                                    );
-                                  }).toList(),
-                                ),
-                              ],
-                            ),
                           SizedBox(height: size.height * 0.02),
                           if (_selectedTabIndex == 1)
                             TextFormField(
@@ -401,44 +388,6 @@ class _AddScreenState extends State<AddScreen> {
                             ),
                           SizedBox(height: size.height * 0.02),
                           if (_selectedTabIndex == 0) ...[
-                            TextFormField(
-                              controller: _pointAController,
-                              decoration: InputDecoration(
-                                labelText: 'Point A',
-                                labelStyle:
-                                    const TextStyle(color: Color(0xFF1A1A1A)),
-                                filled: true,
-                                fillColor:
-                                    const Color.fromRGBO(221, 221, 221, 0.2),
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(10),
-                                  borderSide: BorderSide.none,
-                                ),
-                                prefixIcon: const Icon(Icons.place,
-                                    color: Color(0xFF333333)),
-                              ),
-                              style: const TextStyle(color: Color(0xFF1A1A1A)),
-                            ),
-                            SizedBox(height: size.height * 0.02),
-                            TextFormField(
-                              controller: _pointBController,
-                              decoration: InputDecoration(
-                                labelText: 'Point B',
-                                labelStyle:
-                                    const TextStyle(color: Color(0xFF1A1A1A)),
-                                filled: true,
-                                fillColor:
-                                    const Color.fromRGBO(221, 221, 221, 0.2),
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(10),
-                                  borderSide: BorderSide.none,
-                                ),
-                                prefixIcon: const Icon(Icons.place,
-                                    color: Color(0xFF333333)),
-                              ),
-                              style: const TextStyle(color: Color(0xFF1A1A1A)),
-                            ),
-                            SizedBox(height: size.height * 0.02),
                             const Text(
                               'Tasks',
                               style: TextStyle(

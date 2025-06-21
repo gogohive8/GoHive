@@ -10,6 +10,7 @@ import 'screens/ai_mentor_screen.dart';
 import 'providers/auth_provider.dart';
 import 'screens/search_screen.dart';
 import 'dart:developer' as developer;
+import 'screens/welcome_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -38,21 +39,39 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'GoHive',
-      theme: ThemeData(
-        primarySwatch: Colors.blue,
+    return ChangeNotifierProvider(
+      create: (_) => AuthProvider(),
+      child: MaterialApp(
+        title: 'GoHive',
+        theme: ThemeData(
+          primaryColor: const Color(0xFFAFCBEA),
+          scaffoldBackgroundColor: const Color(0xFFF9F6F2),
+          textTheme: const TextTheme(
+            bodyLarge: TextStyle(color: Color(0xFF1A1A1A)),
+            bodyMedium: TextStyle(color: Color(0xFF1A1A1A)),
+          ),
+          elevatedButtonTheme: ElevatedButtonThemeData(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFAFCBEA),
+              foregroundColor: const Color(0xFF000000),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+          ),
+        ),
+        initialRoute: '/sign_in',
+        routes: {
+          '/sign_in': (context) => const SignInScreen(),
+          '/sign_up': (context) => const SignUpScreen(),
+          '/home': (context) => const HomeScreen(),
+          '/search': (context) => const SearchScreen(),
+          '/add': (context) => const AddScreen(),
+          '/profile': (context) => const ProfileScreen(),
+          '/welcome': (context) => const WelcomeScreen(),
+          '/ai-mentor': (context) => const AIMentorScreen(),
+        },
       ),
-      initialRoute: '/sign_in',
-      routes: {
-        '/sign_in': (context) => const SignInScreen(),
-        '/sign_up': (context) => const SignUpScreen(),
-        '/home': (context) => const HomeScreen(),
-        '/add': (context) => const AddScreen(),
-        '/profile': (context) => const ProfileScreen(),
-        '/search': (context) => const SearchScreen(),
-        '/ai-mentor': (context) => const AIMentorScreen(),
-      },
     );
   }
 }
