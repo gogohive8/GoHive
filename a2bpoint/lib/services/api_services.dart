@@ -113,8 +113,6 @@ class ApiService {
           .map((json) => Post.fromJson({
                 ...json,
                 'type': 'goal',
-                'user_id':
-                    json['user_id'] ?? json['userID'] ?? json['username'] ?? '',
                 'description': json['description'] ??
                     json['goalInfo'] ??
                     json['text'] ??
@@ -122,9 +120,7 @@ class ApiService {
                 'created_at': json['created_at'] ??
                     json['createdAt'] ??
                     DateTime.now().toIso8601String(),
-                'tasks': json['tasks'] ?? [],
                 'likes': json['likes'] ?? 0,
-                'comments': json['comments'] ?? 0,
                 'id': json['id'] ?? json['_id'] ?? '',
               }, type: 'goal'))
           .toList();
@@ -156,14 +152,11 @@ class ApiService {
           .map((json) => Post.fromJson({
                 ...json,
                 'type': 'event',
-                'user_id':
-                    json['user_id'] ?? json['userID'] ?? json['username'] ?? '',
                 'description': json['description'] ?? json['text'] ?? '',
                 'created_at': json['created_at'] ??
                     json['createdAt'] ??
                     DateTime.now().toIso8601String(),
                 'likes': json['likes'] ?? 0,
-                'comments': json['comments'] ?? 0,
                 'id': json['id'] ?? json['_id'] ?? '',
               }, type: 'event'))
           .toList();
@@ -205,7 +198,6 @@ class ApiService {
                     DateTime.now().toIso8601String(),
                 'tasks': json['tasks'] ?? [],
                 'likes': json['likes'] ?? 0,
-                'comments': json['comments'] ?? 0,
                 'id': json['id'] ?? json['_id'] ?? '',
               }, type: 'goal'))
           .toList();
@@ -243,7 +235,6 @@ class ApiService {
                     json['createdAt'] ??
                     DateTime.now().toIso8601String(),
                 'likes': json['likes'] ?? 0,
-                'comments': json['comments'] ?? 0,
                 'id': json['id'] ?? json['_id'] ?? '',
               }, type: 'event'))
           .toList();
