@@ -66,11 +66,9 @@ class _ProfileScreenState extends State<ProfileScreen>
       developer.log('Loading profile for userId=$userId',
           name: 'ProfileScreen');
 
-      // Загрузка из SharedPreferences
       final prefs = await SharedPreferences.getInstance();
       final savedBio = prefs.getString('bio_$userId') ?? '';
 
-      // Загрузка из API
       final profile = await _apiService.getProfile(userId, token);
       final goals = await _apiService.getGoals(userId, token);
       final events = await _apiService.getEvents(userId, token);
@@ -86,7 +84,7 @@ class _ProfileScreenState extends State<ProfileScreen>
         await prefs.setString('bio_$userId', _bioController.text);
       }
       developer.log(
-          'Profile loaded: username=${_profile?['username'] ?? 'User'}, bio=${_bioController.text}',
+          'Profile loaded: username=${_profile?['username'] ?? 'User'}, bio=${_bioController.text}, avatar=${_profile?['avatar'] ?? 'none'}',
           name: 'ProfileScreen');
     } catch (e, stackTrace) {
       developer.log('Load profile error: $e',
@@ -194,6 +192,19 @@ class _ProfileScreenState extends State<ProfileScreen>
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      // Avatar
+                      Center(
+                        child: CircleAvatar(
+                          radius: 40,
+                          backgroundImage: _profile?['avatar'] != null &&
+                                  _profile!['avatar'].isNotEmpty
+                              ? NetworkImage(_profile!['avatar'])
+                              : const AssetImage(
+                                      'assets/images/default_avatar.png')
+                                  as ImageProvider,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
                       // Username
                       Text(
                         _profile?['username'] ?? 'User',

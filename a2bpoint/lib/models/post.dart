@@ -15,7 +15,7 @@ class User {
     developer.log('User.fromJson keys: ${json.keys.toList()}',
         name: 'User.fromJson');
     return User(
-      id: json['userID']?.toString() ?? '',
+      id: json['userID']?.toString() ?? json['id']?.toString() ?? '',
       username: json['username']?.toString() ?? 'Unknown',
       avatarUrl: json['avatarUrl']?.toString() ?? '',
     );
@@ -28,7 +28,7 @@ class Post {
   final String? text;
   final String type;
   final DateTime createdAt;
-  int likes; // Убрано final
+  int likes;
   final int comments;
   final List<String>? imageUrls;
   final List<Map<String, dynamic>>? tasks;
@@ -46,15 +46,18 @@ class Post {
   });
 
   factory Post.fromJson(Map<String, dynamic> json, {required String type}) {
-    developer.log('Post.fromJson keys: ${json.keys.toList()}',
-        name: 'Post.fromJson');
+    developer.log('Post.fromJson json: $json', name: 'Post.fromJson');
     String? textValue;
+    Map<String, dynamic> userJson = {};
+
     if (type == 'goal') {
-      textValue =
-          json['goalInfo']?.toString() ?? json['description']?.toString();
+      textValue = json['goalInfo']?.toString();
+      userJson = {'userID': json['userID'], 'username': json['username']};
     } else {
       textValue = json['description']?.toString();
+      userJson = {'userID': json['userID'], 'username': json['username']};
     }
+
     if (textValue == null) {
       developer.log(
           'No text found for $type. Available keys: ${json.keys.toList()}',
@@ -63,7 +66,7 @@ class Post {
 
     return Post(
       id: json['id']?.toString() ?? '',
-      user: User.fromJson(json['user'] ?? {}),
+      user: User.fromJson(userJson),
       text: textValue,
       type: type,
       createdAt: DateTime.tryParse(json['created_at']?.toString() ?? '') ??

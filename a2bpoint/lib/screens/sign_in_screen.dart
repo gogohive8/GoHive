@@ -3,8 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../services/api_services.dart';
-import '../services/exceptions.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 class SignInScreen extends StatefulWidget {
   const SignInScreen({super.key});
@@ -18,31 +16,22 @@ class _SignInScreenState extends State<SignInScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final ApiService _apiService = ApiService();
-  bool _isLoading = false;
   bool _isPasswordVisible = false;
+  bool _isLoading = false;
 
   @override
-  void initState() {
-    super.initState();
-    // Listen for Supabase auth state changes
-    final supabase = Supabase.instance.client;
-    supabase.auth.onAuthStateChange.listen((data) {
-      final event = data.event;
-      if (event == AuthChangeEvent.signedIn && mounted) {
-        developer.log('Supabase auth state changed: signed in',
-            name: 'SignInScreen');
-        _handleGoogleSignIn();
-      }
-    });
+  void dispose() {
+    _emailController.dispose();
+    _passwordController.dispose();
+    _apiService.dispose();
+    super.dispose();
   }
 
-  Future<void> _signInWithEmail() async {
-    if (!mounted || _isLoading || !_formKey.currentState!.validate()) return;
+  Future<void> _handleSignIn(
+      Future<Map<String, String>?> signInMethod, bool isGoogleLogin) async {
+    if (_isLoading || !mounted) return;
 
     setState(() => _isLoading = true);
-    developer.log('Attempting to sign in with email: ${_emailController.text}',
-        name: 'SignInScreen');
-
     try {
       showDialog(
         context: context,
@@ -50,21 +39,74 @@ class _SignInScreenState extends State<SignInScreen> {
         builder: (context) => const Center(child: CircularProgressIndicator()),
       );
 
-      final authData = await _apiService.login(
-          _emailController.text.trim(), _passwordController.text.trim());
-      developer.log('Login response: $authData', name: 'SignInScreen');
-
-      if (mounted) Navigator.pop(context);
+      final authData = await signInMethod;
+      if (!mounted) return;
+      Navigator.pop(context);
 
       if (authData != null &&
           authData['token']?.isNotEmpty == true &&
           authData['userId']?.isNotEmpty == true) {
+        developer.log(
+            'Setting auth data: token=${authData['token']}, userId=${authData['userId']}, username=${authData['username']}, email=${authData['email']}',
+            name: 'SignInScreen');
         final authProvider = Provider.of<AuthProvider>(context, listen: false);
-        await authProvider.setAuthData(authData['token']!, authData['userId']!);
-        if (authProvider.isAuthenticated && mounted) {
-          developer.log('User authenticated, navigating to /home',
+        await authProvider.setAuthData(
+          authData['token']!,
+          authData['userId']!,
+          authData['email'] ?? _emailController.text,
+          authData['username'],
+          isGoogleLogin: isGoogleLogin,
+          isNewUser: authData['isNewUser'] == 'true',
+        );
+
+        if (authProvider.isAuthenticated) {
+          // Check profile for Google Sign-In
+          if (isGoogleLogin) {
+            try {
+              final profile = await _apiService.getProfile(
+                  authData['userId']!, authData['token']!);
+              developer.log('Profile check: $profile', name: 'SignInScreen');
+
+              if (mounted) {
+                if (profile['username'] == null || profile['age'] == null) {
+                  developer.log('Incomplete profile, redirecting to /sign_up',
+                      name: 'SignInScreen');
+                  Navigator.pushReplacementNamed(
+                    context,
+                    '/sign_up',
+                    arguments: {
+                      'isGoogleSignUp': true,
+                      'userId': authData['userId'],
+                      'email': authData['email'] ?? '',
+                    },
+                  );
+                  return;
+                }
+              }
+            } catch (e, stackTrace) {
+              developer.log('Profile fetch error: $e',
+                  name: 'SignInScreen', stackTrace: stackTrace);
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Failed to fetch profile: $e')),
+                );
+              }
+              return;
+            }
+          }
+
+          developer.log('User authenticated, navigating to appropriate route',
               name: 'SignInScreen');
-          Navigator.pushReplacementNamed(context, '/home');
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) {
+              Navigator.pushReplacementNamed(
+                context,
+                authData['isNewUser'] == 'true' && isGoogleLogin
+                    ? '/welcome'
+                    : '/home',
+              );
+            }
+          });
         } else {
           developer.log('Authentication failed: AuthProvider not updated',
               name: 'SignInScreen');
@@ -79,136 +121,53 @@ class _SignInScreenState extends State<SignInScreen> {
         developer.log('Invalid auth data: $authData', name: 'SignInScreen');
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Invalid email or password')),
+            SnackBar(
+                content: Text(isGoogleLogin
+                    ? 'Google Sign-In failed: Invalid response from server'
+                    : 'Invalid email or password')),
           );
         }
       }
     } catch (e, stackTrace) {
-      developer.log('SignIn error: $e',
+      developer.log('Sign-in error: $e',
           name: 'SignInScreen', stackTrace: stackTrace);
       if (mounted) {
-        Navigator.pop(context);
+        Navigator.pop(context, false); // Ensure dialog is closed
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Login error: ${e.toString()}')),
+          SnackBar(
+              content: Text(isGoogleLogin
+                  ? 'Google Sign-In error: $e'
+                  : 'Login error: $e')),
         );
       }
     } finally {
-      if (mounted) setState(() => _isLoading = false);
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 
-  Future<void> _handleGoogleSignIn() async {
-    if (!mounted || _isLoading) return;
-
-    setState(() => _isLoading = true);
-    developer.log('Handling Google sign-in', name: 'SignInScreen');
-
-    try {
-      final supabase = Supabase.instance.client;
-      final session = supabase.auth.currentSession;
-      if (session == null) {
-        throw Exception('No session available after Google OAuth');
-      }
-
-      final authData = await _apiService.signInWithGoogle();
-      developer.log('Google sign-in response: $authData', name: 'SignInScreen');
-
-      if (mounted) Navigator.pop(context);
-
-      if (authData != null &&
-          authData['token']?.isNotEmpty == true &&
-          authData['userId']?.isNotEmpty == true) {
-        final authProvider = Provider.of<AuthProvider>(context, listen: false);
-        await authProvider.setAuthData(authData['token']!, authData['userId']!);
-
-        // Check if profile is complete
-        final profile = await _apiService.getProfile(
-            authData['userId']!, authData['token']!);
-        developer.log('Profile check: $profile', name: 'SignInScreen');
-
-        if (mounted) {
-          if (profile?['username'] == null || profile?['age'] == null) {
-            developer.log('Incomplete profile, redirecting to /sign_up',
-                name: 'SignInScreen');
-            Navigator.pushReplacementNamed(
-              context,
-              '/sign_up',
-              arguments: {
-                'isGoogleSignUp': true,
-                'userId': authData['userId'],
-                'email': session.user.email,
-              },
-            );
-          } else {
-            developer.log('Profile complete, navigating to /home',
-                name: 'SignInScreen');
-            Navigator.pushReplacementNamed(context, '/home');
-          }
-        }
-      } else {
-        developer.log('Google sign-in failed: $authData', name: 'SignInScreen');
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Google sign-in failed')),
-          );
-        }
-      }
-    } catch (e, stackTrace) {
-      developer.log('Google sign-in error: $e',
-          name: 'SignInScreen', stackTrace: stackTrace);
+  Future<void> _signInWithEmail() async {
+    if (_formKey.currentState!.validate()) {
+      developer.log(
+          'Attempting to sign in with email: ${_emailController.text}',
+          name: 'SignInScreen');
+      await _handleSignIn(
+          _apiService.login(_emailController.text, _passwordController.text),
+          false);
+    } else {
+      developer.log('Form validation failed', name: 'SignInScreen');
       if (mounted) {
-        Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Google sign-in error: ${e.toString()}')),
+          const SnackBar(content: Text('Please check your input fields')),
         );
       }
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
     }
   }
 
   Future<void> _signInWithGoogle() async {
-    if (!mounted || _isLoading) return;
-
-    setState(() => _isLoading = true);
     developer.log('Attempting Google sign-in', name: 'SignInScreen');
-
-    try {
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (context) => const Center(child: CircularProgressIndicator()),
-      );
-
-      final supabase = Supabase.instance.client;
-      await supabase.auth
-          .signInWithOAuth(
-            OAuthProvider.google,
-            redirectTo: 'io.supabase.gohive://login-callback/',
-          )
-          .timeout(const Duration(seconds: 30));
-      developer.log('Google OAuth initiated', name: 'SignInScreen');
-      // The actual sign-in is handled by _handleGoogleSignIn via onAuthStateChange
-    } catch (e, stackTrace) {
-      developer.log('Google OAuth error: $e',
-          name: 'SignInScreen', stackTrace: stackTrace);
-      if (mounted) {
-        Navigator.pop(context);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Google sign-in error: ${e.toString()}')),
-        );
-      }
-    } finally {
-      // Do not reset _isLoading here, as _handleGoogleSignIn will handle it
-    }
-  }
-
-  @override
-  void dispose() {
-    _emailController.dispose();
-    _passwordController.dispose();
-    _apiService.dispose();
-    super.dispose();
+    await _handleSignIn(_apiService.signInWithGoogle(), true);
   }
 
   @override
@@ -218,8 +177,9 @@ class _SignInScreenState extends State<SignInScreen> {
 
     return Consumer<AuthProvider>(
       builder: (context, authProvider, child) {
-        // Auto-redirect if already authenticated
-        if (authProvider.isInitialized && authProvider.isAuthenticated) {
+        if (authProvider.isInitialized &&
+            authProvider.isAuthenticated &&
+            !_isLoading) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (mounted) {
               developer.log('Already authenticated, navigating to /home',
@@ -337,6 +297,8 @@ class _SignInScreenState extends State<SignInScreen> {
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(10),
                             ),
+                            disabledBackgroundColor:
+                                const Color(0xFFAFCBEA).withValues(alpha: 0.5),
                           ),
                           child: Text(
                             'Sign In',
@@ -363,6 +325,8 @@ class _SignInScreenState extends State<SignInScreen> {
                             ),
                             backgroundColor:
                                 const Color.fromRGBO(221, 221, 221, 0.1),
+                            disabledBackgroundColor:
+                                const Color.fromRGBO(221, 221, 221, 0.1),
                           ),
                           child: const Text(
                             'Sign Up',
@@ -387,6 +351,8 @@ class _SignInScreenState extends State<SignInScreen> {
                               borderRadius: BorderRadius.circular(10),
                             ),
                             backgroundColor:
+                                const Color.fromRGBO(221, 221, 221, 0.1),
+                            disabledBackgroundColor:
                                 const Color.fromRGBO(221, 221, 221, 0.1),
                           ),
                         ),

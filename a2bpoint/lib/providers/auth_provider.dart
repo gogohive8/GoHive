@@ -1,82 +1,117 @@
+import 'dart:developer' as developer;
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'dart:developer' as developer;
-import '../services/exceptions.dart';
 
 class AuthProvider with ChangeNotifier {
   String? _token;
   String? _userId;
-  String? _username; // Добавляем поле username
+  String? _email;
+  String? _username;
+  bool _isAuthenticated = false;
   bool _isInitialized = false;
+  bool _isNewGoogleUser = false;
 
   String? get token => _token;
   String? get userId => _userId;
-  String? get username => _username; // Геттер для username
-  bool get isAuthenticated => _token != null && _userId != null;
+  String? get email => _email;
+  String? get username => _username;
+  bool get isAuthenticated => _isAuthenticated;
   bool get isInitialized => _isInitialized;
+  bool get isNewGoogleUser => _isNewGoogleUser;
+
+  AuthProvider() {
+    _loadAuthData();
+  }
 
   Future<void> initialize() async {
-    if (!_isInitialized) {
-      developer.log('Initializing AuthProvider', name: 'AuthProvider');
-      await loadFromCache();
+    await _loadAuthData();
+  }
+
+  Future<void> _loadAuthData() async {
+    try {
+      developer.log('Loading auth data from SharedPreferences',
+          name: 'AuthProvider');
+      final prefs = await SharedPreferences.getInstance();
+      _token = prefs.getString('token');
+      _userId = prefs.getString('userId');
+      _email = prefs.getString('email');
+      _username = prefs.getString('username');
+      _isAuthenticated = _token != null &&
+          _userId != null &&
+          _token!.isNotEmpty &&
+          _userId!.isNotEmpty;
+      _isInitialized = true;
+      _isNewGoogleUser = prefs.getBool('isNewGoogleUser') ?? false;
+      developer.log(
+          'Auth data loaded: token=${_token != null}, userId=${_userId != null}, email=${_email != null}, username=${_username != null}, isAuthenticated=$_isAuthenticated, isNewGoogleUser=$_isNewGoogleUser',
+          name: 'AuthProvider');
+      notifyListeners();
+    } catch (e, stackTrace) {
+      developer.log('Error loading auth data: $e',
+          name: 'AuthProvider', stackTrace: stackTrace);
       _isInitialized = true;
       notifyListeners();
     }
   }
 
-  Future<void> loadFromCache() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      _token = prefs.getString('token');
-      _userId = prefs.getString('userId');
-      _username = prefs.getString('username'); // Загружаем username
-      developer.log(
-          'Loaded from cache: token=${_token != null ? "present" : "null"}, userId=${_userId != null ? _userId : "null"}, username=${_username != null ? _username : "null"}',
-          name: 'AuthProvider');
-      notifyListeners();
-    } catch (e, stackTrace) {
-      developer.log('Error loading from cache: $e',
-          name: 'AuthProvider', stackTrace: stackTrace);
-    }
+  bool shouldRedirectTo() {
+    return !isAuthenticated || _token == null || _userId == null;
   }
 
-  Future<void> setAuthData(String token, String userId,
-      {String? username}) async {
+  Future<void> setAuthData(
+    String token,
+    String userId,
+    String email,
+    String? username, {
+    bool isGoogleLogin = false,
+    bool isNewUser = false,
+  }) async {
     try {
+      developer.log(
+          'Setting auth data: token=$token, userId=$userId, email=$email, username=$username, isGoogleLogin=$isGoogleLogin, isNewUser=$isNewUser',
+          name: 'AuthProvider');
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('token', token);
+      await prefs.setString('userId', userId);
+      await prefs.setString('email', email);
+      if (username != null) {
+        await prefs.setString('username', username);
+      } else {
+        await prefs.remove('username');
+      }
+      await prefs.setBool('isNewGoogleUser', isGoogleLogin && isNewUser);
       _token = token;
       _userId = userId;
-      _username = username; // Устанавливаем username
-      final prefs = await SharedPreferences.getInstance();
-      final tokenSaved = await prefs.setString('token', token);
-      final userIdSaved = await prefs.setString('userId', userId);
-      final usernameSaved =
-          username != null ? await prefs.setString('username', username) : true;
-      if (!tokenSaved || !userIdSaved || !usernameSaved) {
-        developer.log('Failed to save auth data to SharedPreferences',
-            name: 'AuthProvider');
-        throw Exception('Failed to save auth data');
-      }
-      developer.log('Auth data set: userId=$userId, username=$username',
+      _email = email;
+      _username = username;
+      _isAuthenticated = true;
+      _isNewGoogleUser = isGoogleLogin && isNewUser;
+      developer.log('Auth data set: isAuthenticated=true',
           name: 'AuthProvider');
       notifyListeners();
     } catch (e, stackTrace) {
       developer.log('Error setting auth data: $e',
           name: 'AuthProvider', stackTrace: stackTrace);
-      throw Exception('Error setting auth data: $e');
+      await clearAuthData();
     }
   }
 
-  Future<void> clearAuth() async {
+  Future<void> clearAuthData() async {
     try {
-      developer.log('Clearing auth data, stack trace: ${StackTrace.current}',
-          name: 'AuthProvider');
-      _token = null;
-      _userId = null;
-      _username = null; // Очищаем username
+      developer.log('Clearing auth data', name: 'AuthProvider');
       final prefs = await SharedPreferences.getInstance();
       await prefs.remove('token');
       await prefs.remove('userId');
-      await prefs.remove('username'); // Удаляем username
+      await prefs.remove('email');
+      await prefs.remove('username');
+      await prefs.remove('isNewGoogleUser');
+      _token = null;
+      _userId = null;
+      _email = null;
+      _username = null;
+      _isAuthenticated = false;
+      _isNewGoogleUser = false;
+      developer.log('Auth data cleared', name: 'AuthProvider');
       notifyListeners();
     } catch (e, stackTrace) {
       developer.log('Error clearing auth data: $e',
@@ -84,24 +119,16 @@ class AuthProvider with ChangeNotifier {
     }
   }
 
-  bool shouldRedirectTo() {
-    final shouldRedirect = !isAuthenticated && _isInitialized;
-    if (shouldRedirect) {
-      developer.log('Should redirect to sign-in: not authenticated',
-          name: 'AuthProvider');
-    }
-    return shouldRedirect;
-  }
-
-  Future<void> handleAuthError(BuildContext context, dynamic error) async {
-    if (error is AuthenticationException) {
-      developer.log('Authentication error detected: ${error.message}',
-          name: 'AuthProvider');
-      await clearAuth();
-      await Future.delayed(const Duration(seconds: 2));
+  void handleAuthError(BuildContext context, dynamic error) {
+    developer.log('Handling auth error: $error', name: 'AuthProvider');
+    clearAuthData();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
       if (context.mounted) {
         Navigator.pushReplacementNamed(context, '/sign_in');
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Authentication error: ${error.toString()}')),
+        );
       }
-    }
+    });
   }
 }
