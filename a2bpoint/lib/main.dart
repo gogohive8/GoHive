@@ -10,7 +10,7 @@ import 'screens/ai_mentor_screen.dart';
 import 'providers/auth_provider.dart';
 import 'screens/search_screen.dart';
 import 'dart:developer' as developer;
-import 'screens/welcome_screen.dart';
+import 'providers/posts_provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -39,57 +39,26 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider(
-      create: (_) => AuthProvider(),
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => AuthProvider()),
+        ChangeNotifierProvider(create: (_) => PostsProvider()),
+      ],
       child: MaterialApp(
         title: 'GoHive',
         theme: ThemeData(
-          primarySwatch: Colors.blue,
+          primaryColor: const Color(0xFFAFCBEA),
           scaffoldBackgroundColor: const Color(0xFFF9F6F2),
-          elevatedButtonTheme: ElevatedButtonThemeData(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFAFCBEA),
-              foregroundColor: const Color(0xFF000000),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
-              ),
-            ),
-          ),
-          outlinedButtonTheme: OutlinedButtonThemeData(
-            style: OutlinedButton.styleFrom(
-              side: const BorderSide(color: Color(0xFF333333)),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
-              ),
-            ),
-          ),
-          textTheme: const TextTheme(
-            bodyLarge: TextStyle(color: Color(0xFF1A1A1A)),
-            bodyMedium: TextStyle(color: Color(0xFF1A1A1A)),
-          ),
         ),
-        initialRoute: '/sign-in', // Начальный маршрут
+        initialRoute: '/sign_in',
         routes: {
+          '/sign_in': (context) => const SignInScreen(),
+          '/sign_up': (context) => const SignUpScreen(),
           '/home': (context) => const HomeScreen(),
-          '/sign-in': (context) => const SignInScreen(),
-          '/sign-up': (context) => const SignUpScreen(),
-          '/search': (context) => const SearchScreen(),
           '/add': (context) => const AddScreen(),
           '/profile': (context) => const ProfileScreen(),
-          '/ai-mentor': (context) =>
-              const AIMentorScreen(), // Замените, если нужно
-          '/welcome': (context) => const WelcomeScreen(),
-        },
-        onUnknownRoute: (settings) {
-          // Обработка неизвестных маршрутов
-          return MaterialPageRoute(
-            builder: (context) => Scaffold(
-              appBar: AppBar(title: const Text('Route Not Found')),
-              body: Center(
-                child: Text('No route defined for ${settings.name}'),
-              ),
-            ),
-          );
+          '/search': (context) => const SearchScreen(),
+          '/ai-mentor': (context) => const AIMentorScreen(),
         },
       ),
     );

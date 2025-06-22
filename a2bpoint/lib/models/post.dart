@@ -1,51 +1,77 @@
 import 'dart:developer' as developer;
 
+class User {
+  final String id;
+  final String username;
+  final String avatarUrl;
+
+  User({
+    required this.id,
+    required this.username,
+    required this.avatarUrl,
+  });
+
+  factory User.fromJson(Map<String, dynamic> json) {
+    developer.log('User.fromJson keys: ${json.keys.toList()}',
+        name: 'User.fromJson');
+    return User(
+      id: json['userID']?.toString() ?? '',
+      username: json['username']?.toString() ?? 'Unknown',
+      avatarUrl: json['avatarUrl']?.toString() ?? '',
+    );
+  }
+}
+
 class Post {
-  final String? id;
-  final String? title;
+  final String id;
+  final User user;
   final String? text;
-  final String? type;
-  final String? username;
-  final int? numOfLikes;
-  final DateTime? createdAt;
-  final DateTime? dateTime;
+  final String type;
+  final DateTime createdAt;
+  int likes; // Убрано final
+  final int comments;
+  final List<String>? imageUrls;
   final List<Map<String, dynamic>>? tasks;
 
   Post({
-    this.id,
-    this.title,
+    required this.id,
+    required this.user,
     this.text,
-    this.type,
-    this.username,
-    this.numOfLikes,
-    this.createdAt,
-    this.dateTime,
+    required this.type,
+    required this.createdAt,
+    required this.likes,
+    required this.comments,
+    this.imageUrls,
     this.tasks,
   });
 
-  factory Post.fromJson(Map<String, dynamic> json) {
-    try {
-      final type = json['type']?.toString().toLowerCase();
-      return Post(
-        id: json['id']?.toString() ?? json['post_id']?.toString(),
-        title: json['title']?.toString() ?? json['description']?.toString(),
-        text: json['description']?.toString() ?? json['goalInfo']?.toString(),
-        type: type,
-        username: json['username']?.toString() ?? 'Unknown',
-        numOfLikes: int.tryParse(json['numOfLikes']?.toString() ?? '0') ?? 0,
-        createdAt: json['createdAt'] != null
-            ? DateTime.tryParse(json['createdAt'].toString())
-            : null,
-        dateTime: type == 'event' && json['date_time'] != null
-            ? DateTime.tryParse(json['date_time'].toString())
-            : null,
-        tasks: type == 'goal' && json['tasks'] != null
-            ? List<Map<String, dynamic>>.from(json['tasks'])
-            : null,
-      );
-    } catch (e, stackTrace) {
-      developer.log('Error parsing Post: $e', stackTrace: stackTrace);
-      return Post();
+  factory Post.fromJson(Map<String, dynamic> json, {required String type}) {
+    developer.log('Post.fromJson keys: ${json.keys.toList()}',
+        name: 'Post.fromJson');
+    String? textValue;
+    if (type == 'goal') {
+      textValue =
+          json['goalInfo']?.toString() ?? json['description']?.toString();
+    } else {
+      textValue = json['description']?.toString();
     }
+    if (textValue == null) {
+      developer.log(
+          'No text found for $type. Available keys: ${json.keys.toList()}',
+          name: 'Post.fromJson');
+    }
+
+    return Post(
+      id: json['id']?.toString() ?? '',
+      user: User.fromJson(json['user'] ?? {}),
+      text: textValue,
+      type: type,
+      createdAt: DateTime.tryParse(json['created_at']?.toString() ?? '') ??
+          DateTime.now(),
+      likes: int.tryParse(json['numOfLikes']?.toString() ?? '0') ?? 0,
+      comments: int.tryParse(json['numOfComments']?.toString() ?? '0') ?? 0,
+      imageUrls: (json['image_urls'] as List<dynamic>?)?.cast<String>(),
+      tasks: (json['tasks'] as List<dynamic>?)?.cast<Map<String, dynamic>>(),
+    );
   }
 }
