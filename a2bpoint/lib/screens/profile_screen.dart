@@ -332,16 +332,6 @@ class _ProfileScreenState extends State<ProfileScreen>
                           ),
                         ],
                       ),
-                      Row(
-                        children: [
-                          const Icon(Icons.comment, color: Color(0xFF333333)),
-                          const SizedBox(width: 4),
-                          Text(
-                            '${post.comments}',
-                            style: const TextStyle(color: Color(0xFF1A1A1A)),
-                          ),
-                        ],
-                      ),
                     ],
                   ),
                   if (type == 'goal' &&

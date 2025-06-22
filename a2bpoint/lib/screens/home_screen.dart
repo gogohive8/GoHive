@@ -84,7 +84,7 @@ class _HomeScreenState extends State<HomeScreen>
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final token = authProvider.token ?? '';
     final userId = authProvider.userId ?? '';
-
+    developer.log('Token: $token, UserId: $userId', name: 'HomeScreen');
     if (token.isEmpty || userId.isEmpty) {
       developer.log('No token or userId, skipping fetch', name: 'HomeScreen');
       setState(() {
@@ -109,11 +109,10 @@ class _HomeScreenState extends State<HomeScreen>
   Future<Map<String, List<Post>>> _groupPostsByUser(List<Post> posts) async {
     final Map<String, List<Post>> groupedPosts = {};
     for (var post in posts) {
-      final userId = post.user.id;
-      if (userId.isEmpty) {
-        developer.log('Empty userId for post: ${post.id}', name: 'HomeScreen');
-        continue;
-      }
+      final userId = post.user.id.isEmpty ? 'unknown' : post.user.id;
+      developer.log(
+          'Processing post: id=${post.id}, userId=$userId, username=${post.user.username}',
+          name: 'HomeScreen');
       if (!groupedPosts.containsKey(userId)) {
         groupedPosts[userId] = [];
       }
@@ -318,6 +317,11 @@ class _HomeScreenState extends State<HomeScreen>
         final groupedPosts = snapshot.data ?? {};
         final totalPosts = groupedPosts.values
             .fold<int>(0, (sum, posts) => sum + posts.length);
+        _postsFuture.then((posts) {
+          developer.log(
+              'Raw posts before grouping: ${posts.values.expand((p) => p).length}',
+              name: 'HomeScreen');
+        });
         developer.log(
             'Displaying $type posts: ${groupedPosts.length} users, $totalPosts posts',
             name: 'HomeScreen');
@@ -331,7 +335,6 @@ class _HomeScreenState extends State<HomeScreen>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Text('Debug: $totalPosts $type loaded'), // Отладочный текст
                 if (groupedPosts.isEmpty)
                   Center(child: Text('No $type available'))
                 else
@@ -472,11 +475,11 @@ class _HomeScreenState extends State<HomeScreen>
                                         post.tasks!.isNotEmpty) ...[
                                       const SizedBox(height: 12),
                                       const Text(
-                                        'Tasks:',
+                                        'Tasks',
                                         style: TextStyle(
                                           fontSize: 14,
                                           fontWeight: FontWeight.bold,
-                                          color: Color(0xFF1A1A1A),
+                                          color: Color(0xFF000000),
                                         ),
                                       ),
                                       ...post.tasks!.map((task) => Padding(
@@ -495,68 +498,47 @@ class _HomeScreenState extends State<HomeScreen>
                                       mainAxisAlignment:
                                           MainAxisAlignment.spaceBetween,
                                       children: [
-                                        Row(
-                                          children: [
-                                            IconButton(
-                                              icon: const Icon(Icons.comment,
-                                                  color: Color(0xFF333333)),
-                                              onPressed: () {
-                                                developer.log(
-                                                    'Comments clicked for post: ${post.id}',
-                                                    name: 'HomeScreen');
-                                              },
-                                            ),
-                                            Text(
-                                              '${post.comments}',
-                                              style: const TextStyle(
-                                                  color: Color(0xFF1A1A1A)),
-                                            ),
-                                          ],
-                                        ),
-                                        type == 'goal'
-                                            ? Row(
-                                                children: [
-                                                  IconButton(
-                                                    icon: Icon(
-                                                      isLiked
-                                                          ? Icons.favorite
-                                                          : Icons
-                                                              .favorite_border,
-                                                      color: isLiked
-                                                          ? Colors.red
-                                                          : const Color(
-                                                              0xFF333333),
-                                                    ),
-                                                    onPressed: () => _likePost(
-                                                        post.id,
-                                                        post.likes,
-                                                        userId,
-                                                        index),
-                                                  ),
-                                                  Text(
-                                                    '${post.likes}',
-                                                    style: const TextStyle(
-                                                        color:
-                                                            Color(0xFF1A1A1A)),
-                                                  ),
-                                                ],
-                                              )
-                                            : ElevatedButton(
-                                                onPressed: () => _joinEvent(
-                                                    post.id, post.text ?? ''),
-                                                style: ElevatedButton.styleFrom(
-                                                  backgroundColor:
-                                                      const Color(0xFFAFCBEA),
-                                                  foregroundColor:
-                                                      const Color(0xFF000000),
-                                                  shape: RoundedRectangleBorder(
-                                                    borderRadius:
-                                                        BorderRadius.circular(
-                                                            8),
-                                                  ),
+                                        if (type == 'goal')
+                                          Row(
+                                            children: [
+                                              IconButton(
+                                                icon: Icon(
+                                                  isLiked
+                                                      ? Icons.favorite
+                                                      : Icons.favorite_border,
+                                                  color: isLiked
+                                                      ? Colors.red
+                                                      : const Color(0xFF333333),
                                                 ),
-                                                child: const Text('Join'),
+                                                onPressed: () => _likePost(
+                                                    post.id,
+                                                    post.likes,
+                                                    userId,
+                                                    index),
                                               ),
+                                              Text(
+                                                '${post.likes}',
+                                                style: const TextStyle(
+                                                    color: Color(0xFF000000)),
+                                              ),
+                                            ],
+                                          )
+                                        else
+                                          ElevatedButton(
+                                            onPressed: () => _joinEvent(
+                                                post.id, post.text ?? ''),
+                                            style: ElevatedButton.styleFrom(
+                                              backgroundColor:
+                                                  const Color(0xFFAFCBEA),
+                                              foregroundColor:
+                                                  const Color(0xFF000000),
+                                              shape: RoundedRectangleBorder(
+                                                borderRadius:
+                                                    BorderRadius.circular(8),
+                                              ),
+                                            ),
+                                            child: const Text('Join'),
+                                          ),
                                       ],
                                     ),
                                   ],

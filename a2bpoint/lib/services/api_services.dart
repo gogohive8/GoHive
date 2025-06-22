@@ -9,9 +9,8 @@ class ApiService {
   final http.Client _client = http.Client();
   final SupabaseClient _supabase = Supabase.instance.client;
   static const String _baseUrl =
-      'https://gohive-user-service-efb5dea164ed.herokuapp.com';
-  static const String _postsUrl =
-      'https://gohive-post-service-9ac288c0fa11.herokuapp.com';
+      'https://gohive-user-service-.elb.amazonaws.com';
+  static const String _postsUrl = 'http://gohive-post-service.com/posts';
 
   SupabaseClient get supabase => _supabase;
 
@@ -24,9 +23,16 @@ class ApiService {
     }
     if (response.statusCode == 400) {
       final errorBody = jsonDecode(response.body);
+<<<<<<< HEAD
       final errorMessage = errorBody['error']?.toString() ?? 'Invalid data';
       developer.log('Validation error: $errorMessage', name: 'ApiService');
       throw DataValidationException('Invalid data: $errorMessage');
+=======
+      final errorMessage =
+          errorBody['message']['error']?.toString() ?? 'Invalid input';
+      developer.log('Validation error: $errorMessage', name: 'ApiService');
+      throw DataValidationException('Invalid input: $errorMessage');
+>>>>>>> origin/bew-branch-with-old-version
     }
     if (response.statusCode == 401) {
       developer.log('Unauthorized: ${response.body}', name: 'ApiService');
@@ -48,20 +54,19 @@ class ApiService {
         await Future.delayed(Duration(milliseconds: 500 * attempt));
       }
     }
-    throw Exception('All retry attempts failed');
+    throw Exception('Request failed after $retries attempts');
   }
 
   Future<List<Post>> getPosts(String token) async {
     try {
-      developer.log('Fetching posts with token', name: 'ApiService');
+      developer.log('Attempting to fetch posts with token', name: 'ApiService');
       final response = await _client.get(
-        Uri.parse('$_postsUrl/goals/all'),
+        Uri.parse('$_postsUrl/posts/all'),
         headers: {
           'Authorization': 'Bearer $token',
           'Content-Type': 'application/json',
         },
       ).timeout(const Duration(seconds: 10));
-
       developer.log(
           'Get posts response: ${response.statusCode}, body: ${response.body}',
           name: 'ApiService');
@@ -70,19 +75,14 @@ class ApiService {
           .map((json) => Post.fromJson({
                 ...json,
                 'type': 'goal',
-                'user_id':
-                    json['user_id'] ?? json['userID'] ?? json['username'] ?? '',
-                'description': json['description'] ??
-                    json['goalInfo'] ??
-                    json['text'] ??
-                    '',
-                'created_at': json['created_at'] ??
-                    json['createdAt'] ??
-                    DateTime.now().toIso8601String(),
+                'userID': json['userID'] ?? json['user_id'] ?? 'unknown',
+                'username': json['username'] ?? 'Unknown',
+                'description': json['description'] ?? json['goalInfo'] ?? '',
+                'created_at':
+                    json['created_at'] ?? DateTime.now().toIso8601String(),
                 'tasks': json['tasks'] ?? [],
-                'likes': json['likes'] ?? 0,
-                'comments': json['comments'] ?? 0,
-                'id': json['id'] ?? json['_id'] ?? '',
+                'numOfLikes': json['numOfLikes'] ?? 0,
+                'id': json['id'] ?? '',
               }, type: 'goal'))
           .toList();
       developer.log('Parsed ${posts.length} posts', name: 'ApiService');
@@ -99,7 +99,7 @@ class ApiService {
       developer.log('Fetching all goals for userId: $userId',
           name: 'ApiService');
       final response = await _client.get(
-        Uri.parse('$_postsUrl/goals/all'),
+        Uri.parse('$_postsUrl/posts/all'),
         headers: {
           'Authorization': 'Bearer $token',
           'Content-Type': 'application/json',
@@ -113,15 +113,13 @@ class ApiService {
           .map((json) => Post.fromJson({
                 ...json,
                 'type': 'goal',
-                'description': json['description'] ??
-                    json['goalInfo'] ??
-                    json['text'] ??
-                    '',
-                'created_at': json['created_at'] ??
-                    json['createdAt'] ??
-                    DateTime.now().toIso8601String(),
-                'likes': json['likes'] ?? 0,
-                'id': json['id'] ?? json['_id'] ?? '',
+                'description': json['goalInfo'] ?? '',
+                'created_at':
+                    json['created_at'] ?? DateTime.now().toIso8601String(),
+                'numOfLikes': json['numOfLikes'] ?? 0,
+                'id': json['id'] ?? '',
+                'userID': json['userID'] ?? 'unknown',
+                'username': json['username'] ?? 'Unknown',
               }, type: 'goal'))
           .toList();
       developer.log('Parsed ${posts.length} goals', name: 'ApiService');
@@ -138,7 +136,7 @@ class ApiService {
       developer.log('Fetching all events for userId: $userId',
           name: 'ApiService');
       final response = await _client.get(
-        Uri.parse('$_postsUrl/events/all'),
+        Uri.parse('$_postsUrl/events'),
         headers: {
           'Authorization': 'Bearer $token',
           'Content-Type': 'application/json',
@@ -152,12 +150,13 @@ class ApiService {
           .map((json) => Post.fromJson({
                 ...json,
                 'type': 'event',
-                'description': json['description'] ?? json['text'] ?? '',
-                'created_at': json['created_at'] ??
-                    json['createdAt'] ??
-                    DateTime.now().toIso8601String(),
-                'likes': json['likes'] ?? 0,
-                'id': json['id'] ?? json['_id'] ?? '',
+                'description': json['description'] ?? '',
+                'created_at':
+                    json['created_at'] ?? DateTime.now().toIso8601String(),
+                'numOfLikes': json['numOfLikes'] ?? 0,
+                'id': json['id'] ?? '',
+                'userID': json['userID'] ?? 'unknown',
+                'username': json['username'] ?? 'Unknown',
               }, type: 'event'))
           .toList();
       developer.log('Parsed ${posts.length} events', name: 'ApiService');
@@ -171,7 +170,7 @@ class ApiService {
 
   Future<List<Post>> getGoals(String userId, String token) async {
     try {
-      developer.log('GetGoals request: userId=$userId', name: 'ApiService');
+      developer.log('GetGoals request: userId: $userId', name: 'ApiService');
       final response = await _client.get(
         Uri.parse('$_postsUrl/goals/$userId'),
         headers: {
@@ -187,18 +186,14 @@ class ApiService {
           .map((json) => Post.fromJson({
                 ...json,
                 'type': 'goal',
-                'user_id':
-                    json['user_id'] ?? json['userID'] ?? json['username'] ?? '',
-                'description': json['description'] ??
-                    json['goalInfo'] ??
-                    json['text'] ??
-                    '',
-                'created_at': json['created_at'] ??
-                    json['createdAt'] ??
-                    DateTime.now().toIso8601String(),
+                'userID': json['user_id'] ?? json['ID'] ?? 'unknown',
+                'username': json['username'] ?? 'Unknown',
+                'description': json['description'] ?? json['goalInfo'] ?? '',
+                'created_at':
+                    json['created_at'] ?? DateTime.now().toIso8601String(),
                 'tasks': json['tasks'] ?? [],
-                'likes': json['likes'] ?? 0,
-                'id': json['id'] ?? json['_id'] ?? '',
+                'numOfLikes': json['numOfLikes'] ?? 0,
+                'id': json['id'] ?? '',
               }, type: 'goal'))
           .toList();
       developer.log('Parsed ${posts.length} user goals', name: 'ApiService');
@@ -212,7 +207,7 @@ class ApiService {
 
   Future<List<Post>> getEvents(String userId, String token) async {
     try {
-      developer.log('GetEvents request: userId=$userId', name: 'ApiService');
+      developer.log('GetEvents request: userId: $userId', name: 'ApiService');
       final response = await _client.get(
         Uri.parse('$_postsUrl/events/$userId'),
         headers: {
@@ -228,14 +223,13 @@ class ApiService {
           .map((json) => Post.fromJson({
                 ...json,
                 'type': 'event',
-                'user_id':
-                    json['user_id'] ?? json['userID'] ?? json['username'] ?? '',
-                'description': json['description'] ?? json['text'] ?? '',
-                'created_at': json['created_at'] ??
-                    json['createdAt'] ??
-                    DateTime.now().toIso8601String(),
-                'likes': json['likes'] ?? 0,
-                'id': json['id'] ?? json['_id'] ?? '',
+                'userID': json['user_id'] ?? 'unknown',
+                'username': json['username'] ?? 'Unknown',
+                'description': json['description'] ?? '',
+                'created_at':
+                    json['createdAt'] ?? DateTime.now().toIso8601String(),
+                'numOfLikes': json['numOfLikes'] ?? 0,
+                'id': json['id'] ?? '',
               }, type: 'event'))
           .toList();
       developer.log('Parsed ${posts.length} user events', name: 'ApiService');
@@ -249,10 +243,10 @@ class ApiService {
 
   Future<void> likePost(String postId, String token) async {
     try {
-      developer.log('Liking post: postId=$postId', name: 'ApiService');
+      developer.log('Liking post: postId: $postId', name: 'ApiService');
       final response = await _client
           .post(
-            Uri.parse('$_postsUrl/like'),
+            Uri.parse('$_postsUrl/like/post'),
             headers: {
               'Authorization': 'Bearer $token',
               'Content-Type': 'application/json',
@@ -272,7 +266,7 @@ class ApiService {
 
   Future<void> joinEvent(String eventId, String token) async {
     try {
-      developer.log('Joining event: eventId=$eventId', name: 'ApiService');
+      developer.log('Joining event: eventId: $eventId', name: 'ApiService');
       final response = await _client.post(
         Uri.parse('$_postsUrl/events/$eventId/join'),
         headers: {
@@ -306,8 +300,8 @@ class ApiService {
         'description': description,
         'location': location,
         'interest': interest,
-        if (pointA != null && pointA.isNotEmpty) 'point_a': pointA,
-        if (pointB != null && pointB.isNotEmpty) 'point_b': pointB,
+        if (pointA != null && pointA.isNotEmpty) 'pointA': pointA,
+        if (pointB != null && pointB.isNotEmpty) 'pointB': pointB,
         if (tasks != null && tasks.isNotEmpty)
           'tasks': tasks
               .map((task) => {'title': task['title'], 'completed': false})
@@ -315,7 +309,7 @@ class ApiService {
       };
 
       developer.log(
-          'Creating goal for user: $userId, body: ${jsonEncode(body)}',
+          'Creating goal for userId: $userId, body: ${jsonEncode(body)}',
           name: 'ApiService');
 
       final response = await _client
@@ -359,7 +353,7 @@ class ApiService {
       };
 
       developer.log(
-          'Creating event for user: $userId, body: ${jsonEncode(body)}',
+          'Creating event for userId: $userId, body: ${jsonEncode(body)}',
           name: 'ApiService');
 
       final response = await _client
@@ -385,14 +379,15 @@ class ApiService {
     }
   }
 
-  Future<Map<String, String>?> login(String email, String password) async {
+  Future<Map<String, String>> login(String email, String password) async {
     try {
-      developer.log('Login request: email=$email', name: 'ApiService');
+      developer.log('Attempting login request: email: $email',
+          name: 'ApiService');
       final response = await _makeRequest(
         () => _client.post(
           Uri.parse('$_baseUrl/login'),
           headers: {'Content-Type': 'application/json'},
-          body: jsonEncode({'mail': email, 'password': password}),
+          body: jsonEncode({'email': email, 'password': password}),
         ),
         3,
       );
@@ -400,16 +395,16 @@ class ApiService {
       return {
         'token': data['token']?.toString() ?? '',
         'userId': data['userID']?.toString() ?? '',
-        'username': data['username']?.toString() ?? ''
+        'username': data['username']?.toString() ?? '',
       };
     } catch (e, stackTrace) {
       developer.log('Login error: $e',
           name: 'ApiService', stackTrace: stackTrace);
-      return null;
+      throw Exception('Login failed: $e');
     }
   }
 
-  Future<Map<String, String>?> signUp(
+  Future<Map<String, String>> signUp(
     String username,
     String email,
     String password,
@@ -419,7 +414,8 @@ class ApiService {
     String phoneNumber,
   ) async {
     try {
-      developer.log('SignUp request: username=$username, email=$email',
+      developer.log(
+          'Attempting signUp request: email: $email, username: $username',
           name: 'ApiService');
       final response = await _client
           .post(
@@ -430,7 +426,7 @@ class ApiService {
               'surname': lastName,
               'username': username,
               'age': age,
-              'mail': email,
+              'email': email,
               'phone': phoneNumber,
               'password': password,
             }),
@@ -440,36 +436,37 @@ class ApiService {
       return {
         'token': data['token']?.toString() ?? '',
         'userId': data['userID']?.toString() ?? '',
-        'username': data['username']?.toString() ?? ''
+        'username': data['username']?.toString() ?? '',
       };
     } catch (e, stackTrace) {
       developer.log('SignUp error: $e',
           name: 'ApiService', stackTrace: stackTrace);
-      return null;
+      throw Exception('SignUp failed: $e');
     }
   }
 
-  Future<Map<String, String>?> signInWithGoogle() async {
+  Future<Map<String, String>> signInWithGoogle() async {
     try {
-      developer.log('Initiating Google OAuth', name: 'ApiService');
-      // Initiate Google OAuth flow
-      await _supabase.auth.signInWithOAuth(
-        OAuthProvider.google, // Use OAuthProvider instead of Provider
+      developer.log('Initiating Google Sign-In OAuth', name: 'ApiService');
+      final authResponse = await _supabase.auth.signInWithOAuth(
+        OAuthProvider.google,
         redirectTo: 'io.supabase.gohive://login-callback/',
       );
 
-      // Wait for session to be available
+      if (!authResponse) {
+        throw Exception('Google Sign-In OAuth initiation failed');
+      }
+
       final session = await _supabase.auth.onAuthStateChange.firstWhere(
         (event) => event.event == AuthChangeEvent.signedIn,
-        orElse: () => throw Exception('Google Sign-In timed out'),
+        orElse: () => throw Exception('Authentication timed out'),
       );
 
       final supabaseToken = session.session?.accessToken;
       if (supabaseToken == null) {
         throw Exception('No Supabase token available');
       }
-      developer.log('Supabase token obtained: $supabaseToken',
-          name: 'ApiService');
+      developer.log('Supabase OAuth token obtained', name: 'ApiService');
 
       final response = await _client
           .post(
@@ -484,8 +481,7 @@ class ApiService {
           name: 'ApiService');
       final data = await _handleResponse(response);
       if (data['token'] == null || data['userID'] == null) {
-        throw Exception(
-            'Invalid response from server: missing token or userID');
+        throw Exception('Invalid server response: missing token or userID');
       }
       return {
         'token': data['token'].toString(),
@@ -494,15 +490,15 @@ class ApiService {
         'isNewUser': data['isNewUser']?.toString() ?? 'false',
       };
     } catch (e, stackTrace) {
-      developer.log('Google sign-in error: $e',
+      developer.log('Google Sign-In error: $e',
           name: 'ApiService', stackTrace: stackTrace);
-      return null;
+      throw Exception('Google Sign-In failed: $e');
     }
   }
 
   Future<Map<String, dynamic>> getProfile(String userId, String token) async {
     try {
-      developer.log('Fetching profile: userId=$userId', name: 'ApiService');
+      developer.log('Fetching profile for userId: $userId', name: 'ApiService');
       final response = await _client.get(
         Uri.parse('$_baseUrl/profile/$userId'),
         headers: {
@@ -530,7 +526,7 @@ class ApiService {
   Future<void> updateProfile(
       String userId, String token, Map<String, dynamic> data) async {
     try {
-      developer.log('Updating profile: userId=$userId', name: 'ApiService');
+      developer.log('Updating profile for userId: $userId', name: 'ApiService');
       final response = await _client
           .post(
             Uri.parse('$_baseUrl/profile/$userId'),
@@ -551,7 +547,7 @@ class ApiService {
 
   Future<bool> updateBio(String userId, String bio, String token) async {
     try {
-      developer.log('UpdateBio request: userId=$userId', name: 'ApiService');
+      developer.log('Updating bio for userId: $userId', name: 'ApiService');
       final response = await _client
           .put(
             Uri.parse('$_baseUrl/profile/$userId/bio'),
@@ -577,7 +573,7 @@ class ApiService {
     required String userId,
   }) async {
     try {
-      developer.log('Searching users: query=$query, userId=$userId',
+      developer.log('Searching users: query: $query, userId: $userId',
           name: 'ApiService');
       final response = await _client
           .post(
@@ -591,7 +587,7 @@ class ApiService {
           .timeout(const Duration(seconds: 30));
 
       final data = await _handleResponse(response);
-      developer.log('Search users response: $data', name: 'ApiService');
+      developer.log('Search results: $data', name: 'ApiService');
       return (data['users'] as List<dynamic>?)?.cast<Map<String, dynamic>>() ??
           [];
     } catch (e, stackTrace) {
