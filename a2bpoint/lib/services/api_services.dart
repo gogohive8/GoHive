@@ -9,8 +9,9 @@ class ApiService {
   final http.Client _client = http.Client();
   final SupabaseClient _supabase = Supabase.instance.client;
   static const String _baseUrl =
-      'https://gohive-user-service-.elb.amazonaws.com';
-  static const String _postsUrl = 'http://gohive-post-service.com/posts';
+      'https://gohive-user-service-efb5dea164ed.herokuapp.com';
+  static const String _postsUrl =
+      'https://gohive-post-service-9ac288c0fa11.herokuapp.com';
 
   SupabaseClient get supabase => _supabase;
 
@@ -55,7 +56,7 @@ class ApiService {
     try {
       developer.log('Attempting to fetch posts with token', name: 'ApiService');
       final response = await _client.get(
-        Uri.parse('$_postsUrl/posts/all'),
+        Uri.parse('$_postsUrl/goals/all'),
         headers: {
           'Authorization': 'Bearer $token',
           'Content-Type': 'application/json',
@@ -93,7 +94,7 @@ class ApiService {
       developer.log('Fetching all goals for userId: $userId',
           name: 'ApiService');
       final response = await _client.get(
-        Uri.parse('$_postsUrl/posts/all'),
+        Uri.parse('$_postsUrl/goals/all'),
         headers: {
           'Authorization': 'Bearer $token',
           'Content-Type': 'application/json',
@@ -130,7 +131,7 @@ class ApiService {
       developer.log('Fetching all events for userId: $userId',
           name: 'ApiService');
       final response = await _client.get(
-        Uri.parse('$_postsUrl/events'),
+        Uri.parse('$_postsUrl/events/all'),
         headers: {
           'Authorization': 'Bearer $token',
           'Content-Type': 'application/json',
@@ -240,7 +241,7 @@ class ApiService {
       developer.log('Liking post: postId: $postId', name: 'ApiService');
       final response = await _client
           .post(
-            Uri.parse('$_postsUrl/like/post'),
+            Uri.parse('$_postsUrl/like'),
             headers: {
               'Authorization': 'Bearer $token',
               'Content-Type': 'application/json',
@@ -444,7 +445,7 @@ class ApiService {
       developer.log('Initiating Google Sign-In OAuth', name: 'ApiService');
       final authResponse = await _supabase.auth.signInWithOAuth(
         OAuthProvider.google,
-        redirectTo: 'io.supabase.gohive://login-callback/',
+        redirectTo: 'https://gohive-d4359.firebaseapp.com/',
       );
 
       if (!authResponse) {
