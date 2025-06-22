@@ -37,9 +37,18 @@ class _HomeScreenState extends State<HomeScreen> {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     await authProvider.initialize();
     if (authProvider.shouldRedirectTo()) {
-      Navigator.pushReplacementNamed(context, '/sign-in');
-    } else if (authProvider.isFirstLogin) {
-      Navigator.pushReplacementNamed(context, '/welcome');
+      developer.log('No token found, handling auth error', name: 'HomeScreen');
+      authProvider.handleAuthError(
+          context, AuthenticationException('Not authenticated'));
+    }
+  }
+
+  void _handleTabSelection() {
+    if (_tabController.index != _selectedTabIndex) {
+      setState(() {
+        _selectedTabIndex = _tabController.index;
+      });
+      _fetchPosts();
     }
   }
 
@@ -130,52 +139,12 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ],
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : Column(
-              children: [
-                Padding(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceAround,
-                    children: [
-                      GestureDetector(
-                        onTap: () => setState(() => _selectedTab = 0),
-                        child: Text(
-                          'Goals',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: _selectedTab == 0
-                                ? const Color(0xFFAFCBEA)
-                                : const Color(0xFF333333),
-                          ),
-                        ),
-                      ),
-                      GestureDetector(
-                        onTap: () => setState(() => _selectedTab = 1),
-                        child: Text(
-                          'Events',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: _selectedTab == 1
-                                ? const Color(0xFFAFCBEA)
-                                : const Color(0xFF333333),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Expanded(
-                  child: _selectedTab == 0
-                      ? _buildPostList(_goals)
-                      : _buildPostList(_events),
-                ),
-              ],
-            ),
+      body: TabBarView(
+        controller: _tabController,
+        children: [
+          _buildPostsView(),
+        ],
+      ),
       bottomNavigationBar: Navbar(
         selectedIndex: 0,
         onTap: (index) {
@@ -186,118 +155,175 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildPostList(List<Post> posts) {
-    if (posts.isEmpty) {
-      return const Center(child: Text('No posts available'));
-    }
-    return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: posts.length,
-      itemBuilder: (context, index) {
-        final post = posts[index];
-        return Card(
-          color: const Color(0xFFDDDDDD),
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          margin: const EdgeInsets.only(bottom: 16),
-          child: Padding(
-            padding: const EdgeInsets.all(12),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    const CircleAvatar(
-                      backgroundColor: Color(0xFF333333),
-                      child: Icon(
-                        Icons.person,
-                        color: Color(0xFFF9F6F2),
-                        size: 20,
-                      ),
-                      radius: 20,
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            post.username ?? 'Unknown',
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              color: Color(0xFF000000),
-                            ),
-                          ),
-                          Text(
-                            post.createdAt?.toString().split(' ')[0] ?? '',
-                            style: const TextStyle(
-                              fontSize: 12,
-                              color: Color(0xFF333333),
-                            ),
-                          ),
-                        ],
+  Widget _buildPostsView() {
+    return FutureBuilder<Map<String, List<Post>>>(
+      future: _postsFuture,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        if (snapshot.hasError) {
+          developer.log('Snapshot error: ${snapshot.error}',
+              name: 'HomeScreen', stackTrace: snapshot.stackTrace);
+          final authProvider =
+              Provider.of<AuthProvider>(context, listen: false);
+          authProvider.handleAuthError(context, snapshot.error);
+          return Center(child: Text('Ошибка загрузки: ${snapshot.error}'));
+        }
+        final groupedPosts = snapshot.data ?? {};
+        if (groupedPosts.isEmpty) {
+          developer.log('No posts to display', name: 'HomeScreen');
+          return const Center(child: Text('Нет доступных постов'));
+        }
+        developer.log('Posts data: $groupedPosts', name: 'HomeScreen');
+        return SingleChildScrollView(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: groupedPosts.entries.map((entry) {
+              final userId = entry.key;
+              final posts = entry.value;
+              final username =
+                  posts.isNotEmpty ? posts[0].user.username : 'Unknown';
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    child: Text(
+                      username,
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF000000),
                       ),
                     ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  post.title ?? 'No title',
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF1A1A1A),
                   ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  post.text ?? 'No description',
-                  style: const TextStyle(
-                    fontSize: 14,
-                    color: Color(0xFF1A1A1A),
-                  ),
-                  maxLines: 3,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.favorite_border,
-                          color: Color(0xFF333333)),
-                      onPressed: () => _likePost(post.id),
-                    ),
-                    Text(
-                      '${post.numOfLikes ?? 0}',
-                      style: const TextStyle(color: Color(0xFF1A1A1A)),
-                    ),
-                    const SizedBox(width: 16),
-                    if (post.type == 'event' && post.dateTime != null)
-                      Text(
-                        post.dateTime.toString().split('.')[0],
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: Color(0xFF333333),
+                  ListView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: posts.length,
+                    itemBuilder: (context, index) {
+                      final post = posts[index];
+                      developer.log(
+                          'Post[$index]: text=${post.text}, id=${post.id}',
+                          name: 'HomeScreen');
+                      final isLiked = _likedPosts.contains(post.id);
+                      return Card(
+                        color: const Color(0xFFDDDDDD),
+                        elevation: 2,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
                         ),
-                      ),
-                  ],
-                ),
-                if (post.type == 'goal' && post.tasks != null)
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const SizedBox(height: 8),
-                      Text(
-                        'Tasks: ${post.tasks!.where((task) => task['completed'] ?? false).length}/${post.tasks!.length}',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: Color(0xFF333333),
+                        margin: const EdgeInsets.symmetric(vertical: 8),
+                        child: Padding(
+                          padding: const EdgeInsets.all(12),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  CircleAvatar(
+                                    backgroundImage:
+                                        post.user.avatarUrl.isNotEmpty
+                                            ? NetworkImage(post.user.avatarUrl)
+                                            : null,
+                                    backgroundColor: const Color(0xFF333333),
+                                    radius: 20,
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          post.user.username,
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            color: Color(0xFF000000),
+                                          ),
+                                        ),
+                                        Text(
+                                          post.createdAt
+                                              .toLocal()
+                                              .toString()
+                                              .split(' ')[0],
+                                          style: const TextStyle(
+                                            fontSize: 12,
+                                            color: Color(0xFF333333),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                post.text ?? 'No description',
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  color: Color(0xFF1A1A1A),
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  _selectedTabIndex == 0
+                                      ? Row(
+                                          children: [
+                                            IconButton(
+                                              icon: Icon(
+                                                isLiked
+                                                    ? Icons.favorite
+                                                    : Icons.favorite_border,
+                                                color: isLiked
+                                                    ? Colors.red
+                                                    : const Color(0xFF333333),
+                                              ),
+                                              onPressed: () => _likePost(
+                                                  post.id,
+                                                  post.likes,
+                                                  userId,
+                                                  index),
+                                            ),
+                                            Text(
+                                              '${post.likes}',
+                                              style: const TextStyle(
+                                                color: Color(0xFF1A1A1A),
+                                              ),
+                                            ),
+                                          ],
+                                        )
+                                      : ElevatedButton(
+                                          onPressed: () => _joinEvent(
+                                              post.id, post.text ?? ''),
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor:
+                                                const Color(0xFFAFCBEA),
+                                            foregroundColor:
+                                                const Color(0xFF000000),
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(8),
+                                            ),
+                                          ),
+                                          child: const Text('Join'),
+                                        ),
+                                ],
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
-                    ],
+                      );
+                    },
                   ),
-              ],
-            ),
+                ],
+              );
+            }).toList(),
           ),
         );
       },

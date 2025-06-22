@@ -48,9 +48,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Future<void> _loadProfile() async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    if (!authProvider.isAuthenticated ||
-        authProvider.token == null ||
-        authProvider.userId == null) {
+    final userId = authProvider.userId ?? '';
+    final token = authProvider.token ?? '';
+
+    if (userId.isEmpty || token.isEmpty) {
+      authProvider.handleAuthError(
+          context, AuthenticationException('Not authenticated'));
       setState(() => _isLoading = false);
       return;
     }
@@ -77,9 +80,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
       developer.log('Load profile error: $e',
           name: 'ProfileScreen', stackTrace: stackTrace);
       if (mounted) {
+        authProvider.handleAuthError(context, e);
         setState(() => _isLoading = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error loading profile: $e')),
+          SnackBar(content: Text('Ошибка загрузки профиля: $e')),
         );
       }
     }
@@ -126,8 +130,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   Widget build(BuildContext context) {
     final authProvider = Provider.of<AuthProvider>(context);
-    final size = MediaQuery.of(context).size;
-
+    if (!authProvider.isInitialized) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
     return Scaffold(
       backgroundColor: const Color(0xFFF9F6F2),
       appBar: AppBar(

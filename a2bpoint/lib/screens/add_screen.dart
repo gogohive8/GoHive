@@ -40,12 +40,14 @@ class _AddScreenState extends State<AddScreen> {
     if (!authProvider.isInitialized) {
       authProvider.initialize().then((_) {
         if (mounted && authProvider.shouldRedirectTo()) {
-          Navigator.pushReplacementNamed(context, '/sign_in');
+          authProvider.handleAuthError(
+              context, AuthenticationException('Not authenticated'));
         }
       });
     } else if (authProvider.shouldRedirectTo()) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        Navigator.pushReplacementNamed(context, '/sign_in');
+        authProvider.handleAuthError(
+            context, AuthenticationException('Not authenticated'));
       });
     }
   }

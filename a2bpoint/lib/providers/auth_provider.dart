@@ -37,7 +37,7 @@ class AuthProvider with ChangeNotifier {
       _bio = prefs.getString('bio');
       _isFirstLogin = prefs.getBool('isFirstLogin') ?? true;
       developer.log(
-          'Loaded from cache: token=${_token != null ? "present" : "null"}, userId=$_userId, username=$_username, bio=$_bio, isFirstLogin=$_isFirstLogin',
+          'Loaded from cache: token=${_token != null ? "present" : "null"}, userId=${_userId != null ? _userId : "null"}',
           name: 'AuthProvider');
       notifyListeners();
     } catch (e, stackTrace) {
@@ -54,67 +54,57 @@ class AuthProvider with ChangeNotifier {
       _username = username ?? 'Unknown';
       _isFirstLogin = isGoogleLogin;
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('token', token);
-      await prefs.setString('userId', userId);
-      await prefs.setString('username', _username!);
-      await prefs.setBool('isFirstLogin', _isFirstLogin);
-      developer.log(
-          'Auth data set: userId=$userId, username=$username, isFirstLogin=$_isFirstLogin',
-          name: 'AuthProvider');
+      final tokenSaved = await prefs.setString('token', token);
+      final userIdSaved = await prefs.setString('userId', userId);
+      if (!tokenSaved || !userIdSaved) {
+        developer.log('Failed to save auth data to SharedPreferences',
+            name: 'AuthProvider');
+        throw Exception('Failed to save auth data');
+      }
+      developer.log('Auth data set: userId=$userId', name: 'AuthProvider');
       notifyListeners();
     } catch (e, stackTrace) {
       developer.log('Error setting auth data: $e',
           name: 'AuthProvider', stackTrace: stackTrace);
-      if (e is AuthenticationException) {
-        _token = null;
-        _userId = null;
-        _username = null;
-        _isFirstLogin = true;
-        notifyListeners();
-      }
+      throw Exception('Error setting auth data: $e');
     }
   }
 
   Future<void> setBio(String bio) async {
     try {
-      _bio = bio;
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('bio', bio);
-      developer.log('Bio updated: $bio', name: 'AuthProvider');
-      notifyListeners();
-    } catch (e, stackTrace) {
-      developer.log('Error setting bio: $e',
-          name: 'AuthProvider', stackTrace: stackTrace);
-    }
-  }
-
-  Future<void> markWelcomeShown() async {
-    try {
-      _isFirstLogin = false;
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setBool('isFirstLogin', false);
-      developer.log('Welcome screen marked as shown', name: 'AuthProvider');
-      notifyListeners();
-    } catch (e, stackTrace) {
-      developer.log('Error marking welcome shown: $e',
-          name: 'AuthProvider', stackTrace: stackTrace);
-    }
-  }
-
-  Future<void> logout() async {
-    try {
+      developer.log('Clearing auth data, stack trace: ${StackTrace.current}',
+          name: 'AuthProvider');
       _token = null;
       _userId = null;
-      _username = null;
-      _bio = null;
-      _isFirstLogin = true;
       final prefs = await SharedPreferences.getInstance();
-      await prefs.clear();
-      developer.log('Logged out and cleared cache', name: 'AuthProvider');
+      await prefs.remove('token');
+      await prefs.remove('userId');
       notifyListeners();
     } catch (e, stackTrace) {
-      developer.log('Error during logout: $e',
+      developer.log('Error clearing auth data: $e',
           name: 'AuthProvider', stackTrace: stackTrace);
+    }
+  }
+
+  bool shouldRedirectTo() {
+    final shouldRedirect = !isAuthenticated && _isInitialized;
+    if (shouldRedirect) {
+      developer.log('Should redirect to sign-in: not authenticated',
+          name: 'AuthProvider');
+    }
+    return shouldRedirect;
+  }
+
+  Future<void> handleAuthError(BuildContext context, dynamic error) async {
+    if (error is AuthenticationException) {
+      developer.log('Authentication error detected: ${error.message}',
+          name: 'AuthProvider');
+      await clearAuth();
+      // Добавляем задержку перед редиректом
+      await Future.delayed(const Duration(seconds: 2));
+      if (context.mounted) {
+        Navigator.pushReplacementNamed(context, '/sign_in');
+      }
     }
   }
 
