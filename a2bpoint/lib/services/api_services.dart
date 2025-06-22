@@ -625,24 +625,6 @@ class ApiService {
           )
           .timeout(const Duration(seconds: 10));
       developer.log(
-<<<<<<< HEAD
-          'Pre-order request: POST $_baseUrl/preorder, userId: $userId',
-          name: 'ApiService');
-      // Раскомментировать, когда сервер будет доступен
-
-      final response = await _client
-          .post(
-            Uri.parse('$_baseUrl/preorder'),
-            headers: {
-              'Authorization': 'Bearer $token',
-              'Content-Type': 'application/json',
-            },
-            body: jsonEncode({'user_id': userId}),
-          )
-          .timeout(const Duration(seconds: 10));
-      developer.log(
-=======
->>>>>>> origin/bew-branch-with-old-version
           'Create pre-order response: ${response.statusCode}, ${response.body}',
           name: 'ApiService');
       await _handleResponse(response);
