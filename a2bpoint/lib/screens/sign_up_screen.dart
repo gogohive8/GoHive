@@ -70,6 +70,14 @@ class _SignUpScreenState extends State<SignUpScreen> {
         );
         developer.log('Google profile updated for userId: $_userId',
             name: 'SignUpScreen');
+        // Update AuthProvider with username
+        await authProvider.setAuthData(
+          authProvider.token!,
+          _userId!,
+          _googleEmail ?? '',
+          _usernameController.text.trim(),
+          isGoogleLogin: true,
+        );
         if (mounted) Navigator.pop(context);
         if (mounted) Navigator.pushReplacementNamed(context, '/home');
       } else {
@@ -90,7 +98,11 @@ class _SignUpScreenState extends State<SignUpScreen> {
             authData['token']?.isNotEmpty == true &&
             authData['userId']?.isNotEmpty == true) {
           await authProvider.setAuthData(
-              authData['token']!, authData['userId']!);
+            authData['token']!,
+            authData['userId']!,
+            authData['email'] ?? _emailController.text.trim(),
+            authData['username'] ?? _usernameController.text.trim(),
+          );
           if (mounted) Navigator.pushReplacementNamed(context, '/home');
         } else {
           if (mounted) {
@@ -367,29 +379,27 @@ class _SignUpScreenState extends State<SignUpScreen> {
                       ),
                     ),
                   ),
-                  if (!_isGoogleSignUp) ...[
-                    SizedBox(height: size.height * 0.03),
-                    SizedBox(
-                      width: double.infinity,
-                      child: OutlinedButton(
-                        onPressed: _isLoading
-                            ? null
-                            : () => Navigator.pushNamed(context, '/sign_in'),
-                        style: OutlinedButton.styleFrom(
-                          side: const BorderSide(color: Color(0xFF333333)),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          backgroundColor:
-                              const Color.fromRGBO(221, 221, 221, 0.1),
+                  SizedBox(height: size.height * 0.03),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton(
+                      onPressed: _isLoading
+                          ? null
+                          : () => Navigator.pushNamed(context, '/sign_in'),
+                      style: OutlinedButton.styleFrom(
+                        side: const BorderSide(color: Color(0xFF333333)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
                         ),
-                        child: const Text(
-                          'Sign In',
-                          style: TextStyle(color: Color(0xFF1A1A1A)),
-                        ),
+                        backgroundColor:
+                            const Color.fromRGBO(221, 221, 221, 0.1),
+                      ),
+                      child: const Text(
+                        'Sign In',
+                        style: TextStyle(color: Color(0xFF1A1A1A)),
                       ),
                     ),
-                  ],
+                  ),
                 ],
               ),
             ),

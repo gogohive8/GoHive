@@ -1,11 +1,12 @@
-import 'dart:developer' as developer;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'dart:developer' as developer;
+import 'package:shared_preferences/shared_preferences.dart';
 import '../providers/auth_provider.dart';
 import '../services/api_services.dart';
 import '../models/post.dart';
-import 'navbar.dart';
 import '../services/exceptions.dart';
+import 'navbar.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -14,26 +15,37 @@ class ProfileScreen extends StatefulWidget {
   _ProfileScreenState createState() => _ProfileScreenState();
 }
 
-class _ProfileScreenState extends State<ProfileScreen> {
+class _ProfileScreenState extends State<ProfileScreen>
+    with SingleTickerProviderStateMixin {
   final ApiService _apiService = ApiService();
   Map<String, dynamic>? _profile;
   List<Post> _goals = [];
   List<Post> _events = [];
   bool _isLoading = true;
-  final _bioController = TextEditingController();
-  int _selectedTab = 0;
+  final TextEditingController _bioController = TextEditingController();
+  late TabController _tabController;
 
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(length: 2, vsync: this);
+    _tabController.addListener(_handleTabChange);
     _loadProfile();
   }
 
   @override
   void dispose() {
+    _tabController.removeListener(_handleTabChange);
+    _tabController.dispose();
     _bioController.dispose();
     _apiService.dispose();
     super.dispose();
+  }
+
+  void _handleTabChange() {
+    if (!_tabController.indexIsChanging) {
+      setState(() {});
+    }
   }
 
   Future<void> _loadProfile() async {
@@ -42,6 +54,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final token = authProvider.token ?? '';
 
     if (userId.isEmpty || token.isEmpty) {
+      developer.log('No userId or token, skipping profile load',
+          name: 'ProfileScreen');
       authProvider.handleAuthError(
           context, AuthenticationException('Not authenticated'));
       setState(() => _isLoading = false);
@@ -51,6 +65,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
     try {
       developer.log('Loading profile for userId=$userId',
           name: 'ProfileScreen');
+
+      final prefs = await SharedPreferences.getInstance();
+      final savedBio = prefs.getString('bio_$userId') ?? '';
+
       final profile = await _apiService.getProfile(userId, token);
       final goals = await _apiService.getGoals(userId, token);
       final events = await _apiService.getEvents(userId, token);
@@ -60,10 +78,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
           _profile = profile;
           _goals = goals;
           _events = events;
-          _bioController.text = profile?['bio'] ?? '';
+          _bioController.text = profile['bio']?.toString() ?? savedBio;
           _isLoading = false;
         });
+        await prefs.setString('bio_$userId', _bioController.text);
       }
+      developer.log(
+          'Profile loaded: username=${_profile?['username'] ?? 'User'}, bio=${_bioController.text}, avatar=${_profile?['avatar'] ?? 'none'}',
+          name: 'ProfileScreen');
     } catch (e, stackTrace) {
       developer.log('Load profile error: $e',
           name: 'ProfileScreen', stackTrace: stackTrace);
@@ -82,19 +104,29 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final userId = authProvider.userId ?? '';
     final token = authProvider.token ?? '';
 
-    if (_bioController.text.isEmpty || userId.isEmpty || token.isEmpty) return;
+    if (_bioController.text.isEmpty || userId.isEmpty || token.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Bio or authentication details missing')),
+      );
+      return;
+    }
 
     try {
       developer.log('Updating bio for userId=$userId', name: 'ProfileScreen');
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('bio_$userId', _bioController.text);
+
       final success =
           await _apiService.updateBio(userId, _bioController.text, token);
       if (success && mounted) {
         setState(() {
-          _profile?['bio'] = _bioController.text;
+          _profile = {...?_profile, 'bio': _bioController.text};
         });
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Bio updated successfully')),
         );
+        developer.log('Bio updated: ${_bioController.text}',
+            name: 'ProfileScreen');
       }
     } catch (e, stackTrace) {
       developer.log('Update bio error: $e',
@@ -107,47 +139,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
-  // Future<void> _uploadAvatar() async {
-  //   final picker = ImagePicker();
-  //   final pickedFile = await picker.pickImage(source: ImageSource.gallery);
-
-  //   if (pickedFile == null) return;
-
-  //   final authProvider = Provider.of<AuthProvider>(context, listen: false);
-  //   final userId = authProvider.userId ?? '';
-  //   final token = authProvider.token ?? '';
-
-  //   if (userId.isEmpty || token.isEmpty) {
-  //     ScaffoldMessenger.of(context).showSnackBar(
-  //       const SnackBar(content: Text('Please log in to upload an avatar')),
-  //     );
-  //     return;
-  //   }
-
-  //   try {
-  //     developer.log('Uploading avatar for userId=$userId',
-  //         name: 'ProfileScreen');
-  //     final urls =
-  //         await _apiService.uploadImages(userId, [pickedFile.path], token);
-  //     if (urls.isNotEmpty && mounted) {
-  //       setState(() {
-  //         _profile?['avatar_url'] = urls.first;
-  //       });
-  //       ScaffoldMessenger.of(context).showSnackBar(
-  //         const SnackBar(content: Text('Avatar updated successfully')),
-  //       );
-  //     }
-  //   } catch (e, stackTrace) {
-  //     developer.log('Upload avatar error: $e',
-  //         name: 'ProfileScreen', stackTrace: stackTrace);
-  //     if (mounted) {
-  //       ScaffoldMessenger.of(context).showSnackBar(
-  //         SnackBar(content: Text('Error uploading avatar: $e')),
-  //       );
-  //     }
-  //   }
-  // }
-
   @override
   Widget build(BuildContext context) {
     final authProvider = Provider.of<AuthProvider>(context);
@@ -156,218 +147,227 @@ class _ProfileScreenState extends State<ProfileScreen> {
         body: Center(child: CircularProgressIndicator()),
       );
     }
+
+    final size = MediaQuery.of(context).size;
+    final padding = size.width * 0.03;
+
     return Scaffold(
-      backgroundColor: const Color(0xFFF9F6F2), // Светло-бежевый фон
+      backgroundColor: const Color(0xFFF9F6F2),
       appBar: AppBar(
         backgroundColor: const Color(0xFFF9F6F2),
         elevation: 0,
+        automaticallyImplyLeading: false,
         title: Text(
-          _profile?['username'] ?? 'Unknown',
+          _profile?['username'] ?? 'User',
           style: const TextStyle(
             fontSize: 20,
             fontWeight: FontWeight.bold,
-            color: Color(0xFF1A1A1A), // Тёмно-серый
+            color: Color(0xFF1A1A1A),
           ),
         ),
+        centerTitle: true,
         actions: [
           IconButton(
             icon: Image.asset('assets/images/messages_icon.png', height: 24),
-            onPressed: () {}, // Заглушка для сообщений
+            onPressed: () {},
           ),
         ],
+        bottom: TabBar(
+          controller: _tabController,
+          tabs: const [
+            Tab(text: 'Goals'),
+            Tab(text: 'Events'),
+          ],
+          indicatorColor: const Color(0xFFAFCBEA),
+          labelColor: const Color(0xFFAFCBEA),
+          unselectedLabelColor: const Color(0xFF333333),
+        ),
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _profile == null
               ? const Center(child: Text('Failed to load profile'))
-              : LayoutBuilder(
-                  builder: (context, constraints) {
-                    final screenWidth = constraints.maxWidth;
-                    final avatarRadius =
-                        screenWidth * 0.15 > 50 ? 50.0 : screenWidth * 0.15;
-                    final gridCrossAxisCount =
-                        screenWidth > 600 ? 3 : (screenWidth > 400 ? 2 : 1);
-
-                    return ConstrainedBox(
-                      constraints: BoxConstraints(
-                          maxHeight: MediaQuery.of(context).size.height -
-                              kToolbarHeight -
-                              kBottomNavigationBarHeight),
-                      child: SingleChildScrollView(
-                        padding: EdgeInsets.all(screenWidth * 0.03),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+              : SingleChildScrollView(
+                  padding: EdgeInsets.all(padding),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Avatar
+                      Center(
+                        child: CircleAvatar(
+                          radius: 40,
+                          backgroundImage: _profile?['avatar'] != null &&
+                                  _profile!['avatar'].isNotEmpty
+                              ? NetworkImage(_profile!['avatar'])
+                              : const AssetImage(
+                                      'assets/images/default_avatar.png')
+                                  as ImageProvider,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      // Username
+                      Text(
+                        _profile?['username'] ?? 'User',
+                        style: const TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF1A1A1A),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      // Followers/Following
+                      Text(
+                        '${_profile?['followers'] ?? 0} followers  ${_profile?['following'] ?? 0} following',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Color(0xFF333333),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      // Bio
+                      TextFormField(
+                        controller: _bioController,
+                        decoration: InputDecoration(
+                          filled: true,
+                          fillColor: const Color.fromRGBO(249, 246, 242, 0.9),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide:
+                                const BorderSide(color: Color(0xFFAFCBEA)),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide:
+                                const BorderSide(color: Color(0xFFAFCBEA)),
+                          ),
+                          suffixIcon: IconButton(
+                            icon: const Icon(Icons.edit,
+                                color: Color(0xFFAFCBEA)),
+                            onPressed: _updateBio,
+                          ),
+                        ),
+                        maxLines: 3,
+                        style: const TextStyle(
+                          fontSize: 14,
+                          color: Color(0xFF1A1A1A),
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      // Posts
+                      SizedBox(
+                        height: size.height * 0.5,
+                        child: TabBarView(
+                          controller: _tabController,
                           children: [
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.start,
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Stack(
-                                  alignment: Alignment.center,
-                                  children: [
-                                    CircleAvatar(
-                                      radius: avatarRadius,
-                                      backgroundImage: const AssetImage(
-                                          'assets/images/default_avatar.png'),
-                                      backgroundColor:
-                                          const Color(0xFF333333), // Серый
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(width: 16),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        _profile?['username'] ?? 'Unknown',
-                                        style: TextStyle(
-                                          fontSize: screenWidth * 0.05 > 20
-                                              ? 20.0
-                                              : screenWidth * 0.05,
-                                          fontWeight: FontWeight.bold,
-                                          color: const Color(
-                                              0xFF1A1A1A), // Тёмно-серый
-                                        ),
-                                      ),
-                                      const SizedBox(height: 4),
-                                      Text(
-                                        '${_profile?['followers'] ?? 0} followers  ${_profile?['following'] ?? 0} following',
-                                        style: const TextStyle(
-                                          fontSize: 12,
-                                          color: Color(0xFF333333), // Серый
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 16),
-                            TextFormField(
-                              controller: _bioController,
-                              decoration: InputDecoration(
-                                filled: true,
-                                fillColor: const Color.fromRGBO(249, 246, 242,
-                                    0.9), // Схожий с фоном с прозрачностью
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(8),
-                                  borderSide: const BorderSide(
-                                      color: Color(0xFFAFCBEA)), // Голубой
-                                ),
-                                focusedBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(8),
-                                  borderSide: const BorderSide(
-                                      color: Color(0xFFAFCBEA)),
-                                ),
-                                suffixIcon: IconButton(
-                                  icon: const Icon(Icons.edit,
-                                      color: Color(0xFFAFCBEA)), // Голубой
-                                  onPressed: _updateBio,
-                                ),
-                              ),
-                              maxLines: 1,
-                              style: const TextStyle(
-                                fontSize: 14,
-                                color: Color(0xFF1A1A1A), // Тёмно-серый
-                              ),
-                            ),
-                            const SizedBox(height: 20),
-                            GridView.builder(
-                              shrinkWrap: true,
-                              physics: const NeverScrollableScrollPhysics(),
-                              gridDelegate:
-                                  SliverGridDelegateWithFixedCrossAxisCount(
-                                crossAxisCount: gridCrossAxisCount,
-                                crossAxisSpacing: screenWidth * 0.02,
-                                mainAxisSpacing: screenWidth * 0.02,
-                                childAspectRatio: 0.9,
-                              ),
-                              itemCount: _selectedTab == 0
-                                  ? _goals.length
-                                  : _events.length,
-                              clipBehavior: Clip.hardEdge,
-                              itemBuilder: (context, index) {
-                                final post = _selectedTab == 0
-                                    ? _goals[index]
-                                    : _events[index];
-                                final createdAt = post.createdAt
-                                    .toLocal()
-                                    .toString()
-                                    .split(' ')[0];
-                                return Container(
-                                  decoration: BoxDecoration(
-                                    color:
-                                        const Color(0xFFDDDDDD), // Светло-серый
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  child: Stack(
-                                    children: [
-                                      Padding(
-                                        padding: const EdgeInsets.all(8.0),
-                                        child: Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          mainAxisAlignment:
-                                              MainAxisAlignment.spaceBetween,
-                                          children: [
-                                            Text(
-                                              createdAt,
-                                              style: const TextStyle(
-                                                fontSize: 12,
-                                                color:
-                                                    Color(0xFF333333), // Серый
-                                              ),
-                                            ),
-                                            Text(
-                                              post.text ?? 'No description',
-                                              style: const TextStyle(
-                                                fontSize: 12,
-                                                color: Color(
-                                                    0xFF1A1A1A), // Тёмно-серый
-                                              ),
-                                              maxLines: 2,
-                                              overflow: TextOverflow.ellipsis,
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                      if (_selectedTab == 0 &&
-                                          post.tasks != null)
-                                        Positioned(
-                                          bottom: 4,
-                                          right: 4,
-                                          child: Container(
-                                            padding: const EdgeInsets.all(4),
-                                            color: const Color(
-                                                0xFF333333), // Серый
-                                            child: Text(
-                                              '${post.tasks!.where((task) => task['completed'] ?? false).length}/${post.tasks!.length}',
-                                              style: const TextStyle(
-                                                fontSize: 10,
-                                                color: Color(
-                                                    0xFFF9F6F2), // Светло-бежевый
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                    ],
-                                  ),
-                                );
-                              },
-                            ),
+                            _buildPostsView(posts: _goals, type: 'goal'),
+                            _buildPostsView(posts: _events, type: 'event'),
                           ],
                         ),
                       ),
-                    );
-                  },
+                    ],
+                  ),
                 ),
       bottomNavigationBar: Navbar(
         selectedIndex: 3,
         onTap: (index) {
           final routes = ['/home', '/search', '/add', '/profile', '/ai-mentor'];
           Navigator.pushReplacementNamed(context, routes[index]);
+        },
+      ),
+    );
+  }
+
+  Widget _buildPostsView({required List<Post> posts, required String type}) {
+    if (posts.isEmpty) {
+      return Center(child: Text('No $type available'));
+    }
+    return RefreshIndicator(
+      onRefresh: _loadProfile,
+      child: ListView.builder(
+        itemCount: posts.length,
+        itemBuilder: (context, index) {
+          final post = posts[index];
+          developer.log(
+              'Rendering $type[$index]: id=${post.id}, text=${post.text}, likes=${post.likes}',
+              name: 'ProfileScreen');
+          return Card(
+            color: const Color(0xFFDDDDDD),
+            elevation: 2,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            margin: const EdgeInsets.symmetric(vertical: 8),
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    post.text ?? 'No description available',
+                    style: const TextStyle(
+                      fontSize: 16,
+                      color: Color(0xFF1A1A1A),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    post.createdAt.toLocal().toString().split('.')[0],
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: Color(0xFF333333),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: [
+                          const Icon(Icons.favorite_border,
+                              color: Color(0xFF333333)),
+                          const SizedBox(width: 4),
+                          Text(
+                            '${post.likes}',
+                            style: const TextStyle(color: Color(0xFF1A1A1A)),
+                          ),
+                        ],
+                      ),
+                      Row(
+                        children: [
+                          const Icon(Icons.comment, color: Color(0xFF333333)),
+                          const SizedBox(width: 4),
+                          Text(
+                            '${post.comments}',
+                            style: const TextStyle(color: Color(0xFF1A1A1A)),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  if (type == 'goal' &&
+                      post.tasks != null &&
+                      post.tasks!.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Tasks:',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF1A1A1A),
+                      ),
+                    ),
+                    ...post.tasks!.map((task) => Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 4),
+                          child: Text(
+                            task['title']?.toString() ?? 'Untitled task',
+                            style: const TextStyle(color: Color(0xFF333333)),
+                          ),
+                        )),
+                  ],
+                ],
+              ),
+            ),
+          );
         },
       ),
     );

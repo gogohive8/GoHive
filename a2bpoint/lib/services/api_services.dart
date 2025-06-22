@@ -55,7 +55,7 @@ class ApiService {
     try {
       developer.log('Fetching posts with token', name: 'ApiService');
       final response = await _client.get(
-        Uri.parse('$_postsUrl/posts'),
+        Uri.parse('$_postsUrl/goals/all'),
         headers: {
           'Authorization': 'Bearer $token',
           'Content-Type': 'application/json',
@@ -67,7 +67,23 @@ class ApiService {
           name: 'ApiService');
       final data = await _handleResponse(response);
       final posts = (data as List<dynamic>)
-          .map((json) => Post.fromJson(json, type: json['type'] ?? 'goal'))
+          .map((json) => Post.fromJson({
+                ...json,
+                'type': 'goal',
+                'user_id':
+                    json['user_id'] ?? json['userID'] ?? json['username'] ?? '',
+                'description': json['description'] ??
+                    json['goalInfo'] ??
+                    json['text'] ??
+                    '',
+                'created_at': json['created_at'] ??
+                    json['createdAt'] ??
+                    DateTime.now().toIso8601String(),
+                'tasks': json['tasks'] ?? [],
+                'likes': json['likes'] ?? 0,
+                'comments': json['comments'] ?? 0,
+                'id': json['id'] ?? json['_id'] ?? '',
+              }, type: 'goal'))
           .toList();
       developer.log('Parsed ${posts.length} posts', name: 'ApiService');
       return posts;
@@ -83,7 +99,7 @@ class ApiService {
       developer.log('Fetching all goals for userId: $userId',
           name: 'ApiService');
       final response = await _client.get(
-        Uri.parse('$_postsUrl/goals'),
+        Uri.parse('$_postsUrl/goals/all'),
         headers: {
           'Authorization': 'Bearer $token',
           'Content-Type': 'application/json',
@@ -94,7 +110,23 @@ class ApiService {
           name: 'ApiService');
       final data = await _handleResponse(response);
       final posts = (data as List<dynamic>)
-          .map((json) => Post.fromJson(json, type: 'goal'))
+          .map((json) => Post.fromJson({
+                ...json,
+                'type': 'goal',
+                'user_id':
+                    json['user_id'] ?? json['userID'] ?? json['username'] ?? '',
+                'description': json['description'] ??
+                    json['goalInfo'] ??
+                    json['text'] ??
+                    '',
+                'created_at': json['created_at'] ??
+                    json['createdAt'] ??
+                    DateTime.now().toIso8601String(),
+                'tasks': json['tasks'] ?? [],
+                'likes': json['likes'] ?? 0,
+                'comments': json['comments'] ?? 0,
+                'id': json['id'] ?? json['_id'] ?? '',
+              }, type: 'goal'))
           .toList();
       developer.log('Parsed ${posts.length} goals', name: 'ApiService');
       return posts;
@@ -110,7 +142,7 @@ class ApiService {
       developer.log('Fetching all events for userId: $userId',
           name: 'ApiService');
       final response = await _client.get(
-        Uri.parse('$_postsUrl/events'),
+        Uri.parse('$_postsUrl/events/all'),
         headers: {
           'Authorization': 'Bearer $token',
           'Content-Type': 'application/json',
@@ -121,7 +153,19 @@ class ApiService {
           name: 'ApiService');
       final data = await _handleResponse(response);
       final posts = (data as List<dynamic>)
-          .map((json) => Post.fromJson(json, type: 'event'))
+          .map((json) => Post.fromJson({
+                ...json,
+                'type': 'event',
+                'user_id':
+                    json['user_id'] ?? json['userID'] ?? json['username'] ?? '',
+                'description': json['description'] ?? json['text'] ?? '',
+                'created_at': json['created_at'] ??
+                    json['createdAt'] ??
+                    DateTime.now().toIso8601String(),
+                'likes': json['likes'] ?? 0,
+                'comments': json['comments'] ?? 0,
+                'id': json['id'] ?? json['_id'] ?? '',
+              }, type: 'event'))
           .toList();
       developer.log('Parsed ${posts.length} events', name: 'ApiService');
       return posts;
@@ -146,8 +190,24 @@ class ApiService {
           'Get goals response: ${response.statusCode}, body: ${response.body}',
           name: 'ApiService');
       final data = await _handleResponse(response);
-      final posts = (data['goals'] as List)
-          .map((json) => Post.fromJson({...json, 'type': 'goal'}, type: ''))
+      final posts = (data as List<dynamic>)
+          .map((json) => Post.fromJson({
+                ...json,
+                'type': 'goal',
+                'user_id':
+                    json['user_id'] ?? json['userID'] ?? json['username'] ?? '',
+                'description': json['description'] ??
+                    json['goalInfo'] ??
+                    json['text'] ??
+                    '',
+                'created_at': json['created_at'] ??
+                    json['createdAt'] ??
+                    DateTime.now().toIso8601String(),
+                'tasks': json['tasks'] ?? [],
+                'likes': json['likes'] ?? 0,
+                'comments': json['comments'] ?? 0,
+                'id': json['id'] ?? json['_id'] ?? '',
+              }, type: 'goal'))
           .toList();
       developer.log('Parsed ${posts.length} user goals', name: 'ApiService');
       return posts;
@@ -172,13 +232,26 @@ class ApiService {
           'Get events response: ${response.statusCode}, body: ${response.body}',
           name: 'ApiService');
       final data = await _handleResponse(response);
-      final posts = (data['events'] as List)
-          .map((json) => Post.fromJson({...json, 'type': 'event'}, type: ''))
+      final posts = (data as List<dynamic>)
+          .map((json) => Post.fromJson({
+                ...json,
+                'type': 'event',
+                'user_id':
+                    json['user_id'] ?? json['userID'] ?? json['username'] ?? '',
+                'description': json['description'] ?? json['text'] ?? '',
+                'created_at': json['created_at'] ??
+                    json['createdAt'] ??
+                    DateTime.now().toIso8601String(),
+                'likes': json['likes'] ?? 0,
+                'comments': json['comments'] ?? 0,
+                'id': json['id'] ?? json['_id'] ?? '',
+              }, type: 'event'))
           .toList();
       developer.log('Parsed ${posts.length} user events', name: 'ApiService');
       return posts;
     } catch (e, stackTrace) {
-      developer.log('GetEvents error: $e', stackTrace: stackTrace);
+      developer.log('GetEvents error: $e',
+          name: 'ApiService', stackTrace: stackTrace);
       return [];
     }
   }
@@ -186,13 +259,16 @@ class ApiService {
   Future<void> likePost(String postId, String token) async {
     try {
       developer.log('Liking post: postId=$postId', name: 'ApiService');
-      final response = await _client.post(
-        Uri.parse('$_postsUrl/posts/$postId/like'),
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Content-Type': 'application/json',
-        },
-      ).timeout(const Duration(seconds: 10));
+      final response = await _client
+          .post(
+            Uri.parse('$_postsUrl/like'),
+            headers: {
+              'Authorization': 'Bearer $token',
+              'Content-Type': 'application/json',
+            },
+            body: jsonEncode({'post_id': postId}),
+          )
+          .timeout(const Duration(seconds: 10));
       developer.log('Like post response: ${response.statusCode}',
           name: 'ApiService');
       await _handleResponse(response);
@@ -330,7 +406,11 @@ class ApiService {
         3,
       );
       final data = await _handleResponse(response);
-      return {'token': data['token'] ?? '', 'userId': data['userID'] ?? ''};
+      return {
+        'token': data['token']?.toString() ?? '',
+        'userId': data['userID']?.toString() ?? '',
+        'username': data['username']?.toString() ?? ''
+      };
     } catch (e, stackTrace) {
       developer.log('Login error: $e',
           name: 'ApiService', stackTrace: stackTrace);
@@ -366,7 +446,11 @@ class ApiService {
           )
           .timeout(const Duration(seconds: 30));
       final data = await _handleResponse(response);
-      return {'token': data['token'] ?? '', 'userId': data['userID'] ?? ''};
+      return {
+        'token': data['token']?.toString() ?? '',
+        'userId': data['userID']?.toString() ?? '',
+        'username': data['username']?.toString() ?? ''
+      };
     } catch (e, stackTrace) {
       developer.log('SignUp error: $e',
           name: 'ApiService', stackTrace: stackTrace);
@@ -376,19 +460,26 @@ class ApiService {
 
   Future<Map<String, String>?> signInWithGoogle() async {
     try {
-      developer.log('Google OAuth request', name: 'ApiService');
+      developer.log('Initiating Google OAuth', name: 'ApiService');
+      // Initiate Google OAuth flow
       await _supabase.auth.signInWithOAuth(
-        OAuthProvider.google,
-        redirectTo: 'https://gohive-d4359.firebaseapp.com',
+        OAuthProvider.google, // Use OAuthProvider instead of Provider
+        redirectTo: 'io.supabase.gohive://login-callback/',
       );
-      final session = await _supabase.auth.onAuthStateChange
-          .firstWhere((event) => event.event == AuthChangeEvent.signedIn)
-          .then((event) => event.session);
-      if (session == null) {
-        throw Exception('No session received after OAuth');
+
+      // Wait for session to be available
+      final session = await _supabase.auth.onAuthStateChange.firstWhere(
+        (event) => event.event == AuthChangeEvent.signedIn,
+        orElse: () => throw Exception('Google Sign-In timed out'),
+      );
+
+      final supabaseToken = session.session?.accessToken;
+      if (supabaseToken == null) {
+        throw Exception('No Supabase token available');
       }
-      final supabaseToken = await session.accessToken;
-      developer.log('Supabase token obtained', name: 'ApiService');
+      developer.log('Supabase token obtained: $supabaseToken',
+          name: 'ApiService');
+
       final response = await _client
           .post(
             Uri.parse('$_baseUrl/register/oauth/google'),
@@ -396,8 +487,21 @@ class ApiService {
             body: jsonEncode({'supabase_token': supabaseToken}),
           )
           .timeout(const Duration(seconds: 30));
+
+      developer.log(
+          'Google OAuth response: ${response.statusCode}, body: ${response.body}',
+          name: 'ApiService');
       final data = await _handleResponse(response);
-      return {'token': data['token'] ?? '', 'userId': data['userID'] ?? ''};
+      if (data['token'] == null || data['userID'] == null) {
+        throw Exception(
+            'Invalid response from server: missing token or userID');
+      }
+      return {
+        'token': data['token'].toString(),
+        'userId': data['userID'].toString(),
+        'username': data['username']?.toString() ?? '',
+        'isNewUser': data['isNewUser']?.toString() ?? 'false',
+      };
     } catch (e, stackTrace) {
       developer.log('Google sign-in error: $e',
           name: 'ApiService', stackTrace: stackTrace);
@@ -416,7 +520,15 @@ class ApiService {
         },
       ).timeout(const Duration(seconds: 10));
       final data = await _handleResponse(response);
-      return data as Map<String, dynamic>;
+      return {
+        'userId': data['userID']?.toString() ?? userId,
+        'username': data['username']?.toString() ?? '',
+        'bio': data['bio']?.toString() ?? '',
+        'followers': (data['followers'] as num?)?.toInt() ?? 0,
+        'following': (data['following'] as num?)?.toInt() ?? 0,
+        'avatar': data['avatar']?.toString() ?? '',
+        'age': (data['age'] as num?)?.toInt(),
+      };
     } catch (e, stackTrace) {
       developer.log('Get profile error: $e',
           name: 'ApiService', stackTrace: stackTrace);
@@ -502,8 +614,18 @@ class ApiService {
     try {
       developer.log('Creating pre-order for userId: $userId',
           name: 'ApiService');
-      // Заглушка, так как сервер недоступен
+      final response = await _client
+          .post(
+            Uri.parse('$_baseUrl/preorder'),
+            headers: {
+              'Authorization': 'Bearer $token',
+              'Content-Type': 'application/json',
+            },
+            body: jsonEncode({'user_id': userId}),
+          )
+          .timeout(const Duration(seconds: 10));
       developer.log(
+<<<<<<< HEAD
           'Pre-order request: POST $_baseUrl/preorder, userId: $userId',
           name: 'ApiService');
       // Раскомментировать, когда сервер будет доступен
@@ -519,6 +641,8 @@ class ApiService {
           )
           .timeout(const Duration(seconds: 10));
       developer.log(
+=======
+>>>>>>> origin/bew-branch-with-old-version
           'Create pre-order response: ${response.statusCode}, ${response.body}',
           name: 'ApiService');
       await _handleResponse(response);
