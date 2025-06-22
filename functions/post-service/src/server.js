@@ -149,7 +149,7 @@ app.post('/goals/create', verifyToken, async (req, res) => {
   }
 });
 
-app.post('/events/create', verifyToken, async (req, res) => {
+app.post('/events/create',verifyToken, async (req, res) => {
   try{
     const { user_id, description, location, date_time } = req.body;
 
@@ -293,7 +293,7 @@ app.get('/events/all', verifyToken, async (req, res) => {
 });
 
 
-app.get('/goals/:id', verifyToken, async (req, res) => {
+app.get('/goals/:id', verifyToken,  async (req, res) => {
   try{
     const { id } = req.params;
     console.log('ID is: ', id);
@@ -397,7 +397,7 @@ app.get('/events/:id', verifyToken, async (req, res) => {
   }
 });
 
-app.post('/like', verifyToken, async (req, res) => {
+app.post('/like', verifyToken,  async (req, res) => {
   try{
     const { post_id } = req.body;
 
