@@ -92,13 +92,15 @@ class _HomeScreenState extends State<HomeScreen>
       });
       return;
     }
-    developer.log('Fetching posts: tabIndex=$_selectedTabIndex',
+    developer.log('Fetching posts: tabIndex=$_selectedTabIndex, userId=$userId',
         name: 'HomeScreen');
     _postsFuture = (_selectedTabIndex == 0
             ? _apiService.getAllGoals(token, userId)
             : _apiService.getAllEvents(token, userId))
         .then(_groupPostsByUser)
-        .catchError((e) {
+        .catchError((e, stackTrace) {
+      developer.log('Fetch posts error: $e',
+          name: 'HomeScreen', stackTrace: stackTrace);
       authProvider.handleAuthError(context, e);
       return <String, List<Post>>{};
     });
@@ -108,11 +110,18 @@ class _HomeScreenState extends State<HomeScreen>
     final Map<String, List<Post>> groupedPosts = {};
     for (var post in posts) {
       final userId = post.user.id;
+      if (userId.isEmpty) {
+        developer.log('Empty userId for post: ${post.id}', name: 'HomeScreen');
+        continue;
+      }
       if (!groupedPosts.containsKey(userId)) {
         groupedPosts[userId] = [];
       }
       groupedPosts[userId]!.add(post);
     }
+    developer.log(
+        'Grouped posts: ${groupedPosts.length} users, total posts: ${posts.length}',
+        name: 'HomeScreen');
     return groupedPosts;
   }
 
@@ -267,7 +276,8 @@ class _HomeScreenState extends State<HomeScreen>
       body: TabBarView(
         controller: _tabController,
         children: [
-          _buildPostsView(),
+          _buildPostsView(type: 'goal'),
+          _buildPostsView(type: 'event'),
         ],
       ),
       bottomNavigationBar: Navbar(
@@ -277,7 +287,7 @@ class _HomeScreenState extends State<HomeScreen>
     );
   }
 
-  Widget _buildPostsView() {
+  Widget _buildPostsView({required String type}) {
     return FutureBuilder<Map<String, List<Post>>>(
       future: _postsFuture,
       builder: (context, snapshot) {
@@ -287,165 +297,279 @@ class _HomeScreenState extends State<HomeScreen>
         if (snapshot.hasError) {
           developer.log('Snapshot error: ${snapshot.error}',
               name: 'HomeScreen', stackTrace: snapshot.stackTrace);
-          final authProvider =
-              Provider.of<AuthProvider>(context, listen: false);
-          authProvider.handleAuthError(context, snapshot.error);
-          return Center(child: Text('Ошибка загрузки: ${snapshot.error}'));
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text('Error loading $type: ${snapshot.error}'),
+                const SizedBox(height: 16),
+                ElevatedButton(
+                  onPressed: _fetchPosts,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFAFCBEA),
+                    foregroundColor: const Color(0xFF000000),
+                  ),
+                  child: const Text('Retry'),
+                ),
+              ],
+            ),
+          );
         }
         final groupedPosts = snapshot.data ?? {};
-        if (groupedPosts.isEmpty) {
-          developer.log('No posts to display', name: 'HomeScreen');
-          return const Center(child: Text('Нет доступных постов'));
-        }
-        developer.log('Posts data: $groupedPosts', name: 'HomeScreen');
-        return SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: groupedPosts.entries.map((entry) {
-              final userId = entry.key;
-              final posts = entry.value;
-              final username =
-                  posts.isNotEmpty ? posts[0].user.username : 'Unknown';
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                    child: Text(
-                      username,
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF000000),
-                      ),
-                    ),
-                  ),
-                  ListView.builder(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    itemCount: posts.length,
-                    itemBuilder: (context, index) {
-                      final post = posts[index];
-                      developer.log(
-                          'Post[$index]: text=${post.text}, id=${post.id}',
-                          name: 'HomeScreen');
-                      final isLiked = _likedPosts.contains(post.id);
-                      return Card(
-                        color: const Color(0xFFDDDDDD),
-                        elevation: 2,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
+        final totalPosts = groupedPosts.values
+            .fold<int>(0, (sum, posts) => sum + posts.length);
+        developer.log(
+            'Displaying $type posts: ${groupedPosts.length} users, $totalPosts posts',
+            name: 'HomeScreen');
+        return RefreshIndicator(
+          onRefresh: () async {
+            _fetchPosts();
+            await _postsFuture;
+          },
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Debug: $totalPosts $type loaded'), // Отладочный текст
+                if (groupedPosts.isEmpty)
+                  Center(child: Text('No $type available'))
+                else
+                  ...groupedPosts.entries.map((entry) {
+                    final userId = entry.key;
+                    final posts = entry.value;
+                    final username =
+                        posts.isNotEmpty ? posts[0].user.username : 'Unknown';
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          child: Text(
+                            username,
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF000000),
+                            ),
+                          ),
                         ),
-                        margin: const EdgeInsets.symmetric(vertical: 8),
-                        child: Padding(
-                          padding: const EdgeInsets.all(12),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  CircleAvatar(
-                                    backgroundImage:
-                                        post.user.avatarUrl.isNotEmpty
-                                            ? NetworkImage(post.user.avatarUrl)
-                                            : null,
-                                    backgroundColor: const Color(0xFF333333),
-                                    radius: 20,
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
+                        ListView.builder(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          itemCount: posts.length,
+                          itemBuilder: (context, index) {
+                            final post = posts[index];
+                            developer.log(
+                                'Rendering $type[$index]: id=${post.id}, text=${post.text}, tasks=${post.tasks?.length ?? 0}',
+                                name: 'HomeScreen');
+                            final isLiked = _likedPosts.contains(post.id);
+                            return Card(
+                              color: const Color(0xFFDDDDDD),
+                              elevation: 2,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              margin: const EdgeInsets.symmetric(vertical: 8),
+                              child: Padding(
+                                padding: const EdgeInsets.all(12),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
                                       children: [
-                                        Text(
-                                          post.user.username,
-                                          style: const TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                            color: Color(0xFF000000),
-                                          ),
+                                        CircleAvatar(
+                                          backgroundImage:
+                                              post.user.avatarUrl.isNotEmpty
+                                                  ? NetworkImage(
+                                                      post.user.avatarUrl)
+                                                  : null,
+                                          backgroundColor:
+                                              const Color(0xFF333333),
+                                          radius: 20,
+                                          child: post.user.avatarUrl.isEmpty
+                                              ? Text(
+                                                  post.user.username[0]
+                                                      .toUpperCase(),
+                                                  style: const TextStyle(
+                                                      color: Colors.white),
+                                                )
+                                              : null,
                                         ),
-                                        Text(
-                                          post.createdAt
-                                              .toLocal()
-                                              .toString()
-                                              .split(' ')[0],
-                                          style: const TextStyle(
-                                            fontSize: 12,
-                                            color: Color(0xFF333333),
+                                        const SizedBox(width: 12),
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                post.user.username,
+                                                style: const TextStyle(
+                                                  fontWeight: FontWeight.bold,
+                                                  color: Color(0xFF000000),
+                                                ),
+                                              ),
+                                              Text(
+                                                post.createdAt
+                                                    .toLocal()
+                                                    .toString()
+                                                    .split('.')[0],
+                                                style: const TextStyle(
+                                                  fontSize: 12,
+                                                  color: Color(0xFF333333),
+                                                ),
+                                              ),
+                                            ],
                                           ),
                                         ),
                                       ],
                                     ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                post.text ?? 'No description',
-                                style: const TextStyle(
-                                  fontSize: 16,
-                                  color: Color(0xFF1A1A1A),
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
-                                children: [
-                                  _selectedTabIndex == 0
-                                      ? Row(
+                                    const SizedBox(height: 12),
+                                    if (post.imageUrls != null &&
+                                        post.imageUrls!.isNotEmpty)
+                                      SizedBox(
+                                        height: 200,
+                                        child: ListView.builder(
+                                          scrollDirection: Axis.horizontal,
+                                          itemCount: post.imageUrls!.length,
+                                          itemBuilder: (context, imgIndex) {
+                                            return Padding(
+                                              padding: const EdgeInsets.only(
+                                                  right: 8),
+                                              child: ClipRRect(
+                                                borderRadius:
+                                                    BorderRadius.circular(8),
+                                                child: Image.network(
+                                                  post.imageUrls![imgIndex],
+                                                  width: 200,
+                                                  height: 200,
+                                                  fit: BoxFit.cover,
+                                                  errorBuilder: (context, error,
+                                                      stackTrace) {
+                                                    developer.log(
+                                                        'Image load error: $error',
+                                                        name: 'HomeScreen');
+                                                    return const Icon(
+                                                        Icons.broken_image,
+                                                        size: 100);
+                                                  },
+                                                ),
+                                              ),
+                                            );
+                                          },
+                                        ),
+                                      ),
+                                    const SizedBox(height: 12),
+                                    Text(
+                                      post.text ?? 'No description available',
+                                      style: const TextStyle(
+                                        fontSize: 16,
+                                        color: Color(0xFF1A1A1A),
+                                      ),
+                                    ),
+                                    if (type == 'goal' &&
+                                        post.tasks != null &&
+                                        post.tasks!.isNotEmpty) ...[
+                                      const SizedBox(height: 12),
+                                      const Text(
+                                        'Tasks:',
+                                        style: TextStyle(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.bold,
+                                          color: Color(0xFF1A1A1A),
+                                        ),
+                                      ),
+                                      ...post.tasks!.map((task) => Padding(
+                                            padding: const EdgeInsets.symmetric(
+                                                vertical: 4),
+                                            child: Text(
+                                              task['title']?.toString() ??
+                                                  'Untitled task',
+                                              style: const TextStyle(
+                                                  color: Color(0xFF333333)),
+                                            ),
+                                          )),
+                                    ],
+                                    const SizedBox(height: 12),
+                                    Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Row(
                                           children: [
                                             IconButton(
-                                              icon: Icon(
-                                                isLiked
-                                                    ? Icons.favorite
-                                                    : Icons.favorite_border,
-                                                color: isLiked
-                                                    ? Colors.red
-                                                    : const Color(0xFF333333),
-                                              ),
-                                              onPressed: () => _likePost(
-                                                  post.id,
-                                                  post.likes,
-                                                  userId,
-                                                  index),
+                                              icon: const Icon(Icons.comment,
+                                                  color: Color(0xFF333333)),
+                                              onPressed: () {
+                                                developer.log(
+                                                    'Comments clicked for post: ${post.id}',
+                                                    name: 'HomeScreen');
+                                              },
                                             ),
                                             Text(
-                                              '${post.likes}',
+                                              '${post.comments}',
                                               style: const TextStyle(
-                                                color: Color(0xFF1A1A1A),
-                                              ),
+                                                  color: Color(0xFF1A1A1A)),
                                             ),
                                           ],
-                                        )
-                                      : ElevatedButton(
-                                          onPressed: () => _joinEvent(
-                                              post.id, post.text ?? ''),
-                                          style: ElevatedButton.styleFrom(
-                                            backgroundColor:
-                                                const Color(0xFFAFCBEA),
-                                            foregroundColor:
-                                                const Color(0xFF000000),
-                                            shape: RoundedRectangleBorder(
-                                              borderRadius:
-                                                  BorderRadius.circular(8),
-                                            ),
-                                          ),
-                                          child: const Text('Join'),
                                         ),
-                                ],
+                                        type == 'goal'
+                                            ? Row(
+                                                children: [
+                                                  IconButton(
+                                                    icon: Icon(
+                                                      isLiked
+                                                          ? Icons.favorite
+                                                          : Icons
+                                                              .favorite_border,
+                                                      color: isLiked
+                                                          ? Colors.red
+                                                          : const Color(
+                                                              0xFF333333),
+                                                    ),
+                                                    onPressed: () => _likePost(
+                                                        post.id,
+                                                        post.likes,
+                                                        userId,
+                                                        index),
+                                                  ),
+                                                  Text(
+                                                    '${post.likes}',
+                                                    style: const TextStyle(
+                                                        color:
+                                                            Color(0xFF1A1A1A)),
+                                                  ),
+                                                ],
+                                              )
+                                            : ElevatedButton(
+                                                onPressed: () => _joinEvent(
+                                                    post.id, post.text ?? ''),
+                                                style: ElevatedButton.styleFrom(
+                                                  backgroundColor:
+                                                      const Color(0xFFAFCBEA),
+                                                  foregroundColor:
+                                                      const Color(0xFF000000),
+                                                  shape: RoundedRectangleBorder(
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                            8),
+                                                  ),
+                                                ),
+                                                child: const Text('Join'),
+                                              ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
                               ),
-                            ],
-                          ),
+                            );
+                          },
                         ),
-                      );
-                    },
-                  ),
-                ],
-              );
-            }).toList(),
+                      ],
+                    );
+                  }).toList(),
+              ],
+            ),
           ),
         );
       },
