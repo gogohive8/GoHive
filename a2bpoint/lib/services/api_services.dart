@@ -23,16 +23,10 @@ class ApiService {
     }
     if (response.statusCode == 400) {
       final errorBody = jsonDecode(response.body);
-<<<<<<< HEAD
-      final errorMessage = errorBody['error']?.toString() ?? 'Invalid data';
-      developer.log('Validation error: $errorMessage', name: 'ApiService');
-      throw DataValidationException('Invalid data: $errorMessage');
-=======
       final errorMessage =
           errorBody['message']['error']?.toString() ?? 'Invalid input';
       developer.log('Validation error: $errorMessage', name: 'ApiService');
       throw DataValidationException('Invalid input: $errorMessage');
->>>>>>> origin/bew-branch-with-old-version
     }
     if (response.statusCode == 401) {
       developer.log('Unauthorized: ${response.body}', name: 'ApiService');
