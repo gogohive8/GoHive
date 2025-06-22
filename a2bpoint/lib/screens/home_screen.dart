@@ -1,9 +1,10 @@
+import 'dart:developer' as developer;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'dart:developer' as developer;
-import '../providers/auth_provider.dart';
-import '../services/api_services.dart';
 import '../models/post.dart';
+import '../services/api_services.dart';
+import '../services/exceptions.dart';
+import '../providers/auth_provider.dart';
 import 'navbar.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -13,29 +14,56 @@ class HomeScreen extends StatefulWidget {
   _HomeScreenState createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen>
+    with SingleTickerProviderStateMixin {
+  int _selectedIndex = 0;
+  int _selectedTabIndex = 0;
   final ApiService _apiService = ApiService();
-  List<Post> _goals = [];
-  List<Post> _events = [];
-  bool _isLoading = true;
-  int _selectedTab = 0;
+  late TabController _tabController;
+  late Future<Map<String, List<Post>>> _postsFuture;
+  final Set<String> _likedPosts = {};
 
   @override
   void initState() {
     super.initState();
-    _checkAuth();
-    _loadPosts();
+    _tabController = TabController(length: 2, vsync: this);
+    _tabController.addListener(_handleTabSelection);
+    _checkAuthAndFetchPosts();
   }
 
   @override
   void dispose() {
+    _tabController.removeListener(_handleTabSelection);
+    _tabController.dispose();
     _apiService.dispose();
     super.dispose();
   }
 
-  Future<void> _checkAuth() async {
+  void _checkAuthAndFetchPosts() {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    await authProvider.initialize();
+    if (!authProvider.isInitialized) {
+      developer.log('AuthProvider not initialized, waiting for initialization',
+          name: 'HomeScreen');
+      authProvider.initialize().then((_) {
+        if (mounted) {
+          _redirectIfNotAuthenticated(authProvider);
+          _fetchPosts();
+        }
+      });
+    } else {
+      developer.log('AuthProvider initialized, checking authentication',
+          name: 'HomeScreen');
+      _redirectIfNotAuthenticated(authProvider);
+      _fetchPosts();
+    }
+  }
+
+  void _redirectIfNotAuthenticated(AuthProvider authProvider) {
+    if (!authProvider.isInitialized) {
+      developer.log('AuthProvider not initialized, skipping redirect',
+          name: 'HomeScreen');
+      return;
+    }
     if (authProvider.shouldRedirectTo()) {
       developer.log('No token found, handling auth error', name: 'HomeScreen');
       authProvider.handleAuthError(
@@ -52,12 +80,16 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  Future<void> _loadPosts() async {
+  void _fetchPosts() {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    if (!authProvider.isAuthenticated ||
-        authProvider.token == null ||
-        authProvider.userId == null) {
-      setState(() => _isLoading = false);
+    final token = authProvider.token ?? '';
+    final userId = authProvider.userId ?? '';
+
+    if (token.isEmpty || userId.isEmpty) {
+      developer.log('No token or userId, skipping fetch', name: 'HomeScreen');
+      setState(() {
+        _postsFuture = Future.value({});
+      });
       return;
     }
     developer.log('Fetching posts: tabIndex=$_selectedTabIndex, userId=$userId',
@@ -105,47 +137,134 @@ class _HomeScreenState extends State<HomeScreen> {
       String postId, int currentLikes, String userId, int index) async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     if (!authProvider.isAuthenticated || authProvider.token == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please log in to like posts')),
-      );
+      authProvider.handleAuthError(
+          context, AuthenticationException('Not authenticated'));
       return;
     }
-    if (postId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Invalid post ID')),
-      );
-      return;
-    }
-
     try {
+      developer.log('Liking post: postId=$postId', name: 'HomeScreen');
       await _apiService.likePost(postId, authProvider.token!);
-      _loadPosts();
+      setState(() {
+        if (_likedPosts.contains(postId)) {
+          _likedPosts.remove(postId);
+          _postsFuture.then((groupedPosts) {
+            if (groupedPosts.containsKey(userId)) {
+              final posts = groupedPosts[userId]!;
+              if (index >= 0 && index < posts.length) {
+                posts[index].likes = currentLikes - 1;
+              }
+            }
+          });
+        } else {
+          _likedPosts.add(postId);
+          _postsFuture.then((groupedPosts) {
+            if (groupedPosts.containsKey(userId)) {
+              final posts = groupedPosts[userId]!;
+              if (index >= 0 && index < posts.length) {
+                posts[index].likes = currentLikes + 1;
+              }
+            }
+          });
+        }
+      });
     } catch (e, stackTrace) {
       developer.log('Like post error: $e',
           name: 'HomeScreen', stackTrace: stackTrace);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error liking post: $e')),
-        );
-      }
+      authProvider.handleAuthError(context, e);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error liking post: $e')),
+      );
+    }
+  }
+
+  void _joinEvent(String eventId, String eventText) async {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    if (!authProvider.isAuthenticated || authProvider.token == null) {
+      authProvider.handleAuthError(
+          context, AuthenticationException('Not authenticated'));
+      return;
+    }
+    try {
+      developer.log('Joining event: eventId=$eventId', name: 'HomeScreen');
+      await _apiService.joinEvent(eventId, authProvider.token!);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('You have joined $eventText')),
+      );
+    } catch (e, stackTrace) {
+      developer.log('Join event error: $e',
+          name: 'HomeScreen', stackTrace: stackTrace);
+      authProvider.handleAuthError(context, e);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error joining event: $e')),
+      );
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final size = MediaQuery.of(context).size;
+    final authProvider = Provider.of<AuthProvider>(context);
+    if (!authProvider.isInitialized) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
     return Scaffold(
       backgroundColor: const Color(0xFFF9F6F2),
       appBar: AppBar(
-        backgroundColor: const Color(0xFFF9F6F2),
         elevation: 0,
-        title: const Text(
-          'GoHive',
-          style: TextStyle(
-            fontSize: 24,
-            fontWeight: FontWeight.bold,
-            color: Color(0xFF1A1A1A),
-          ),
+        backgroundColor: const Color(0xFFF9F6F2),
+        automaticallyImplyLeading: false,
+        title: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            GestureDetector(
+              onTap: () => _tabController.animateTo(0),
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: _selectedTabIndex == 0
+                      ? const Color.fromRGBO(175, 203, 234, 0.1)
+                      : Colors.transparent,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  'Goals',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: _selectedTabIndex == 0
+                        ? const Color(0xFFAFCBEA)
+                        : const Color(0xFF1A1A1A),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            GestureDetector(
+              onTap: () => _tabController.animateTo(1),
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: _selectedTabIndex == 1
+                      ? const Color.fromRGBO(175, 203, 234, 0.1)
+                      : Colors.transparent,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  'Events',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: _selectedTabIndex == 1
+                        ? const Color(0xFFAFCBEA)
+                        : const Color(0xFF1A1A1A),
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
         actions: [
           IconButton(
@@ -162,11 +281,8 @@ class _HomeScreenState extends State<HomeScreen> {
         ],
       ),
       bottomNavigationBar: Navbar(
-        selectedIndex: 0,
-        onTap: (index) {
-          final routes = ['/home', '/search', '/add', '/profile', '/ai-mentor'];
-          Navigator.pushReplacementNamed(context, routes[index]);
-        },
+        selectedIndex: _selectedIndex,
+        onTap: _onItemTapped,
       ),
     );
   }

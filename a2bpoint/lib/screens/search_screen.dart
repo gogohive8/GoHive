@@ -1,3 +1,5 @@
+import 'dart:async';
+import 'dart:developer' as developer;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
@@ -33,22 +35,28 @@ class _SearchScreenState extends State<SearchScreen> {
 
   @override
   void dispose() {
+    _searchController.removeListener(_onSearchChanged);
     _searchController.dispose();
-    _apiService.dispose();
+    _debounce?.cancel();
     super.dispose();
   }
 
-  Future<void> _searchUsers() async {
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    if (!authProvider.isAuthenticated || authProvider.token == null) {
-      authProvider.handleAuthError(
-          context, AuthenticationException('Not authenticated'));
-      return;
-    }
+  void _onSearchChanged() {
+    if (_debounce?.isActive ?? false) _debounce!.cancel();
+    _debounce = Timer(const Duration(milliseconds: 500), () {
+      if (_searchController.text.isNotEmpty) {
+        _performSearch();
+      } else {
+        setState(() {
+          _searchResults = [];
+        });
+      }
+    });
+  }
 
+  Future<void> _performSearch() async {
     setState(() {
       _isLoading = true;
-      _hasSearched = true;
     });
     try {
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
@@ -58,7 +66,6 @@ class _SearchScreenState extends State<SearchScreen> {
         authProvider.handleAuthError(
             context, AuthenticationException('Not authenticated'));
         setState(() {
-          _searchResults = [];
           _isLoading = false;
         });
         return;
@@ -81,7 +88,9 @@ class _SearchScreenState extends State<SearchScreen> {
       developer.log('Search error: $e',
           name: 'SearchScreen', stackTrace: stackTrace);
       if (mounted) {
-        setState(() => _isLoading = false);
+        setState(() {
+          _isLoading = false;
+        });
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Ошибка поиска: $e')),
         );

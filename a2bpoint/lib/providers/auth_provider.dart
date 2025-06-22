@@ -6,18 +6,12 @@ import '../services/exceptions.dart';
 class AuthProvider with ChangeNotifier {
   String? _token;
   String? _userId;
-  String? _username;
-  String? _bio;
   bool _isInitialized = false;
-  bool _isFirstLogin = false;
 
   String? get token => _token;
   String? get userId => _userId;
-  String? get username => _username;
-  String? get bio => _bio;
   bool get isAuthenticated => _token != null && _userId != null;
   bool get isInitialized => _isInitialized;
-  bool get isFirstLogin => _isFirstLogin;
 
   Future<void> initialize() async {
     if (!_isInitialized) {
@@ -33,9 +27,6 @@ class AuthProvider with ChangeNotifier {
       final prefs = await SharedPreferences.getInstance();
       _token = prefs.getString('token');
       _userId = prefs.getString('userId');
-      _username = prefs.getString('username');
-      _bio = prefs.getString('bio');
-      _isFirstLogin = prefs.getBool('isFirstLogin') ?? true;
       developer.log(
           'Loaded from cache: token=${_token != null ? "present" : "null"}, userId=${_userId != null ? _userId : "null"}',
           name: 'AuthProvider');
@@ -46,13 +37,10 @@ class AuthProvider with ChangeNotifier {
     }
   }
 
-  Future<void> setAuthData(
-      String token, String userId, String? username, bool isGoogleLogin) async {
+  Future<void> setAuthData(String token, String userId) async {
     try {
       _token = token;
       _userId = userId;
-      _username = username ?? 'Unknown';
-      _isFirstLogin = isGoogleLogin;
       final prefs = await SharedPreferences.getInstance();
       final tokenSaved = await prefs.setString('token', token);
       final userIdSaved = await prefs.setString('userId', userId);
@@ -70,7 +58,7 @@ class AuthProvider with ChangeNotifier {
     }
   }
 
-  Future<void> setBio(String bio) async {
+  Future<void> clearAuth() async {
     try {
       developer.log('Clearing auth data, stack trace: ${StackTrace.current}',
           name: 'AuthProvider');
@@ -106,17 +94,5 @@ class AuthProvider with ChangeNotifier {
         Navigator.pushReplacementNamed(context, '/sign_in');
       }
     }
-  }
-
-  void handleAuthError(BuildContext context, dynamic error) {
-    developer.log('Handling auth error: $error', name: 'AuthProvider');
-    if (error is AuthenticationException) {
-      logout();
-      Navigator.pushReplacementNamed(context, '/sign-in');
-    }
-  }
-
-  bool shouldRedirectTo() {
-    return !isAuthenticated && _isInitialized;
   }
 }

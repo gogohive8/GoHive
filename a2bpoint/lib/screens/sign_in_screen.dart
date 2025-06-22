@@ -154,7 +154,7 @@ class _SignInScreenState extends State<SignInScreen> {
         }
       }
     } catch (e, stackTrace) {
-      developer.log('Sign-in error: $e',
+      developer.log('Google sign-in error: $e',
           name: 'SignInScreen', stackTrace: stackTrace);
       if (mounted) {
         Navigator.pop(context);
