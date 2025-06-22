@@ -382,7 +382,7 @@ class ApiService {
         () => _client.post(
           Uri.parse('$_baseUrl/login'),
           headers: {'Content-Type': 'application/json'},
-          body: jsonEncode({'email': email, 'password': password}),
+          body: jsonEncode({'mail': email, 'password': password}),
         ),
         3,
       );
@@ -421,7 +421,7 @@ class ApiService {
               'surname': lastName,
               'username': username,
               'age': age,
-              'email': email,
+              'mail': email,
               'phone': phoneNumber,
               'password': password,
             }),
