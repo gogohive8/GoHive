@@ -331,7 +331,7 @@ class _HomeScreenState extends State<HomeScreen>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Debug: $totalPosts $type loaded'), // Отладочный текст
+                // Text('Debug: $totalPosts $type loaded'), // Отладочный текст
                 if (groupedPosts.isEmpty)
                   Center(child: Text('No $type available'))
                 else
