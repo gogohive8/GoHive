@@ -111,7 +111,7 @@ app.post('/goals/create', verifyToken, async (req, res) => {
     console.log('\ngoalsInfo', goalInfo);
     if (insertGoalError) {
       console.error('Error by insert goal info: ', insertGoalError);
-      res.status(400).json( {error: insertGoalError} );
+      return res.status(400).json( {error: insertGoalError} );
     };
 
     const { error: insertStepsError } = await supabase
@@ -124,7 +124,7 @@ app.post('/goals/create', verifyToken, async (req, res) => {
 
     if ( insertStepsError ) {
       console.error('Error of insert steps: ', insertStepsError.message);
-      res.status(400).json( { error: insertStepsError });
+      return res.status(400).json( { error: insertStepsError });
     }
 
   //   if (image_urls){
@@ -142,7 +142,7 @@ app.post('/goals/create', verifyToken, async (req, res) => {
   //   }
   // };
 
-    res.status(200).json({ message: 'Goals created successfully'});
+    return res.status(200).json({ message: 'Goals created successfully'});
 
   } catch (error) {
     console.error('Error on create goals: ', error.message);
@@ -168,7 +168,7 @@ app.post('/events/create',verifyToken, async (req, res) => {
     console.log('\neventsInfo', eventInfo);
     if (insertEventError) {
       console.error('Error by insert goal info: ', insertEventError);
-      res.status(400).json( {error: insertGoalError} );
+      return res.status(400).json( {error: insertGoalError} );
     };
 
 
@@ -187,7 +187,7 @@ app.post('/events/create',verifyToken, async (req, res) => {
   //     res.status(400).json({ error: insertPhotoError });
   //   }
   // };
-    res.status(200).json({ message: 'Event created successfully'});
+    return res.status(200).json({ message: 'Event created successfully'});
 
   } catch (error) {
     console.error('Error on create events: ', error.message);
@@ -206,7 +206,7 @@ app.get('/goals/all', verifyToken, async (req, res) => {
 
     if (fetchError) {
       console.error('Problem with take data from database', fetchError.message);
-      res.status(400).json({ error : fetchError.message });
+      return res.status(400).json({ error : fetchError.message });
     }
 
     const goalsWithUsername = await Promise.all(
@@ -236,11 +236,11 @@ app.get('/goals/all', verifyToken, async (req, res) => {
     );
 
     console.log('\nData is: ', goalsWithUsername);
-    res.json(goalsWithUsername);
+    return res.status(200).json(goalsWithUsername);
 
   } catch (error){
     console.error('Error by fetching goals');
-    res.status(400).json({ error: error.message });
+    return res.status(400).json({ error: error.message });
   }
 });
 
@@ -254,7 +254,7 @@ app.get('/events/all', verifyToken, async (req, res) => {
 
     if (fetchError) {
       console.error('Problem with take data from database', fetchError.message);
-      res.status(400).json({ error : fetchError.message });
+      return res.status(400).json({ error : fetchError.message });
     }
 
     const eventsWithUsername = await Promise.all(
@@ -284,11 +284,11 @@ app.get('/events/all', verifyToken, async (req, res) => {
     );
 
     console.log('\nData is: ', eventsWithUsername);
-    res.status(200).json(eventsWithUsername);
+    return res.status(200).json(eventsWithUsername);
 
   } catch (error){
     console.error('Error by fetching events');
-    res.status(400).json({ error: error.message });
+    return res.status(400).json({ error: error.message });
   }
 });
 
@@ -338,10 +338,10 @@ app.get('/goals/:id', verifyToken,  async (req, res) => {
     // );
 
     console.log('photos url: ', goals);
-    res.status(200).json(goals);
+    return res.status(200).json(goals);
   } catch (error) {
     console.error('Error of fetching photos url: ', error.message);
-    res.status(400).json({error: error.message});
+    return res.status(400).json({error: error.message});
   }
 })
 
@@ -361,7 +361,7 @@ app.get('/events/:id', verifyToken, async (req, res) => {
 
     if (fetchError) {
       console.error('Error of fetching: ', fetchError.message);
-      res.status(400).json({ error: fetchError.message });
+      return res.status(400).json({ error: fetchError.message });
     }
 
     if (!usersEvents || usersEvents.length === 0) {
@@ -390,7 +390,7 @@ app.get('/events/:id', verifyToken, async (req, res) => {
     // );
 
     console.log('photos url: ', usersEvents);
-    res.status(200).json(usersEvents);
+    return res.status(200).json(usersEvents);
   } catch (error) {
     console.error('Error of fetching photos url: ', error.message);
     res.status(400).json({error: error.message});
@@ -410,7 +410,7 @@ app.post('/like', verifyToken,  async (req, res) => {
 
     if (getLikeError) {
       console.error('Error of fetch num of likes: ', getLikeError.message);
-      res.status(400).json({ error: getLikeError.message})
+      return res.status(400).json({ error: getLikeError.message})
     }
 
     const likes = getLike.numOfLikes + 1;
@@ -426,7 +426,7 @@ app.post('/like', verifyToken,  async (req, res) => {
       res.status(400).json({ error: updateErrorError.message})
     }
 
-    res.status(200).json({message: 'Like update successfully'});
+    return res.status(200).json({message: 'Like update successfully'});
 
   } catch (error) {
     console.error('Error of like: ', error.message);
