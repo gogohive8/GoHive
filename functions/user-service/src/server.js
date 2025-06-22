@@ -413,7 +413,7 @@ app.post('/preorder', verifyToken, async (req, res) => {
   try{
     const { user_id } = req.body;
     if (!user_id) {
-      res.status(400).json({error: 'Missing user id'});
+      return res.status(400).json({error: 'Missing user id'});
     }
 
     const {data, error} = await supabase
@@ -426,13 +426,13 @@ app.post('/preorder', verifyToken, async (req, res) => {
     )
 
     if (error) {
-      res.status(400).json({error: error});
+      return res.status(400).json({error: error});
     }
 
-    res.status(200).json({message: 'Preorder created'})
+    return res.status(200).json({message: 'Preorder created'})
   } catch (error) {
     console.error('Error of create preorder', error.message);
-    res.status(400).json({error: error.message});
+    return res.status(400).json({error: error.message});
   }
 })
 
