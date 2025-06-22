@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../services/api_services.dart';
 import 'navbar.dart';
+import '../services/exceptions.dart';
 
 class SearchScreen extends StatefulWidget {
   const SearchScreen({super.key});
@@ -15,15 +16,21 @@ class SearchScreen extends StatefulWidget {
 
 class _SearchScreenState extends State<SearchScreen> {
   final TextEditingController _searchController = TextEditingController();
-  String _selectedFilter = 'Goals';
-  List<dynamic> _searchResults = [];
+  List<Map<String, dynamic>> _searchResults = [];
   bool _isLoading = false;
   Timer? _debounce;
 
   @override
   void initState() {
     super.initState();
-    _searchController.addListener(_onSearchChanged);
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    if (!authProvider.isInitialized) {
+      authProvider.initialize().then((_) {
+        _searchController.addListener(_onSearchChanged);
+      });
+    } else {
+      _searchController.addListener(_onSearchChanged);
+    }
   }
 
   @override
@@ -56,11 +63,8 @@ class _SearchScreenState extends State<SearchScreen> {
       if (!authProvider.isAuthenticated ||
           authProvider.token == null ||
           authProvider.userId == null) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Authorization required')),
-          );
-        }
+        authProvider.handleAuthError(
+            context, AuthenticationException('Not authenticated'));
         setState(() {
           _isLoading = false;
         });
@@ -69,15 +73,14 @@ class _SearchScreenState extends State<SearchScreen> {
       final token = authProvider.token!;
       final userId = authProvider.userId!;
       final apiService = ApiService();
-      final response = await apiService.search(
+      final users = await apiService.searchUsers(
         _searchController.text,
-        filter: _selectedFilter,
         token: token,
         userId: userId,
       );
       if (mounted) {
         setState(() {
-          _searchResults = response['data'] ?? [];
+          _searchResults = users;
           _isLoading = false;
         });
       }
@@ -89,51 +92,23 @@ class _SearchScreenState extends State<SearchScreen> {
           _isLoading = false;
         });
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error searching: $e')),
+          SnackBar(content: Text('Ошибка поиска: $e')),
         );
       }
     }
   }
 
-  void _showFilterDialog() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Select Filter'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              title: const Text('Goals'),
-              onTap: () {
-                setState(() {
-                  _selectedFilter = 'Goals';
-                });
-                if (_searchController.text.isNotEmpty) _performSearch();
-                Navigator.pop(context);
-              },
-            ),
-            ListTile(
-              title: const Text('Events'),
-              onTap: () {
-                setState(() {
-                  _selectedFilter = 'Events';
-                });
-                if (_searchController.text.isNotEmpty) _performSearch();
-                Navigator.pop(context);
-              },
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
+    final authProvider = Provider.of<AuthProvider>(context);
+    if (!authProvider.isInitialized) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
     return Scaffold(
-      backgroundColor: const Color(0xFFF9F6F2), // Светло-бежевый фон
+      backgroundColor: const Color(0xFFF9F6F2),
       body: SafeArea(
         child: Column(
           children: [
@@ -145,11 +120,10 @@ class _SearchScreenState extends State<SearchScreen> {
                     child: TextField(
                       controller: _searchController,
                       decoration: InputDecoration(
-                        hintText: 'Search $_selectedFilter...',
-                        hintStyle:
-                            const TextStyle(color: Color(0xFF333333)), // Серый
+                        hintText: 'Поиск пользователей...',
+                        hintStyle: const TextStyle(color: Color(0xFF333333)),
                         filled: true,
-                        fillColor: const Color(0xFFDDDDDD), // Светло-серый
+                        fillColor: const Color(0xFFDDDDDD),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(10),
                           borderSide: BorderSide.none,
@@ -169,16 +143,10 @@ class _SearchScreenState extends State<SearchScreen> {
                               )
                             : null,
                       ),
-                      style: const TextStyle(
-                          color: Color(0xFF1A1A1A)), // Тёмно-серый
+                      style: const TextStyle(color: Color(0xFF1A1A1A)),
                     ),
                   ),
                   const SizedBox(width: 8),
-                  IconButton(
-                    icon:
-                        const Icon(Icons.filter_list, color: Color(0xFF333333)),
-                    onPressed: _showFilterDialog,
-                  ),
                   IconButton(
                     icon: Image.asset('assets/images/messages_icon.png',
                         height: 24),
@@ -193,21 +161,16 @@ class _SearchScreenState extends State<SearchScreen> {
                 child: _isLoading
                     ? const Center(child: CircularProgressIndicator())
                     : _searchResults.isEmpty
-                        ? const Center(child: Text('No results found'))
+                        ? const Center(child: Text('Пользователи не найдены'))
                         : ListView.builder(
                             itemCount: _searchResults.length,
                             itemBuilder: (context, index) {
-                              final item = _searchResults[index];
-                              return _buildCard(
-                                imageUrl: item['user']?['avatarUrl'] ?? '',
-                                title: item['text'] ?? 'No text',
-                                username:
-                                    item['user']?['username'] ?? 'Unknown',
-                                likes: item['likes'] ?? 0,
-                                createdAt: item['createdAt'] != null
-                                    ? DateTime.parse(item['createdAt'])
-                                        .toLocal()
-                                    : DateTime.now(),
+                              final user = _searchResults[index];
+                              return _buildUserCard(
+                                avatarUrl: user['avatarUrl'] ?? '',
+                                username: user['username'] ?? 'Unknown',
+                                bio: user['bio'] ?? 'No bio',
+                                followers: user['followers'] ?? 0,
                               );
                             },
                           ),
@@ -226,75 +189,69 @@ class _SearchScreenState extends State<SearchScreen> {
     );
   }
 
-  Widget _buildCard({
-    required String imageUrl,
-    required String title,
+  Widget _buildUserCard({
+    required String avatarUrl,
     required String username,
-    required int likes,
-    required DateTime createdAt,
+    required String bio,
+    required int followers,
   }) {
     return Card(
-      color: const Color(0xFFDDDDDD), // Светло-серый фон
+      color: const Color(0xFFDDDDDD),
       elevation: 2,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       margin: const EdgeInsets.only(bottom: 16.0),
       child: Padding(
         padding: const EdgeInsets.all(12.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        child: Row(
           children: [
-            Row(
-              children: [
-                CircleAvatar(
-                  backgroundImage:
-                      imageUrl.isNotEmpty ? NetworkImage(imageUrl) : null,
-                  backgroundColor: const Color(0xFF333333), // Серый
-                  radius: 20,
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        username,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF000000), // Чёрный
-                        ),
-                      ),
-                      Text(
-                        createdAt.toString().split(' ')[0],
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: Color(0xFF333333), // Серый
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
+            CircleAvatar(
+              backgroundImage:
+                  avatarUrl.isNotEmpty ? NetworkImage(avatarUrl) : null,
+              backgroundColor: const Color(0xFF333333),
+              radius: 30,
             ),
-            const SizedBox(height: 8),
-            Text(
-              title,
-              style: const TextStyle(
-                fontSize: 16,
-                color: Color(0xFF1A1A1A), // Тёмно-серый
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    username,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                      color: Color(0xFF000000),
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    bio,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      color: Color(0xFF1A1A1A),
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '$followers подписчиков',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: Color(0xFF333333),
+                    ),
+                  ),
+                ],
               ),
             ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                const Icon(Icons.favorite_border,
-                    color: Color(0xFF333333), size: 20),
-                const SizedBox(width: 4),
-                Text(
-                  '$likes',
-                  style:
-                      const TextStyle(color: Color(0xFF1A1A1A)), // Тёмно-серый
-                ),
-              ],
+            IconButton(
+              icon: const Icon(Icons.person_add, color: Color(0xFFAFCBEA)),
+              onPressed: () {
+                // Логика для подписки на пользователя
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Подписка на $username')),
+                );
+              },
             ),
           ],
         ),

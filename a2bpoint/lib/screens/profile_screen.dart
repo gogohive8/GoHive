@@ -5,6 +5,7 @@ import '../providers/auth_provider.dart';
 import '../services/api_services.dart';
 import '../models/post.dart';
 import 'navbar.dart';
+import '../services/exceptions.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -41,10 +42,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final token = authProvider.token ?? '';
 
     if (userId.isEmpty || token.isEmpty) {
+      authProvider.handleAuthError(
+          context, AuthenticationException('Not authenticated'));
       setState(() => _isLoading = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please log in to view your profile')),
-      );
       return;
     }
 
@@ -68,9 +68,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
       developer.log('Load profile error: $e',
           name: 'ProfileScreen', stackTrace: stackTrace);
       if (mounted) {
+        authProvider.handleAuthError(context, e);
         setState(() => _isLoading = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error loading profile: $e')),
+          SnackBar(content: Text('Ошибка загрузки профиля: $e')),
         );
       }
     }
@@ -149,6 +150,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final authProvider = Provider.of<AuthProvider>(context);
+    if (!authProvider.isInitialized) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
     return Scaffold(
       backgroundColor: const Color(0xFFF9F6F2), // Светло-бежевый фон
       appBar: AppBar(

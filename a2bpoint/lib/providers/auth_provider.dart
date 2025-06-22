@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:developer' as developer;
-import '../services/exceptions.dart'; // Import for AuthenticationException
+import '../services/exceptions.dart';
 
 class AuthProvider with ChangeNotifier {
   String? _token;
@@ -28,7 +28,7 @@ class AuthProvider with ChangeNotifier {
       _token = prefs.getString('token');
       _userId = prefs.getString('userId');
       developer.log(
-          'Loaded from cache: token=${_token != null ? "present" : "null"}, userId=$_userId',
+          'Loaded from cache: token=${_token != null ? "present" : "null"}, userId=${_userId != null ? _userId : "null"}',
           name: 'AuthProvider');
       notifyListeners();
     } catch (e, stackTrace) {
@@ -42,13 +42,19 @@ class AuthProvider with ChangeNotifier {
       _token = token;
       _userId = userId;
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('token', token);
-      await prefs.setString('userId', userId);
+      final tokenSaved = await prefs.setString('token', token);
+      final userIdSaved = await prefs.setString('userId', userId);
+      if (!tokenSaved || !userIdSaved) {
+        developer.log('Failed to save auth data to SharedPreferences',
+            name: 'AuthProvider');
+        throw Exception('Failed to save auth data');
+      }
       developer.log('Auth data set: userId=$userId', name: 'AuthProvider');
       notifyListeners();
     } catch (e, stackTrace) {
       developer.log('Error setting auth data: $e',
           name: 'AuthProvider', stackTrace: stackTrace);
+      throw Exception('Error setting auth data: $e');
     }
   }
 
@@ -82,6 +88,8 @@ class AuthProvider with ChangeNotifier {
       developer.log('Authentication error detected: ${error.message}',
           name: 'AuthProvider');
       await clearAuth();
+      // Добавляем задержку перед редиректом
+      await Future.delayed(const Duration(seconds: 2));
       if (context.mounted) {
         Navigator.pushReplacementNamed(context, '/sign_in');
       }

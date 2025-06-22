@@ -35,6 +35,22 @@ class ApiService {
     throw Exception('Request failed: ${response.statusCode} ${response.body}');
   }
 
+  Future<http.Response> _makeRequest(
+      Future<http.Response> Function() request, int retries) async {
+    for (int attempt = 1; attempt <= retries; attempt++) {
+      try {
+        final response = await request().timeout(const Duration(seconds: 30));
+        return response;
+      } catch (e) {
+        if (attempt == retries) rethrow;
+        developer.log('Request attempt $attempt failed: $e',
+            name: 'ApiService');
+        await Future.delayed(Duration(milliseconds: 500 * attempt));
+      }
+    }
+    throw Exception('All retry attempts failed');
+  }
+
   Future<Map<String, dynamic>> search(String query,
       {required String filter,
       required String token,
@@ -51,16 +67,47 @@ class ApiService {
     }
   }
 
+  Future<List<Map<String, dynamic>>> searchUsers(
+    String query, {
+    required String token,
+    required String userId,
+  }) async {
+    try {
+      developer.log('Searching users: query=$query, userId=$userId',
+          name: 'ApiService');
+      final response = await _client
+          .post(
+            Uri.parse('$_baseUrl/search/users'),
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer $token',
+            },
+            body: jsonEncode({'query': query, 'userId': userId}),
+          )
+          .timeout(const Duration(seconds: 30));
+
+      final data = await _handleResponse(response);
+      developer.log('Search users response: $data', name: 'ApiService');
+      return (data['users'] as List<dynamic>?)?.cast<Map<String, dynamic>>() ??
+          [];
+    } catch (e, stackTrace) {
+      developer.log('Search users error: $e',
+          name: 'ApiService', stackTrace: stackTrace);
+      throw Exception('Failed to search users: $e');
+    }
+  }
+
   Future<Map<String, String>?> login(String email, String password) async {
     try {
       developer.log('Login request: email=$email', name: 'ApiService');
-      final response = await _client
-          .post(
-            Uri.parse('$_baseUrl/login'),
-            headers: {'Content-Type': 'application/json'},
-            body: jsonEncode({'mail': email, 'password': password}),
-          )
-          .timeout(const Duration(seconds: 30));
+      final response = await _makeRequest(
+        () => _client.post(
+          Uri.parse('$_baseUrl/login'),
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode({'mail': email, 'password': password}),
+        ),
+        3, // Количество попыток
+      );
       final data = await _handleResponse(response);
       return {'token': data['token'] ?? '', 'userId': data['userID'] ?? ''};
     } catch (e, stackTrace) {
@@ -140,18 +187,23 @@ class ApiService {
   Future<Map<String, dynamic>?> getProfile(String userId, String token) async {
     try {
       developer.log('GetProfile request: userId=$userId', name: 'ApiService');
-      final response = await _client.get(
-        Uri.parse('$_baseUrl/profile/$userId'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
-      ).timeout(const Duration(seconds: 30));
-      return await _handleResponse(response);
+      final response = await _makeRequest(
+        () => _client.get(
+          Uri.parse('$_baseUrl/profile/$userId'),
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer $token',
+          },
+        ),
+        3, // Повторные попытки
+      );
+      final data = await _handleResponse(response);
+      developer.log('GetProfile response: $data', name: 'ApiService');
+      return data;
     } catch (e, stackTrace) {
       developer.log('GetProfile error: $e',
           name: 'ApiService', stackTrace: stackTrace);
-      return null;
+      rethrow; // Пробрасываем ошибку
     }
   }
 
@@ -222,13 +274,16 @@ class ApiService {
     try {
       developer.log('GetAllGoals request: userId=$userId, token=$token',
           name: 'ApiService');
-      final response = await _client.get(
-        Uri.parse('$_postsUrl/goals/all'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
-      ).timeout(const Duration(seconds: 30));
+      final response = await _makeRequest(
+        () => _client.get(
+          Uri.parse('$_postsUrl/goals/all'),
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer $token',
+          },
+        ),
+        3, // Повторные попытки
+      );
       final rawBody = response.body;
       final data = await _handleResponse(response);
       developer.log('GetAllGoals raw response: $rawBody', name: 'ApiService');
@@ -248,7 +303,7 @@ class ApiService {
     } catch (e, stackTrace) {
       developer.log('GetAllGoals error: $e',
           name: 'ApiService', stackTrace: stackTrace);
-      return [];
+      rethrow; // Пробрасываем ошибку для обработки на экране
     }
   }
 

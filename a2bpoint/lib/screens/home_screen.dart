@@ -65,13 +65,9 @@ class _HomeScreenState extends State<HomeScreen>
       return;
     }
     if (authProvider.shouldRedirectTo()) {
-      developer.log('No token found, redirecting to sign-in',
-          name: 'HomeScreen');
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) {
-          Navigator.pushReplacementNamed(context, '/sign_in');
-        }
-      });
+      developer.log('No token found, handling auth error', name: 'HomeScreen');
+      authProvider.handleAuthError(
+          context, AuthenticationException('Not authenticated'));
     }
   }
 
@@ -272,7 +268,6 @@ class _HomeScreenState extends State<HomeScreen>
         controller: _tabController,
         children: [
           _buildPostsView(),
-          _buildPostsView(),
         ],
       ),
       bottomNavigationBar: Navbar(
@@ -292,12 +287,15 @@ class _HomeScreenState extends State<HomeScreen>
         if (snapshot.hasError) {
           developer.log('Snapshot error: ${snapshot.error}',
               name: 'HomeScreen', stackTrace: snapshot.stackTrace);
-          return Center(child: Text('Error: ${snapshot.error}'));
+          final authProvider =
+              Provider.of<AuthProvider>(context, listen: false);
+          authProvider.handleAuthError(context, snapshot.error);
+          return Center(child: Text('Ошибка загрузки: ${snapshot.error}'));
         }
         final groupedPosts = snapshot.data ?? {};
         if (groupedPosts.isEmpty) {
           developer.log('No posts to display', name: 'HomeScreen');
-          return const Center(child: Text('No posts available'));
+          return const Center(child: Text('Нет доступных постов'));
         }
         developer.log('Posts data: $groupedPosts', name: 'HomeScreen');
         return SingleChildScrollView(
