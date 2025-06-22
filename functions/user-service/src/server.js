@@ -409,6 +409,33 @@ app.post('/search/users', verifyToken, async (req, res) => {
   }
 });
 
+app.post('/preorder', verifyToken, async (req, res) => {
+  try{
+    const { user_id } = req.body;
+    if (!user_id) {
+      res.status(400).json({error: 'Missing user id'});
+    }
+
+    const {data, error} = await supabase
+    .schema('public')
+    .from('preorders')
+    .insert(
+      {
+        userID: user_id
+      }
+    )
+
+    if (error) {
+      res.status(400).json({error: error});
+    }
+
+    res.status(200).json({message: 'Preorder created'})
+  } catch (error) {
+    console.error('Error of create preorder', error.message);
+    res.status(400).json({error: error.message});
+  }
+})
+
 const PORT = process.env.PORT || 3001; // Fallback for local testing
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`Server running on port ${PORT}`);
