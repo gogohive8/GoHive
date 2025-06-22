@@ -507,19 +507,21 @@ class ApiService {
           'Pre-order request: POST $_baseUrl/preorder, userId: $userId',
           name: 'ApiService');
       // Раскомментировать, когда сервер будет доступен
-      /*
-      final response = await _client.post(
-        Uri.parse('$_baseUrl/preorder'),
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Content-Type': 'application/json',
-        },
-        body: jsonEncode({'user_id': userId}),
-      ).timeout(const Duration(seconds: 10));
-      developer.log('Create pre-order response: ${response.statusCode}, ${response.body}',
+
+      final response = await _client
+          .post(
+            Uri.parse('$_baseUrl/preorder'),
+            headers: {
+              'Authorization': 'Bearer $token',
+              'Content-Type': 'application/json',
+            },
+            body: jsonEncode({'user_id': userId}),
+          )
+          .timeout(const Duration(seconds: 10));
+      developer.log(
+          'Create pre-order response: ${response.statusCode}, ${response.body}',
           name: 'ApiService');
       await _handleResponse(response);
-      */
     } catch (e, stackTrace) {
       developer.log('Create pre-order error: $e',
           name: 'ApiService', stackTrace: stackTrace);
