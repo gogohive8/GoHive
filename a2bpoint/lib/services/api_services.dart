@@ -184,26 +184,43 @@ class ApiService {
     }
   }
 
-  Future<Map<String, dynamic>?> getProfile(String userId, String token) async {
-    try {
-      developer.log('GetProfile request: userId=$userId', name: 'ApiService');
-      final response = await _makeRequest(
-        () => _client.get(
-          Uri.parse('$_baseUrl/profile/$userId'),
+  Future<Map<String, dynamic>> getProfile(String userId, String token) async {
+    final response = await http.get(
+      Uri.parse('http://localhost:3001/profile/$userId'),
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+      },
+    ).timeout(const Duration(seconds: 10));
+
+    developer.log('Get profile response: ${response.statusCode}',
+        name: 'ApiService');
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else if (response.statusCode == 401) {
+      throw AuthenticationException('Unauthorized');
+    } else {
+      throw Exception('Failed to fetch profile: ${response.statusCode}');
+    }
+  }
+
+  Future<void> updateProfile(
+      String userId, String token, Map<String, dynamic> data) async {
+    final response = await http
+        .post(
+          Uri.parse('http://localhost:3001/profile/$userId'),
           headers: {
-            'Content-Type': 'application/json',
             'Authorization': 'Bearer $token',
+            'Content-Type': 'application/json',
           },
-        ),
-        3, // Повторные попытки
-      );
-      final data = await _handleResponse(response);
-      developer.log('GetProfile response: $data', name: 'ApiService');
-      return data;
-    } catch (e, stackTrace) {
-      developer.log('GetProfile error: $e',
-          name: 'ApiService', stackTrace: stackTrace);
-      rethrow; // Пробрасываем ошибку
+          body: jsonEncode(data),
+        )
+        .timeout(const Duration(seconds: 10));
+
+    developer.log('Update profile response: ${response.statusCode}',
+        name: 'ApiService');
+    if (response.statusCode != 200) {
+      throw Exception('Failed to update profile: ${response.statusCode}');
     }
   }
 
