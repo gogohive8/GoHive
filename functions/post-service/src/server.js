@@ -12,9 +12,9 @@ const app = express();
 
 app.use(cors({
   origin: [
-    'http://gohive-d4359.web.app',
-    'https://gohive-d4359.firebaseapp.com',
-    'http://localhost:5000' // For local Firebase emulator
+    'https://gohive-c253c.web.app',
+    'https://gohive-c253c.firebaseapp.com/',
+    'http://127.0.0.1:5000' // For local Firebase emulator
   ],
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
