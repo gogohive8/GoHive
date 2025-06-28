@@ -198,6 +198,8 @@ app.post('/events/create',verifyToken, async (req, res) => {
 
 app.get('/goals/all', verifyToken, async (req, res) => {
   try{
+    const {user_id} = req.body;
+
     const { data: goals, error: fetchError} = await supabase
     .schema('posts')
     .from('goals')
@@ -223,6 +225,27 @@ app.get('/goals/all', verifyToken, async (req, res) => {
           console.error(`Error fetching username for userID ${goal.userID}:`, fetchUserError.message);
           return { ...goal, username: null }; // Fallback to null if user not found
         }
+        
+        var likedCurrentGoal = false;
+
+        // Fetch liked that post or not
+        const {data: likedGoal, error: fetchLikeError } = await supabase
+        .schema('posts')
+        .from('likedGoals')
+        .select('*')
+        .match({userID: user_id, goalID: goal.id})
+        .single()
+
+        if (fetchLikeError) {
+          console.error('Error og fetch like', fetchLikeError);
+          return { ...goal, likedCurrentGoal: false};
+        }
+
+        if (!likedGoal || likedGoal.length === 0) {
+          likedCurrentGoal = false;
+        } else {
+          likedCurrentGoal = true
+        }
 
         // Replace userID with username
         return {
@@ -231,6 +254,7 @@ app.get('/goals/all', verifyToken, async (req, res) => {
           goalInfo: goal.goalInfo,
           numOfLikes: goal.numOfLikes,
           numOfComments: goal.numOfComments,
+          likedCurrentGoal: likedCurrentGoal,
         };
       })
     );
@@ -399,7 +423,7 @@ app.get('/events/:id', verifyToken, async (req, res) => {
 
 app.post('/like', verifyToken,  async (req, res) => {
   try{
-    const { post_id } = req.body;
+    const { post_id, user_id } = req.body;
 
     const {data: getLike, error: getLikeError} = await supabase
     .schema('posts')
@@ -424,6 +448,21 @@ app.post('/like', verifyToken,  async (req, res) => {
     if (updateError) {
       console.error('Error of update num of likes: ', updateErrorError.message);
       res.status(400).json({ error: updateErrorError.message})
+    }
+
+    const {error: userLikeError} = await supabase
+    .schema('posts')
+    .from('likedGoals')
+    .insert(
+      {
+        userID: user_id,
+        goalID: post_id
+      }
+    )
+
+    if (userLikeError) {
+      console.error('Error of insert user like information: ', userLikeError);
+      res.status(400).json({ error: userLikeError.message})
     }
 
     return res.status(200).json({message: 'Like update successfully'});
@@ -475,6 +514,6 @@ app.post('/upload', upload.array('images', 10), async (req, res) => {
 });
 
 const PORT = process.env.PORT || 3002; // Fallback for local testing
-app.listen(PORT, '0.0.0.0', () => {
+app.listen(PORT, '127.0.0.1', () => {
   console.log(`Server running on port ${PORT}`);
 });
