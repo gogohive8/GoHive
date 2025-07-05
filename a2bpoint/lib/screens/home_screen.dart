@@ -1,11 +1,14 @@
 import 'dart:developer' as developer;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:video_player/video_player.dart';
 import '../models/post.dart';
 import '../services/api_services.dart';
 import '../services/exceptions.dart';
 import '../providers/auth_provider.dart';
+import '../providers/posts_provider.dart';
 import 'navbar.dart';
+import 'post_detail_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -21,6 +24,7 @@ class _HomeScreenState extends State<HomeScreen>
   final ApiService _apiService = ApiService();
   late TabController _tabController;
   late Future<Map<String, List<Post>>> _postsFuture;
+  final Map<String, VideoPlayerController> _videoControllers = {};
   final Set<String> _likedPosts = {};
 
   @override
@@ -34,6 +38,7 @@ class _HomeScreenState extends State<HomeScreen>
   @override
   void dispose() {
     _tabController.removeListener(_handleTabSelection);
+    _videoControllers.forEach((_, controller) => controller.dispose());
     _tabController.dispose();
     _apiService.dispose();
     super.dispose();
@@ -135,6 +140,7 @@ class _HomeScreenState extends State<HomeScreen>
   void _likePost(
       String postId, int currentLikes, String userId, int index) async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final postsProvider = Provider.of<PostsProvider>(context, listen: false);
     if (!authProvider.isAuthenticated || authProvider.token == null) {
       authProvider.handleAuthError(
           context, AuthenticationException('Not authenticated'));
@@ -146,24 +152,10 @@ class _HomeScreenState extends State<HomeScreen>
       setState(() {
         if (_likedPosts.contains(postId)) {
           _likedPosts.remove(postId);
-          _postsFuture.then((groupedPosts) {
-            if (groupedPosts.containsKey(userId)) {
-              final posts = groupedPosts[userId]!;
-              if (index >= 0 && index < posts.length) {
-                posts[index].likes = currentLikes - 1;
-              }
-            }
-          });
+          postsProvider.likePost(postId, false, currentLikes);
         } else {
           _likedPosts.add(postId);
-          _postsFuture.then((groupedPosts) {
-            if (groupedPosts.containsKey(userId)) {
-              final posts = groupedPosts[userId]!;
-              if (index >= 0 && index < posts.length) {
-                posts[index].likes = currentLikes + 1;
-              }
-            }
-          });
+          postsProvider.likePost(postId, true, currentLikes);
         }
       });
     } catch (e, stackTrace) {
@@ -171,7 +163,7 @@ class _HomeScreenState extends State<HomeScreen>
           name: 'HomeScreen', stackTrace: stackTrace);
       authProvider.handleAuthError(context, e);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error liking post: $e')),
+        SnackBar(content: Text('Ошибка лайка: $e')),
       );
     }
   }
@@ -187,16 +179,76 @@ class _HomeScreenState extends State<HomeScreen>
       developer.log('Joining event: eventId=$eventId', name: 'HomeScreen');
       await _apiService.joinEvent(eventId, authProvider.token!);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('You have joined $eventText')),
+        SnackBar(content: Text('Вы присоединились к $eventText')),
       );
     } catch (e, stackTrace) {
       developer.log('Join event error: $e',
           name: 'HomeScreen', stackTrace: stackTrace);
       authProvider.handleAuthError(context, e);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error joining event: $e')),
+        SnackBar(content: Text('Ошибка присоединения: $e')),
       );
     }
+  }
+
+  Widget _buildMediaWidget(Post post) {
+    if (post.imageUrls == null || post.imageUrls!.isEmpty) {
+      return const SizedBox.shrink();
+    }
+    final url = post.imageUrls![0];
+    final isVideo = url.endsWith('.mp4') || url.endsWith('.mov');
+    if (isVideo) {
+      if (!_videoControllers.containsKey(post.id)) {
+        _videoControllers[post.id] =
+            VideoPlayerController.networkUrl(Uri.parse(url))
+              ..initialize().then((_) => setState(() {}));
+      }
+      final controller = _videoControllers[post.id]!;
+      return controller.value.isInitialized
+          ? Stack(
+              alignment: Alignment.center,
+              children: [
+                VideoPlayer(controller),
+                IconButton(
+                  icon: Icon(
+                    controller.value.isPlaying ? Icons.pause : Icons.play_arrow,
+                    color: Colors.white,
+                    size: 50,
+                  ),
+                  onPressed: () {
+                    setState(() {
+                      controller.value.isPlaying
+                          ? controller.pause()
+                          : controller.play();
+                    });
+                  },
+                ),
+              ],
+            )
+          : const Center(child: CircularProgressIndicator());
+    }
+    return ListView.builder(
+      scrollDirection: Axis.horizontal,
+      itemCount: post.imageUrls!.length,
+      itemBuilder: (context, imgIndex) {
+        return Padding(
+          padding: const EdgeInsets.only(right: 8),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: Image.network(
+              post.imageUrls![imgIndex],
+              width: 200,
+              height: 200,
+              fit: BoxFit.cover,
+              errorBuilder: (context, error, stackTrace) {
+                developer.log('Image load error: $error', name: 'HomeScreen');
+                return const Icon(Icons.broken_image, size: 100);
+              },
+            ),
+          ),
+        );
+      },
+    );
   }
 
   @override
@@ -228,7 +280,7 @@ class _HomeScreenState extends State<HomeScreen>
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
-                  'Goals',
+                  'Цели',
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
@@ -252,7 +304,7 @@ class _HomeScreenState extends State<HomeScreen>
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
-                  'Events',
+                  'События',
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
@@ -300,7 +352,7 @@ class _HomeScreenState extends State<HomeScreen>
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Text('Error loading $type: ${snapshot.error}'),
+                Text('Ошибка загрузки $type: ${snapshot.error}'),
                 const SizedBox(height: 16),
                 ElevatedButton(
                   onPressed: _fetchPosts,
@@ -308,7 +360,7 @@ class _HomeScreenState extends State<HomeScreen>
                     backgroundColor: const Color(0xFFAFCBEA),
                     foregroundColor: const Color(0xFF000000),
                   ),
-                  child: const Text('Retry'),
+                  child: const Text('Повторить'),
                 ),
               ],
             ),
@@ -336,7 +388,7 @@ class _HomeScreenState extends State<HomeScreen>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 if (groupedPosts.isEmpty)
-                  Center(child: Text('No $type available'))
+                  Center(child: Text('Нет $type для отображения'))
                 else
                   ...groupedPosts.entries.map((entry) {
                     final userId = entry.key;
@@ -367,138 +419,121 @@ class _HomeScreenState extends State<HomeScreen>
                                 'Rendering $type[$index]: id=${post.id}, text=${post.text}, tasks=${post.tasks?.length ?? 0}',
                                 name: 'HomeScreen');
                             final isLiked = _likedPosts.contains(post.id);
-                            return Card(
-                              color: const Color(0xFFDDDDDD),
-                              elevation: 2,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              margin: const EdgeInsets.symmetric(vertical: 8),
-                              child: Padding(
-                                padding: const EdgeInsets.all(12),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Row(
-                                      children: [
-                                        CircleAvatar(
-                                          backgroundImage:
-                                              post.user.avatarUrl.isNotEmpty
-                                                  ? NetworkImage(
-                                                      post.user.avatarUrl)
-                                                  : null,
-                                          backgroundColor:
-                                              const Color(0xFF333333),
-                                          radius: 20,
-                                          child: post.user.avatarUrl.isEmpty
-                                              ? Text(
-                                                  post.user.username[0]
-                                                      .toUpperCase(),
+                            return GestureDetector(
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) =>
+                                        PostDetailScreen(post: post),
+                                  ),
+                                );
+                              },
+                              child: Card(
+                                color: const Color(0xFFDDDDDD),
+                                elevation: 2,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                margin: const EdgeInsets.symmetric(vertical: 8),
+                                child: Padding(
+                                  padding: const EdgeInsets.all(12),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        children: [
+                                          CircleAvatar(
+                                            backgroundImage:
+                                                post.user.avatarUrl.isNotEmpty
+                                                    ? NetworkImage(
+                                                        post.user.avatarUrl)
+                                                    : null,
+                                            backgroundColor:
+                                                const Color(0xFF333333),
+                                            radius: 20,
+                                            child: post.user.avatarUrl.isEmpty
+                                                ? Text(
+                                                    post.user.username[0]
+                                                        .toUpperCase(),
+                                                    style: const TextStyle(
+                                                        color: Colors.white),
+                                                  )
+                                                : null,
+                                          ),
+                                          const SizedBox(width: 12),
+                                          Expanded(
+                                            child: Column(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
+                                              children: [
+                                                Text(
+                                                  post.user.username,
                                                   style: const TextStyle(
-                                                      color: Colors.white),
-                                                )
-                                              : null,
+                                                    fontWeight: FontWeight.bold,
+                                                    color: Color(0xFF000000),
+                                                  ),
+                                                ),
+                                                Text(
+                                                  post.createdAt
+                                                      .toLocal()
+                                                      .toString()
+                                                      .split('.')[0],
+                                                  style: const TextStyle(
+                                                    fontSize: 12,
+                                                    color: Color(0xFF333333),
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 12),
+                                      if (post.imageUrls != null &&
+                                          post.imageUrls!.isNotEmpty)
+                                        SizedBox(
+                                          height: 200,
+                                          child: _buildMediaWidget(post),
                                         ),
-                                        const SizedBox(width: 12),
-                                        Expanded(
-                                          child: Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            children: [
-                                              Text(
-                                                post.user.username,
-                                                style: const TextStyle(
-                                                  fontWeight: FontWeight.bold,
-                                                  color: Color(0xFF000000),
-                                                ),
-                                              ),
-                                              Text(
-                                                post.createdAt
-                                                    .toLocal()
-                                                    .toString()
-                                                    .split('.')[0],
-                                                style: const TextStyle(
-                                                  fontSize: 12,
-                                                  color: Color(0xFF333333),
-                                                ),
-                                              ),
-                                            ],
+                                      const SizedBox(height: 12),
+                                      Text(
+                                        post.text ?? 'Описание отсутствует',
+                                        style: const TextStyle(
+                                          fontSize: 16,
+                                          color: Color(0xFF1A1A1A),
+                                        ),
+                                      ),
+                                      if (type == 'goal' &&
+                                          post.tasks != null &&
+                                          post.tasks!.isNotEmpty) ...[
+                                        const SizedBox(height: 12),
+                                        const Text(
+                                          'Задачи',
+                                          style: TextStyle(
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.bold,
+                                            color: Color(0xFF000000),
                                           ),
                                         ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 12),
-                                    if (post.imageUrls != null &&
-                                        post.imageUrls!.isNotEmpty)
-                                      SizedBox(
-                                        height: 200,
-                                        child: ListView.builder(
-                                          scrollDirection: Axis.horizontal,
-                                          itemCount: post.imageUrls!.length,
-                                          itemBuilder: (context, imgIndex) {
-                                            return Padding(
-                                              padding: const EdgeInsets.only(
-                                                  right: 8),
-                                              child: ClipRRect(
-                                                borderRadius:
-                                                    BorderRadius.circular(8),
-                                                child: Image.network(
-                                                  post.imageUrls![imgIndex],
-                                                  width: 200,
-                                                  height: 200,
-                                                  fit: BoxFit.cover,
-                                                  errorBuilder: (context, error,
-                                                      stackTrace) {
-                                                    developer.log(
-                                                        'Image load error: $error',
-                                                        name: 'HomeScreen');
-                                                    return const Icon(
-                                                        Icons.broken_image,
-                                                        size: 100);
-                                                  },
-                                                ),
+                                        ...post.tasks!.map((task) => Padding(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                      vertical: 4),
+                                              child: Text(
+                                                task['title']?.toString() ??
+                                                    'Без названия',
+                                                style: const TextStyle(
+                                                    color: Color(0xFF333333)),
                                               ),
-                                            );
-                                          },
-                                        ),
-                                      ),
-                                    const SizedBox(height: 12),
-                                    Text(
-                                      post.text ?? 'No description available',
-                                      style: const TextStyle(
-                                        fontSize: 16,
-                                        color: Color(0xFF1A1A1A),
-                                      ),
-                                    ),
-                                    if (type == 'goal' &&
-                                        post.tasks != null &&
-                                        post.tasks!.isNotEmpty) ...[
+                                            )),
+                                      ],
                                       const SizedBox(height: 12),
-                                      const Text(
-                                        'Tasks',
-                                        style: TextStyle(
-                                          fontSize: 14,
-                                          fontWeight: FontWeight.bold,
-                                          color: Color(0xFF000000),
-                                        ),
-                                      ),
-                                      ...post.tasks!.map((task) => Padding(
-                                            padding: const EdgeInsets.symmetric(
-                                                vertical: 4),
-                                            child: Text(
-                                              task['title']?.toString() ??
-                                                  'Untitled task',
-                                              style: const TextStyle(
-                                                  color: Color(0xFF333333)),
-                                            ),
-                                          )),
-                                    ],
-                                    const SizedBox(height: 12),
-                                    Row(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.spaceBetween,
-                                      children: [
-                                        if (type == 'goal')
+                                      Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.spaceBetween,
+                                        children: [
                                           Row(
                                             children: [
                                               IconButton(
@@ -521,27 +556,51 @@ class _HomeScreenState extends State<HomeScreen>
                                                 style: const TextStyle(
                                                     color: Color(0xFF000000)),
                                               ),
-                                            ],
-                                          )
-                                        else
-                                          ElevatedButton(
-                                            onPressed: () => _joinEvent(
-                                                post.id, post.text ?? ''),
-                                            style: ElevatedButton.styleFrom(
-                                              backgroundColor:
-                                                  const Color(0xFFAFCBEA),
-                                              foregroundColor:
-                                                  const Color(0xFF000000),
-                                              shape: RoundedRectangleBorder(
-                                                borderRadius:
-                                                    BorderRadius.circular(8),
+                                              const SizedBox(width: 16),
+                                              IconButton(
+                                                icon: const Icon(
+                                                  Icons.comment,
+                                                  color: Color(0xFF333333),
+                                                ),
+                                                onPressed: () {
+                                                  Navigator.push(
+                                                    context,
+                                                    MaterialPageRoute(
+                                                      builder: (context) =>
+                                                          PostDetailScreen(
+                                                              post: post),
+                                                    ),
+                                                  );
+                                                },
                                               ),
-                                            ),
-                                            child: const Text('Join'),
+                                              Text(
+                                                '${post.numComments}',
+                                                style: const TextStyle(
+                                                    color: Color(0xFF000000)),
+                                              ),
+                                            ],
                                           ),
-                                      ],
-                                    ),
-                                  ],
+                                          if (type == 'event')
+                                            ElevatedButton(
+                                              onPressed: () => _joinEvent(
+                                                  post.id, post.text ?? ''),
+                                              style: ElevatedButton.styleFrom(
+                                                backgroundColor:
+                                                    const Color(0xFFAFCBEA),
+                                                foregroundColor:
+                                                    const Color(0xFF000000),
+                                                shape: RoundedRectangleBorder(
+                                                  borderRadius:
+                                                      BorderRadius.circular(8),
+                                                ),
+                                              ),
+                                              child:
+                                                  const Text('Присоединиться'),
+                                            ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
                                 ),
                               ),
                             );

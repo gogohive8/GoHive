@@ -3,7 +3,10 @@ import 'dart:developer' as developer;
 import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/post.dart';
+import '../models/comment.dart';
 import 'exceptions.dart';
+import 'dart:io';
+import 'package:dio/dio.dart' as dio;
 
 class ApiService {
   final http.Client _client = http.Client();
@@ -52,6 +55,104 @@ class ApiService {
     throw Exception('Request failed after $retries attempts');
   }
 
+  Future<String> uploadMedia(File file) async {
+    try {
+      developer.log('Uploading media file: ${file.path}', name: 'ApiService');
+      final dioInstance = dio.Dio();
+      final formData = dio.FormData.fromMap({
+        'files': await dio.MultipartFile.fromFile(
+          file.path,
+          filename: file.path.split('/').last,
+        ),
+      });
+
+      final response = await dioInstance
+          .post(
+            '$_postsUrl/upload',
+            data: formData,
+            options: dio.Options(
+              headers: {
+                'Authorization':
+                    'Bearer ${_supabase.auth.currentSession?.accessToken}',
+              },
+            ),
+          )
+          .timeout(const Duration(seconds: 30));
+
+      developer.log(
+          'Upload response: ${response.statusCode}, body: ${response.data}',
+          name: 'ApiService');
+      if (response.statusCode == 200 && response.data['url'] != null) {
+        return response.data['url'].toString();
+      }
+      throw Exception('Failed to upload media');
+    } catch (e, stackTrace) {
+      developer.log('Upload media error: $e',
+          name: 'ApiService', stackTrace: stackTrace);
+      rethrow;
+    }
+  }
+
+  Future<List<Comment>> getComments(String postId, String token,
+      {int limit = 10, int offset = 0}) async {
+    try {
+      developer.log(
+          'Fetching comments for postId: $postId, limit: $limit, offset: $offset',
+          name: 'ApiService');
+      final response = await _client.get(
+        Uri.parse(
+            '$_postsUrl/posts/$postId/comments?limit=$limit&offset=$offset'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+      ).timeout(const Duration(seconds: 10));
+      developer.log(
+          'Get comments response: ${response.statusCode}, body: ${response.body}',
+          name: 'ApiService');
+      final data = await _handleResponse(response);
+      final comments = (data as List<dynamic>)
+          .map((json) => Comment.fromJson({
+                'id': json['id']?.toString() ?? '',
+                'userID': json['userID']?.toString() ?? 'unknown',
+                'username': json['username']?.toString() ?? 'Unknown',
+                'text': json['text']?.toString() ?? '',
+                'created_at': json['created_at']?.toString() ??
+                    DateTime.now().toIso8601String(),
+              }))
+          .toList();
+      developer.log('Parsed ${comments.length} comments', name: 'ApiService');
+      return comments;
+    } catch (e, stackTrace) {
+      developer.log('Get comments error: $e',
+          name: 'ApiService', stackTrace: stackTrace);
+      rethrow;
+    }
+  }
+
+  Future<void> createComment(String postId, String text, String token) async {
+    try {
+      developer.log('Creating comment for postId: $postId', name: 'ApiService');
+      final response = await _client
+          .post(
+            Uri.parse('$_postsUrl/posts/$postId/comments'),
+            headers: {
+              'Authorization': 'Bearer $token',
+              'Content-Type': 'application/json',
+            },
+            body: jsonEncode({'text': text}),
+          )
+          .timeout(const Duration(seconds: 10));
+      developer.log('Create comment response: ${response.statusCode}',
+          name: 'ApiService');
+      await _handleResponse(response);
+    } catch (e, stackTrace) {
+      developer.log('Create comment error: $e',
+          name: 'ApiService', stackTrace: stackTrace);
+      rethrow;
+    }
+  }
+
   Future<List<Post>> getPosts(String token) async {
     try {
       developer.log('Attempting to fetch posts with token', name: 'ApiService');
@@ -70,14 +171,19 @@ class ApiService {
           .map((json) => Post.fromJson({
                 ...json,
                 'type': 'goal',
-                'userID': json['userID'] ?? json['user_id'] ?? 'unknown',
-                'username': json['username'] ?? 'Unknown',
-                'description': json['description'] ?? json['goalInfo'] ?? '',
-                'created_at':
-                    json['created_at'] ?? DateTime.now().toIso8601String(),
+                'userID': json['userID']?.toString() ??
+                    json['user_id']?.toString() ??
+                    'unknown',
+                'username': json['username']?.toString() ?? 'Unknown',
+                'numOfComments': json['numOfComments'] ?? 0,
+                'description': json['description']?.toString() ??
+                    json['goalInfo']?.toString() ??
+                    '',
+                'created_at': json['created_at']?.toString() ??
+                    DateTime.now().toIso8601String(),
                 'tasks': json['tasks'] ?? [],
                 'numOfLikes': json['numOfLikes'] ?? 0,
-                'id': json['id'] ?? '',
+                'id': json['id']?.toString() ?? '',
               }, type: 'goal'))
           .toList();
       developer.log('Parsed ${posts.length} posts', name: 'ApiService');
@@ -108,13 +214,14 @@ class ApiService {
           .map((json) => Post.fromJson({
                 ...json,
                 'type': 'goal',
-                'description': json['goalInfo'] ?? '',
-                'created_at':
-                    json['created_at'] ?? DateTime.now().toIso8601String(),
+                'description': json['goalInfo']?.toString() ?? '',
+                'created_at': json['created_at']?.toString() ??
+                    DateTime.now().toIso8601String(),
                 'numOfLikes': json['numOfLikes'] ?? 0,
-                'id': json['id'] ?? '',
-                'userID': json['userID'] ?? 'unknown',
-                'username': json['username'] ?? 'Unknown',
+                'numOfComments': json['numOfComments'] ?? 0,
+                'id': json['id']?.toString() ?? '',
+                'userID': json['userID']?.toString() ?? 'unknown',
+                'username': json['username']?.toString() ?? 'Unknown',
               }, type: 'goal'))
           .toList();
       developer.log('Parsed ${posts.length} goals', name: 'ApiService');
@@ -145,13 +252,14 @@ class ApiService {
           .map((json) => Post.fromJson({
                 ...json,
                 'type': 'event',
-                'description': json['description'] ?? '',
-                'created_at':
-                    json['created_at'] ?? DateTime.now().toIso8601String(),
+                'description': json['description']?.toString() ?? '',
+                'created_at': json['created_at']?.toString() ??
+                    DateTime.now().toIso8601String(),
                 'numOfLikes': json['numOfLikes'] ?? 0,
-                'id': json['id'] ?? '',
-                'userID': json['userID'] ?? 'unknown',
-                'username': json['username'] ?? 'Unknown',
+                'numOfComments': json['numOfComments'] ?? 0,
+                'id': json['id']?.toString() ?? '',
+                'userID': json['userID']?.toString() ?? 'unknown',
+                'username': json['username']?.toString() ?? 'Unknown',
               }, type: 'event'))
           .toList();
       developer.log('Parsed ${posts.length} events', name: 'ApiService');
@@ -181,14 +289,19 @@ class ApiService {
           .map((json) => Post.fromJson({
                 ...json,
                 'type': 'goal',
-                'userID': json['user_id'] ?? json['ID'] ?? 'unknown',
-                'username': json['username'] ?? 'Unknown',
-                'description': json['description'] ?? json['goalInfo'] ?? '',
-                'created_at':
-                    json['created_at'] ?? DateTime.now().toIso8601String(),
+                'userID': json['user_id']?.toString() ??
+                    json['ID']?.toString() ??
+                    'unknown',
+                'username': json['username']?.toString() ?? 'Unknown',
+                'description': json['description']?.toString() ??
+                    json['goalInfo']?.toString() ??
+                    '',
+                'created_at': json['created_at']?.toString() ??
+                    DateTime.now().toIso8601String(),
                 'tasks': json['tasks'] ?? [],
                 'numOfLikes': json['numOfLikes'] ?? 0,
-                'id': json['id'] ?? '',
+                'numOfComments': json['numOfComments'] ?? 0,
+                'id': json['id']?.toString() ?? '',
               }, type: 'goal'))
           .toList();
       developer.log('Parsed ${posts.length} user goals', name: 'ApiService');
@@ -218,13 +331,14 @@ class ApiService {
           .map((json) => Post.fromJson({
                 ...json,
                 'type': 'event',
-                'userID': json['user_id'] ?? 'unknown',
-                'username': json['username'] ?? 'Unknown',
-                'description': json['description'] ?? '',
-                'created_at':
-                    json['createdAt'] ?? DateTime.now().toIso8601String(),
+                'userID': json['user_id']?.toString() ?? 'unknown',
+                'username': json['username']?.toString() ?? 'Unknown',
+                'description': json['description']?.toString() ?? '',
+                'created_at': json['createdAt']?.toString() ??
+                    DateTime.now().toIso8601String(),
                 'numOfLikes': json['numOfLikes'] ?? 0,
-                'id': json['id'] ?? '',
+                'numOfComments': json['numOfComments'] ?? 0,
+                'id': json['id']?.toString() ?? '',
               }, type: 'event'))
           .toList();
       developer.log('Parsed ${posts.length} user events', name: 'ApiService');
@@ -233,6 +347,44 @@ class ApiService {
       developer.log('GetEvents error: $e',
           name: 'ApiService', stackTrace: stackTrace);
       return [];
+    }
+  }
+
+  Future<Post> getPostById(String postId, String token) async {
+    try {
+      developer.log('Fetching post by id: $postId', name: 'ApiService');
+      final response = await _client.get(
+        Uri.parse('$_postsUrl/posts/$postId'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+      ).timeout(const Duration(seconds: 10));
+      developer.log(
+          'Get post by id response: ${response.statusCode}, body: ${response.body}',
+          name: 'ApiService');
+      final data = await _handleResponse(response);
+      return Post.fromJson({
+        ...data,
+        'type': data['type']?.toString() ?? 'goal',
+        'userID': data['userID']?.toString() ??
+            data['user_id']?.toString() ??
+            'unknown',
+        'username': data['username']?.toString() ?? 'Unknown',
+        'description': data['description']?.toString() ??
+            data['goalInfo']?.toString() ??
+            '',
+        'created_at':
+            data['created_at']?.toString() ?? DateTime.now().toIso8601String(),
+        'tasks': data['tasks'] ?? [],
+        'numOfLikes': data['numOfLikes'] ?? 0,
+        'numOfComments': data['numOfComments'] ?? 0,
+        'id': data['id']?.toString() ?? '',
+      }, type: data['type']?.toString() ?? 'goal');
+    } catch (e, stackTrace) {
+      developer.log('Get post by id error: $e',
+          name: 'ApiService', stackTrace: stackTrace);
+      rethrow;
     }
   }
 
@@ -287,6 +439,7 @@ class ApiService {
     String? pointA,
     String? pointB,
     List<Map<String, dynamic>>? tasks,
+    List<String>? imageUrls,
     required String token,
   }) async {
     try {
@@ -301,6 +454,7 @@ class ApiService {
           'tasks': tasks
               .map((task) => {'title': task['title'], 'completed': false})
               .toList(),
+        if (imageUrls != null && imageUrls.isNotEmpty) 'image_urls': imageUrls,
       };
 
       developer.log(

@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'dart:developer' as developer;
+import 'dart:io';
+import 'package:image_picker/image_picker.dart';
+import 'package:video_player/video_player.dart';
 import '../providers/auth_provider.dart';
 import '../services/api_services.dart';
 import '../services/exceptions.dart';
@@ -22,6 +25,9 @@ class _AddScreenState extends State<AddScreen> {
   final _pointBController = TextEditingController();
   final _dateTimeController = TextEditingController();
   final _taskController = TextEditingController();
+  final ImagePicker _picker = ImagePicker();
+  File? _selectedMedia;
+  VideoPlayerController? _videoController;
 
   int _selectedTabIndex = 0;
   String? _selectedInterest;
@@ -52,29 +58,56 @@ class _AddScreenState extends State<AddScreen> {
     }
   }
 
-  @override
-  void dispose() {
-    _descriptionController.dispose();
-    _locationController.dispose();
-    _pointAController.dispose();
-    _pointBController.dispose();
-    _dateTimeController.dispose();
-    _taskController.dispose();
-    _apiService.dispose();
-    super.dispose();
+  Future<void> _pickMedia() async {
+    try {
+      final XFile? pickedFile = await showModalBottomSheet<XFile>(
+        context: context,
+        builder: (context) => Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.image),
+              title: const Text('Выбрать изображение'),
+              onTap: () async => Navigator.pop(context,
+                  await _picker.pickImage(source: ImageSource.gallery)),
+            ),
+            ListTile(
+              leading: const Icon(Icons.videocam),
+              title: const Text('Выбрать видео'),
+              onTap: () async => Navigator.pop(context,
+                  await _picker.pickVideo(source: ImageSource.gallery)),
+            ),
+          ],
+        ),
+      );
+
+      if (pickedFile != null) {
+        setState(() {
+          _selectedMedia = File(pickedFile.path);
+          if (pickedFile.path.endsWith('.mp4') ||
+              pickedFile.path.endsWith('.mov')) {
+            _videoController = VideoPlayerController.file(_selectedMedia!)
+              ..initialize().then((_) => setState(() {}));
+          }
+        });
+      }
+    } catch (e, stackTrace) {
+      developer.log('Pick media error: $e',
+          name: 'AddScreen', stackTrace: stackTrace);
+    }
   }
 
   Future<void> _saveData() async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     if (_selectedInterest == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select an interest')),
+        const SnackBar(content: Text('Выберите интерес')),
       );
       return;
     }
     if (_selectedTabIndex == 1 && _dateTimeController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select a date and time')),
+        const SnackBar(content: Text('Выберите дату и время')),
       );
       return;
     }
@@ -89,6 +122,7 @@ class _AddScreenState extends State<AddScreen> {
       try {
         developer.log('Saving data: tabIndex=$_selectedTabIndex',
             name: 'AddScreen');
+        String? mediaUrl;
         setState(() {
           _isLoading = true;
         });
@@ -101,6 +135,9 @@ class _AddScreenState extends State<AddScreen> {
 
         final String userId = authProvider.userId!;
         final String token = authProvider.token!;
+        if (_selectedMedia != null) {
+          mediaUrl = await _apiService.uploadMedia(_selectedMedia!);
+        }
 
         if (_selectedTabIndex == 0) {
           await _apiService.createGoal(
@@ -115,6 +152,7 @@ class _AddScreenState extends State<AddScreen> {
                 ? _pointBController.text
                 : null,
             tasks: _tasks.isNotEmpty ? _tasks : null,
+            imageUrls: mediaUrl != null ? [mediaUrl] : null,
             token: token,
           );
         } else {
@@ -131,7 +169,7 @@ class _AddScreenState extends State<AddScreen> {
         if (mounted) {
           Navigator.pop(context);
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Data saved successfully')),
+            const SnackBar(content: Text('Данные успешно сохранены')),
           );
           _descriptionController.clear();
           _locationController.clear();
@@ -141,6 +179,9 @@ class _AddScreenState extends State<AddScreen> {
           setState(() {
             _selectedInterest = null;
             _tasks.clear();
+            _selectedMedia = null;
+            _videoController?.dispose();
+            _videoController = null;
             _errorMessage = '';
           });
         }
@@ -153,7 +194,7 @@ class _AddScreenState extends State<AddScreen> {
           setState(() {
             _errorMessage = e is DataValidationException
                 ? e.message
-                : 'Error saving data: $e';
+                : 'Ошибка сохранения: $e';
           });
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text(_errorMessage)),
@@ -204,6 +245,40 @@ class _AddScreenState extends State<AddScreen> {
     }
   }
 
+  Widget _buildMediaPreview() {
+    if (_selectedMedia == null) return const SizedBox.shrink();
+    final isVideo = _selectedMedia!.path.endsWith('.mp4') ||
+        _selectedMedia!.path.endsWith('.mov');
+    return Stack(
+      alignment: Alignment.topRight,
+      children: [
+        Container(
+          height: 100,
+          width: 100,
+          margin: const EdgeInsets.only(top: 8),
+          child: isVideo &&
+                  _videoController != null &&
+                  _videoController!.value.isInitialized
+              ? VideoPlayer(_videoController!)
+              : Image.file(
+                  _selectedMedia!,
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) =>
+                      const Icon(Icons.broken_image, size: 50),
+                ),
+        ),
+        IconButton(
+          icon: const Icon(Icons.close, color: Color(0xFF333333)),
+          onPressed: () => setState(() {
+            _selectedMedia = null;
+            _videoController?.dispose();
+            _videoController = null;
+          }),
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
@@ -241,7 +316,7 @@ class _AddScreenState extends State<AddScreen> {
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Text(
-                            'Goal',
+                            'Цель',
                             style: TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.bold,
@@ -265,7 +340,7 @@ class _AddScreenState extends State<AddScreen> {
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Text(
-                            'Event',
+                            'Событие',
                             style: TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.bold,
@@ -290,7 +365,7 @@ class _AddScreenState extends State<AddScreen> {
                           TextFormField(
                             controller: _descriptionController,
                             decoration: InputDecoration(
-                              labelText: 'Description',
+                              labelText: 'Описание',
                               labelStyle:
                                   const TextStyle(color: Color(0xFF1A1A1A)),
                               filled: true,
@@ -302,17 +377,26 @@ class _AddScreenState extends State<AddScreen> {
                               ),
                               prefixIcon: const Icon(Icons.description,
                                   color: Color(0xFF333333)),
+                              suffixIcon: IconButton(
+                                icon: const Icon(Icons.attach_file,
+                                    color: Color(0xFF333333)),
+                                onPressed: _pickMedia,
+                              ),
                             ),
                             style: const TextStyle(color: Color(0xFF1A1A1A)),
                             validator: (value) => value?.isEmpty ?? true
-                                ? 'Enter description'
+                                ? 'Введите описание'
                                 : null,
                           ),
+                          if (_selectedMedia != null) ...[
+                            SizedBox(height: size.height * 0.02),
+                            _buildMediaPreview(),
+                          ],
                           SizedBox(height: size.height * 0.02),
                           TextFormField(
                             controller: _locationController,
                             decoration: InputDecoration(
-                              labelText: 'Location',
+                              labelText: 'Местоположение',
                               labelStyle:
                                   const TextStyle(color: Color(0xFF1A1A1A)),
                               filled: true,
@@ -327,7 +411,7 @@ class _AddScreenState extends State<AddScreen> {
                             ),
                             style: const TextStyle(color: Color(0xFF1A1A1A)),
                             validator: (value) => value?.isEmpty ?? true
-                                ? 'Enter location'
+                                ? 'Введите местоположение'
                                 : null,
                           ),
                           SizedBox(height: size.height * 0.02),
@@ -335,7 +419,7 @@ class _AddScreenState extends State<AddScreen> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               const Text(
-                                'Interests',
+                                'Интересы',
                                 style: TextStyle(
                                   fontWeight: FontWeight.bold,
                                   color: Color(0xFF000000),
@@ -346,13 +430,13 @@ class _AddScreenState extends State<AddScreen> {
                                 spacing: 8,
                                 runSpacing: 8,
                                 children: [
-                                  'Health',
-                                  'Yoga',
-                                  'Sport',
-                                  'Music',
-                                  'Science',
-                                  'Book',
-                                  'Swimming',
+                                  'Здоровье',
+                                  'Йога',
+                                  'Спорт',
+                                  'Музыка',
+                                  'Наука',
+                                  'Книги',
+                                  'Плавание',
                                 ].map((interest) {
                                   return ChoiceChip(
                                     label: Text(interest),
@@ -378,7 +462,7 @@ class _AddScreenState extends State<AddScreen> {
                             TextFormField(
                               controller: _dateTimeController,
                               decoration: InputDecoration(
-                                labelText: 'Date and Time',
+                                labelText: 'Дата и время',
                                 labelStyle:
                                     const TextStyle(color: Color(0xFF1A1A1A)),
                                 filled: true,
@@ -404,7 +488,7 @@ class _AddScreenState extends State<AddScreen> {
                             TextFormField(
                               controller: _pointAController,
                               decoration: InputDecoration(
-                                labelText: 'Point A',
+                                labelText: 'Точка A',
                                 labelStyle:
                                     const TextStyle(color: Color(0xFF1A1A1A)),
                                 filled: true,
@@ -423,7 +507,7 @@ class _AddScreenState extends State<AddScreen> {
                             TextFormField(
                               controller: _pointBController,
                               decoration: InputDecoration(
-                                labelText: 'Point B',
+                                labelText: 'Точка B',
                                 labelStyle:
                                     const TextStyle(color: Color(0xFF1A1A1A)),
                                 filled: true,
@@ -440,7 +524,7 @@ class _AddScreenState extends State<AddScreen> {
                             ),
                             SizedBox(height: size.height * 0.02),
                             const Text(
-                              'Tasks',
+                              'Задачи',
                               style: TextStyle(
                                 fontWeight: FontWeight.bold,
                                 color: Color(0xFF000000),
@@ -475,7 +559,7 @@ class _AddScreenState extends State<AddScreen> {
                                   child: TextFormField(
                                     controller: _taskController,
                                     decoration: InputDecoration(
-                                      hintText: 'Add a task',
+                                      hintText: 'Добавить задачу',
                                       hintStyle: const TextStyle(
                                           color: Color(0xFF333333)),
                                       filled: true,
@@ -514,7 +598,7 @@ class _AddScreenState extends State<AddScreen> {
                                   borderRadius: BorderRadius.circular(10),
                                 ),
                               ),
-                              child: const Text('Create'),
+                              child: const Text('Создать'),
                             ),
                           ),
                           if (_errorMessage.isNotEmpty)

@@ -13,13 +13,13 @@ dependencies:
   intl_phone_number_input: ^0.7.3
   cupertino_icons: ^1.0.6
   supabase_flutter: ^2.0.0
-  intl: ^0.18.0  # Add this line for intl package
-  image_picker: ^1.0.0
+  image_picker: ^1.0.7
+  video_player: ^2.8.6
+  dio: ^5.4.2
+  intl: ^0.18.0
   shared_preferences: ^2.2.2
-  universal_io: ^2.2.0
+  universal_io: ^2.2.2
   flutter_launcher_icons: ^0.14.1
-  
-  
 
 dev_dependencies:
   flutter_test:

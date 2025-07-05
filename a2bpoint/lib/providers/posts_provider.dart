@@ -38,6 +38,57 @@ class PostsProvider with ChangeNotifier {
     }
   }
 
+  Future<void> likePost(String postId, bool isLiked, int currentLikes) async {
+    try {
+      developer.log('Updating likes for postId: $postId, isLiked: $isLiked',
+          name: 'PostsProvider');
+      final index = _posts.indexWhere((post) => post.id == postId);
+      if (index != -1) {
+        _posts[index] = Post(
+          id: _posts[index].id,
+          user: _posts[index].user,
+          text: _posts[index].text,
+          type: _posts[index].type,
+          createdAt: _posts[index].createdAt,
+          likes: isLiked ? currentLikes + 1 : currentLikes - 1,
+          numComments: _posts[index].numComments,
+          imageUrls: _posts[index].imageUrls,
+          tasks: _posts[index].tasks,
+        );
+        notifyListeners();
+      }
+    } catch (e, stackTrace) {
+      developer.log('Error updating post likes: $e',
+          name: 'PostsProvider', stackTrace: stackTrace);
+      rethrow;
+    }
+  }
+
+  Future<void> addComment(String postId) async {
+    try {
+      developer.log('Adding comment to postId: $postId', name: 'PostsProvider');
+      final index = _posts.indexWhere((post) => post.id == postId);
+      if (index != -1) {
+        _posts[index] = Post(
+          id: _posts[index].id,
+          user: _posts[index].user,
+          text: _posts[index].text,
+          type: _posts[index].type,
+          createdAt: _posts[index].createdAt,
+          likes: _posts[index].likes,
+          numComments: _posts[index].numComments + 1,
+          imageUrls: _posts[index].imageUrls,
+          tasks: _posts[index].tasks,
+        );
+        notifyListeners();
+      }
+    } catch (e, stackTrace) {
+      developer.log('Error adding comment: $e',
+          name: 'PostsProvider', stackTrace: stackTrace);
+      rethrow;
+    }
+  }
+
   void clearError() {
     _error = null;
     notifyListeners();
