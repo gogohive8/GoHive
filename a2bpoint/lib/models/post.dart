@@ -1,52 +1,82 @@
-import 'package:a2bpoint/models/user.dart';
-import 'dart:developer' as developer;
-
-// Defining the Post class to represent a post or goal in the app
 class Post {
   final String id;
   final User user;
   final String? text;
-  final String type; // 'post' | 'goal' | 'event'
-  final DateTime createdAt;
-  final int likes;
-  final int numComments; // Number of comments on the post
   final List<String>? imageUrls;
+  final String type;
+  final int numOfLikes;
+  final int numComments;
+  final DateTime createdAt;
   final List<Map<String, dynamic>>? tasks;
 
   Post({
     required this.id,
     required this.user,
     this.text,
-    required this.type,
-    required this.createdAt,
-    required this.likes,
-    required this.numComments,
     this.imageUrls,
+    required this.type,
+    required this.numOfLikes,
+    required this.numComments,
+    required this.createdAt,
     this.tasks,
   });
 
-  factory Post.fromJson(
-    Map<String, dynamic> json, {
-    required String type,
-  }) {
-    developer.log('Post.fromJson keys: ${json.keys.toList()}',
-        name: 'Post.fromJson');
+  factory Post.fromJson(Map<String, dynamic> json, {required String type}) {
     return Post(
       id: json['id']?.toString() ?? '',
-      numComments: json['numOfComments'] ?? 0,
-      user: User.fromJson({
-        'userID': json['userID'] ?? json['user_id'] ?? 'unknown',
-        'username': json['username'] ?? 'Unknown',
-        'avatar': json['avatar']?.toString() ?? '',
-      }),
-      text:
-          json['description']?.toString() ?? json['goalInfo']?.toString() ?? '',
+      user: User(
+        id: json['userID']?.toString() ?? 'unknown',
+        username: json['username']?.toString() ?? 'Unknown',
+        profileImage: json['avatar']?.toString() ?? '',
+      ),
+      text: json['description']?.toString(),
+      imageUrls: json['image_urls'] != null
+          ? List<String>.from(json['image_urls'])
+          : null,
       type: type,
+      numOfLikes: (json['numOfnumOfLikes'] as num?)?.toInt() ?? 0,
+      numComments: (json['numOfComments'] as num?)?.toInt() ?? 0,
       createdAt: DateTime.parse(
           json['created_at']?.toString() ?? DateTime.now().toIso8601String()),
-      likes: json['numOfLikes'] ?? 0,
-      imageUrls: (json['image_urls'] as List<dynamic>?)?.cast<String>(),
-      tasks: (json['tasks'] as List<dynamic>?)?.cast<Map<String, dynamic>>(),
+      tasks: json['tasks'] != null
+          ? List<Map<String, dynamic>>.from(json['tasks'])
+          : null,
     );
   }
+
+  Post copyWith({
+    String? id,
+    User? user,
+    String? text,
+    List<String>? imageUrls,
+    String? type,
+    int? numOfLikes,
+    int? numComments,
+    DateTime? createdAt,
+    List<Map<String, dynamic>>? tasks,
+  }) {
+    return Post(
+      id: id ?? this.id,
+      user: user ?? this.user,
+      text: text ?? this.text,
+      imageUrls: imageUrls ?? this.imageUrls,
+      type: type ?? this.type,
+      numOfLikes: numOfLikes ?? this.numOfLikes,
+      numComments: numComments ?? this.numComments,
+      createdAt: createdAt ?? this.createdAt,
+      tasks: tasks ?? this.tasks,
+    );
+  }
+}
+
+class User {
+  final String id;
+  final String username;
+  final String profileImage;
+
+  User({
+    required this.id,
+    required this.username,
+    required this.profileImage,
+  });
 }

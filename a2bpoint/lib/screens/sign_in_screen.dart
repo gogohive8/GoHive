@@ -54,13 +54,12 @@ class _SignInScreenState extends State<SignInScreen> {
           authData['token']!,
           authData['userId']!,
           authData['email'] ?? _emailController.text,
-          authData['username'],
+          authData['username'] ?? '',
           isGoogleLogin: isGoogleLogin,
           isNewUser: authData['isNewUser'] == 'true',
         );
 
         if (authProvider.isAuthenticated) {
-          // Check profile for Google Sign-In
           if (isGoogleLogin) {
             try {
               final profile = await _apiService.getProfile(
@@ -132,7 +131,7 @@ class _SignInScreenState extends State<SignInScreen> {
       developer.log('Sign-in error: $e',
           name: 'SignInScreen', stackTrace: stackTrace);
       if (mounted) {
-        Navigator.pop(context, false); // Ensure dialog is closed
+        Navigator.pop(context, false);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
               content: Text(isGoogleLogin
@@ -165,9 +164,19 @@ class _SignInScreenState extends State<SignInScreen> {
     }
   }
 
+  Future<void> _signInWithFacebook() async {
+    developer.log('Attempting Facebook sign-in', name: 'SignInScreen');
+    await _handleSignIn(_apiService.signInWithFacebook(), false);
+  }
+
   Future<void> _signInWithGoogle() async {
     developer.log('Attempting Google sign-in', name: 'SignInScreen');
     await _handleSignIn(_apiService.signInWithGoogle(), true);
+  }
+
+  Future<void> _signInWithApple() async {
+    developer.log('Attempting Apple sign-in', name: 'SignInScreen');
+    await _handleSignIn(_apiService.signInWithApple(), false);
   }
 
   @override
@@ -202,18 +211,20 @@ class _SignInScreenState extends State<SignInScreen> {
                     children: [
                       Image.asset(
                         'assets/logo_background.png',
-                        height: size.height * 0.15,
+                        height: size.height * 0.28,
+                        width: size.width * 0.42,
                         fit: BoxFit.contain,
                       ),
                       const SizedBox(height: 8),
                       const Text(
                         'GoHive',
                         style: TextStyle(
+                          fontFamily: 'TT Norms Pro Trial',
                           fontWeight: FontWeight.bold,
                           fontSize: 32,
                           height: 40 / 32,
                           letterSpacing: -0.02 * 32,
-                          color: Color(0xFF000000),
+                          color: Color(0xFF222220),
                         ),
                         textAlign: TextAlign.center,
                       ),
@@ -290,7 +301,7 @@ class _SignInScreenState extends State<SignInScreen> {
                         child: ElevatedButton(
                           onPressed: _isLoading ? null : _signInWithEmail,
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFFAFCBEA),
+                            backgroundColor: const Color(0xFF5F93E6),
                             foregroundColor: const Color(0xFF000000),
                             padding: EdgeInsets.symmetric(
                                 vertical: size.height * 0.02),
@@ -298,7 +309,7 @@ class _SignInScreenState extends State<SignInScreen> {
                               borderRadius: BorderRadius.circular(10),
                             ),
                             disabledBackgroundColor:
-                                const Color(0xFFAFCBEA).withValues(alpha: 0.5),
+                                const Color(0xFF5F93E6).withValues(alpha: 0.5),
                           ),
                           child: Text(
                             'Sign In',
@@ -334,28 +345,45 @@ class _SignInScreenState extends State<SignInScreen> {
                           ),
                         ),
                       ),
-                      SizedBox(height: size.height * 0.01),
-                      SizedBox(
-                        width: double.infinity,
-                        child: OutlinedButton.icon(
-                          onPressed: _isLoading ? null : _signInWithGoogle,
-                          icon:
-                              Image.asset('assets/google_icon.png', height: 24),
-                          label: const Text(
-                            'Sign in with Google',
-                            style: TextStyle(color: Color(0xFF1A1A1A)),
+                      SizedBox(height: size.height * 0.03),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          _buildSocialButton(
+                            icon: Image.asset('assets/email_icon.png',
+                                height: 24),
+                            onPressed: _signInWithEmail,
                           ),
-                          style: OutlinedButton.styleFrom(
-                            side: const BorderSide(color: Color(0xFF333333)),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            backgroundColor:
-                                const Color.fromRGBO(221, 221, 221, 0.1),
-                            disabledBackgroundColor:
-                                const Color.fromRGBO(221, 221, 221, 0.1),
+                          SizedBox(width: size.width * 0.05),
+                          _buildSocialButton(
+                            icon: Image.asset('assets/facebook_icon.png',
+                                height: 24),
+                            onPressed: _signInWithFacebook,
                           ),
+                          SizedBox(width: size.width * 0.05),
+                          _buildSocialButton(
+                            icon: Image.asset('assets/google_icon.png',
+                                height: 24),
+                            onPressed: _signInWithGoogle,
+                          ),
+                          SizedBox(width: size.width * 0.05),
+                          _buildSocialButton(
+                            icon: Image.asset('assets/apple_icon.png',
+                                height: 24),
+                            onPressed: _signInWithApple,
+                          ),
+                        ],
+                      ),
+                      SizedBox(height: size.height * 0.03),
+                      const Text(
+                        'By clicking the “Sign in” button, you confirm that you accept the user agreement and consent to the processing of your personal data.',
+                        style: TextStyle(
+                          fontFamily: 'Inter',
+                          fontSize: 13,
+                          color: Color(0xFF222220),
+                          height: 18 / 13,
                         ),
+                        textAlign: TextAlign.center,
                       ),
                     ],
                   ),
@@ -365,6 +393,23 @@ class _SignInScreenState extends State<SignInScreen> {
           ),
         );
       },
+    );
+  }
+
+  Widget _buildSocialButton({
+    required Widget icon,
+    required VoidCallback onPressed,
+  }) {
+    return OutlinedButton(
+      onPressed: _isLoading ? null : onPressed,
+      style: OutlinedButton.styleFrom(
+        side: const BorderSide(color: Color(0xFF333333)),
+        shape: const CircleBorder(),
+        padding: const EdgeInsets.all(12),
+        backgroundColor: const Color.fromRGBO(221, 221, 221, 0.1),
+        disabledBackgroundColor: const Color.fromRGBO(221, 221, 221, 0.1),
+      ),
+      child: icon,
     );
   }
 }

@@ -167,10 +167,10 @@ class _SearchScreenState extends State<SearchScreen> {
                             itemBuilder: (context, index) {
                               final user = _searchResults[index];
                               return _buildUserCard(
-                                avatarUrl: user['avatarUrl'] ?? '',
+                                profileImage: user['profileImage'] ?? '',
                                 username: user['username'] ?? 'Unknown',
-                                bio: user['bio'] ?? 'No bio',
-                                followers: user['followers'] ?? 0,
+                                biography: user['biography'] ?? 'No biography',
+                                numOfFollowers: user['numOfFollowers'] ?? 0,
                               );
                             },
                           ),
@@ -190,10 +190,10 @@ class _SearchScreenState extends State<SearchScreen> {
   }
 
   Widget _buildUserCard({
-    required String avatarUrl,
+    required String profileImage,
     required String username,
-    required String bio,
-    required int followers,
+    required String biography,
+    required int numOfFollowers,
   }) {
     return Card(
       color: const Color(0xFFDDDDDD),
@@ -206,7 +206,7 @@ class _SearchScreenState extends State<SearchScreen> {
           children: [
             CircleAvatar(
               backgroundImage:
-                  avatarUrl.isNotEmpty ? NetworkImage(avatarUrl) : null,
+                  profileImage.isNotEmpty ? NetworkImage(profileImage) : null,
               backgroundColor: const Color(0xFF333333),
               radius: 30,
             ),
@@ -225,7 +225,7 @@ class _SearchScreenState extends State<SearchScreen> {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    bio,
+                    biography,
                     style: const TextStyle(
                       fontSize: 14,
                       color: Color(0xFF1A1A1A),
@@ -235,7 +235,7 @@ class _SearchScreenState extends State<SearchScreen> {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    '$followers подписчиков',
+                    '$numOfFollowers подписчиков',
                     style: const TextStyle(
                       fontSize: 12,
                       color: Color(0xFF333333),

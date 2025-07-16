@@ -55,7 +55,7 @@ class ApiService {
     throw Exception('Request failed after $retries attempts');
   }
 
-  Future<String> uploadMedia(File file) async {
+  Future<String> uploadMedia(File file, String token) async {
     try {
       developer.log('Uploading media file: ${file.path}', name: 'ApiService');
       final dioInstance = dio.Dio();
@@ -72,8 +72,7 @@ class ApiService {
             data: formData,
             options: dio.Options(
               headers: {
-                'Authorization':
-                    'Bearer ${_supabase.auth.currentSession?.accessToken}',
+                'Authorization': 'Bearer $token',
               },
             ),
           )
@@ -83,7 +82,9 @@ class ApiService {
           'Upload response: ${response.statusCode}, body: ${response.data}',
           name: 'ApiService');
       if (response.statusCode == 200 && response.data['url'] != null) {
-        return response.data['url'].toString();
+        final url = response.data['url'].toString();
+        developer.log('Media uploaded successfully: $url', name: 'ApiService');
+        return url;
       }
       throw Exception('Failed to upload media');
     } catch (e, stackTrace) {
@@ -93,35 +94,40 @@ class ApiService {
     }
   }
 
-  Future<List<Comment>> getComments(String postId, String token,
+  Future<List<Comment>> getComments(String post_id, String token,
       {int limit = 10, int offset = 0}) async {
     try {
       developer.log(
-          'Fetching comments for postId: $postId, limit: $limit, offset: $offset',
+          'Fetching comments for post_id: $post_id, limit: $limit, offset: $offset',
           name: 'ApiService');
       final response = await _client.get(
         Uri.parse(
-            '$_postsUrl/posts/$postId/comments?limit=$limit&offset=$offset'),
+            '$_postsUrl/posts/$post_id/comments?limit=$limit&offset=$offset'),
         headers: {
           'Authorization': 'Bearer $token',
           'Content-Type': 'application/json',
         },
       ).timeout(const Duration(seconds: 10));
-      developer.log(
-          'Get comments response: ${response.statusCode}, body: ${response.body}',
-          name: 'ApiService');
       final data = await _handleResponse(response);
+      if (data.isEmpty) {
+        developer.log('No comments found for post_id: $post_id',
+            name: 'ApiService');
+        return [];
+      }
       final comments = (data as List<dynamic>)
           .map((json) => Comment.fromJson({
                 'id': json['id']?.toString() ?? '',
-                'userID': json['userID']?.toString() ?? 'unknown',
+                'post_id': json['post_id']?.toString() ?? post_id,
+                'userId': json['userId']?.toString() ?? 'unknown',
                 'username': json['username']?.toString() ?? 'Unknown',
                 'text': json['text']?.toString() ?? '',
                 'created_at': json['created_at']?.toString() ??
                     DateTime.now().toIso8601String(),
               }))
           .toList();
-      developer.log('Parsed ${comments.length} comments', name: 'ApiService');
+      developer.log(
+          'Parsed ${comments.length} comments: ${comments.map((c) => c.id)}',
+          name: 'ApiService');
       return comments;
     } catch (e, stackTrace) {
       developer.log('Get comments error: $e',
@@ -130,24 +136,94 @@ class ApiService {
     }
   }
 
-  Future<void> createComment(String postId, String text, String token) async {
+  Future<Map<String, dynamic>> createComment(
+      String post_id, String userId, String text, String token) async {
     try {
-      developer.log('Creating comment for postId: $postId', name: 'ApiService');
+      developer.log('Creating comment for post_id: $post_id, userId: $userId',
+          name: 'ApiService');
       final response = await _client
           .post(
-            Uri.parse('$_postsUrl/posts/$postId/comments'),
+            Uri.parse('$_postsUrl/posts/$post_id/comments'),
             headers: {
               'Authorization': 'Bearer $token',
               'Content-Type': 'application/json',
             },
-            body: jsonEncode({'text': text}),
+            body: jsonEncode({'text': text, 'userId': userId}),
           )
           .timeout(const Duration(seconds: 10));
-      developer.log('Create comment response: ${response.statusCode}',
-          name: 'ApiService');
-      await _handleResponse(response);
+      final data = await _handleResponse(response);
+      final comment = {
+        'id': data['id']?.toString() ?? '',
+        'post_id': post_id,
+        'userId': userId,
+        'username': data['username']?.toString() ?? 'Unknown',
+        'text': text,
+        'created_at':
+            data['created_at']?.toString() ?? DateTime.now().toIso8601String(),
+      };
+      developer.log('Comment created: $comment', name: 'ApiService');
+      return comment;
     } catch (e, stackTrace) {
       developer.log('Create comment error: $e',
+          name: 'ApiService', stackTrace: stackTrace);
+      rethrow;
+    }
+  }
+
+  Future<Map<String, dynamic>> likePost(
+      String post_id, String userId, String token) async {
+    try {
+      developer.log('Liking post: post_id: $post_id, userId: $userId',
+          name: 'ApiService');
+      final response = await _client
+          .post(
+            Uri.parse('$_postsUrl/like'),
+            headers: {
+              'Authorization': 'Bearer $token',
+              'Content-Type': 'application/json',
+            },
+            body: jsonEncode({'post_id': post_id, 'user_id': userId}),
+          )
+          .timeout(const Duration(seconds: 10));
+      final data = await _handleResponse(response);
+      final result = {
+        'post_id': post_id,
+        'userId': userId,
+        'numOfLikes': data['numOfLikes'] ?? 0,
+      };
+      developer.log('Like post result: $result', name: 'ApiService');
+      return result;
+    } catch (e, stackTrace) {
+      developer.log('Like post error: $e',
+          name: 'ApiService', stackTrace: stackTrace);
+      rethrow;
+    }
+  }
+
+  Future<Map<String, dynamic>> joinEvent(
+      String eventId, String userId, String token) async {
+    try {
+      developer.log('Joining event: eventId: $eventId, userId: $userId',
+          name: 'ApiService');
+      final response = await _client
+          .post(
+            Uri.parse('$_postsUrl/events/$eventId/join'),
+            headers: {
+              'Authorization': 'Bearer $token',
+              'Content-Type': 'application/json',
+            },
+            body: jsonEncode({'user_id': userId}),
+          )
+          .timeout(const Duration(seconds: 10));
+      final data = await _handleResponse(response);
+      final result = {
+        'eventId': eventId,
+        'userId': userId,
+      };
+      developer.log('Join event result: $result', name: 'ApiService');
+      return result;
+    } catch (e, stackTrace) {
+      developer.log('Join event error: $e',
           name: 'ApiService', stackTrace: stackTrace);
       rethrow;
     }
@@ -184,6 +260,7 @@ class ApiService {
                 'tasks': json['tasks'] ?? [],
                 'numOfLikes': json['numOfLikes'] ?? 0,
                 'id': json['id']?.toString() ?? '',
+                'likes': json['likes'] ?? [], // Добавлено свойство likes
               }, type: 'goal'))
           .toList();
       developer.log('Parsed ${posts.length} posts', name: 'ApiService');
@@ -222,6 +299,7 @@ class ApiService {
                 'id': json['id']?.toString() ?? '',
                 'userID': json['userID']?.toString() ?? 'unknown',
                 'username': json['username']?.toString() ?? 'Unknown',
+                'likes': json['likes'] ?? [], // Добавлено свойство likes
               }, type: 'goal'))
           .toList();
       developer.log('Parsed ${posts.length} goals', name: 'ApiService');
@@ -260,9 +338,10 @@ class ApiService {
                 'id': json['id']?.toString() ?? '',
                 'userID': json['userID']?.toString() ?? 'unknown',
                 'username': json['username']?.toString() ?? 'Unknown',
+                'likes': json['likes'] ?? [], // Добавлено свойство likes
               }, type: 'event'))
           .toList();
-      developer.log('Parsed ${posts.length} events', name: 'ApiService');
+      developer.log(' Parsed ${posts.length} events', name: 'ApiService');
       return posts;
     } catch (e, stackTrace) {
       developer.log('Get all events error: $e',
@@ -302,6 +381,7 @@ class ApiService {
                 'numOfLikes': json['numOfLikes'] ?? 0,
                 'numOfComments': json['numOfComments'] ?? 0,
                 'id': json['id']?.toString() ?? '',
+                'likes': json['likes'] ?? [], // Добавлено свойство likes
               }, type: 'goal'))
           .toList();
       developer.log('Parsed ${posts.length} user goals', name: 'ApiService');
@@ -339,6 +419,7 @@ class ApiService {
                 'numOfLikes': json['numOfLikes'] ?? 0,
                 'numOfComments': json['numOfComments'] ?? 0,
                 'id': json['id']?.toString() ?? '',
+                'likes': json['likes'] ?? [], // Добавлено свойство likes
               }, type: 'event'))
           .toList();
       developer.log('Parsed ${posts.length} user events', name: 'ApiService');
@@ -350,11 +431,11 @@ class ApiService {
     }
   }
 
-  Future<Post> getPostById(String postId, String token) async {
+  Future<Post> getPostById(String post_id, String token) async {
     try {
-      developer.log('Fetching post by id: $postId', name: 'ApiService');
+      developer.log('Fetching post by id: $post_id', name: 'ApiService');
       final response = await _client.get(
-        Uri.parse('$_postsUrl/posts/$postId'),
+        Uri.parse('$_postsUrl/posts/$post_id'),
         headers: {
           'Authorization': 'Bearer $token',
           'Content-Type': 'application/json',
@@ -380,52 +461,10 @@ class ApiService {
         'numOfLikes': data['numOfLikes'] ?? 0,
         'numOfComments': data['numOfComments'] ?? 0,
         'id': data['id']?.toString() ?? '',
+        'likes': data['likes'] ?? [], // Добавлено свойство likes
       }, type: data['type']?.toString() ?? 'goal');
     } catch (e, stackTrace) {
       developer.log('Get post by id error: $e',
-          name: 'ApiService', stackTrace: stackTrace);
-      rethrow;
-    }
-  }
-
-  Future<void> likePost(String postId, String token) async {
-    try {
-      developer.log('Liking post: postId: $postId', name: 'ApiService');
-      final response = await _client
-          .post(
-            Uri.parse('$_postsUrl/like'),
-            headers: {
-              'Authorization': 'Bearer $token',
-              'Content-Type': 'application/json',
-            },
-            body: jsonEncode({'post_id': postId}),
-          )
-          .timeout(const Duration(seconds: 10));
-      developer.log('Like post response: ${response.statusCode}',
-          name: 'ApiService');
-      await _handleResponse(response);
-    } catch (e, stackTrace) {
-      developer.log('Like post error: $e',
-          name: 'ApiService', stackTrace: stackTrace);
-      rethrow;
-    }
-  }
-
-  Future<void> joinEvent(String eventId, String token) async {
-    try {
-      developer.log('Joining event: eventId: $eventId', name: 'ApiService');
-      final response = await _client.post(
-        Uri.parse('$_postsUrl/events/$eventId/join'),
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Content-Type': 'application/json',
-        },
-      ).timeout(const Duration(seconds: 10));
-      developer.log('Join event response: ${response.statusCode}',
-          name: 'ApiService');
-      await _handleResponse(response);
-    } catch (e, stackTrace) {
-      developer.log('Join event error: $e',
           name: 'ApiService', stackTrace: stackTrace);
       rethrow;
     }
@@ -544,7 +583,8 @@ class ApiService {
       return {
         'token': data['token']?.toString() ?? '',
         'userId': data['userID']?.toString() ?? '',
-        'username': data['username']?.toString() ?? '',
+        'username': data['username']?.toString() ?? 'Unknown',
+        'email': email,
       };
     } catch (e, stackTrace) {
       developer.log('Login error: $e',
@@ -586,6 +626,7 @@ class ApiService {
         'token': data['token']?.toString() ?? '',
         'userId': data['userID']?.toString() ?? '',
         'username': data['username']?.toString() ?? '',
+        'email': email,
       };
     } catch (e, stackTrace) {
       developer.log('SignUp error: $e',
@@ -632,16 +673,124 @@ class ApiService {
       if (data['token'] == null || data['userID'] == null) {
         throw Exception('Invalid server response: missing token or userID');
       }
+      final email = _supabase.auth.currentUser?.email ?? 'unknown';
       return {
         'token': data['token'].toString(),
         'userId': data['userID'].toString(),
         'username': data['username']?.toString() ?? '',
+        'email': email,
         'isNewUser': data['isNewUser']?.toString() ?? 'false',
       };
     } catch (e, stackTrace) {
       developer.log('Google Sign-In error: $e',
           name: 'ApiService', stackTrace: stackTrace);
       throw Exception('Google Sign-In failed: $e');
+    }
+  }
+
+  Future<Map<String, String>> signInWithFacebook() async {
+    try {
+      developer.log('Initiating Facebook Sign-In OAuth', name: 'ApiService');
+      final authResponse = await _supabase.auth.signInWithOAuth(
+        OAuthProvider.facebook,
+        redirectTo: 'https://gohive-d4359.firebaseapp.com/',
+      );
+
+      if (!authResponse) {
+        throw Exception('Facebook Sign-In OAuth initiation failed');
+      }
+
+      final session = await _supabase.auth.onAuthStateChange.firstWhere(
+        (event) => event.event == AuthChangeEvent.signedIn,
+        orElse: () => throw Exception('Authentication timed out'),
+      );
+
+      final supabaseToken = session.session?.accessToken;
+      if (supabaseToken == null) {
+        throw Exception('No Supabase token available');
+      }
+      developer.log('Supabase OAuth token obtained', name: 'ApiService');
+
+      final response = await _client
+          .post(
+            Uri.parse('$_baseUrl/register/oauth/facebook'),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({'supabase_token': supabaseToken}),
+          )
+          .timeout(const Duration(seconds: 30));
+
+      developer.log(
+          'Facebook OAuth response: ${response.statusCode}, body: ${response.body}',
+          name: 'ApiService');
+      final data = await _handleResponse(response);
+      if (data['token'] == null || data['userID'] == null) {
+        throw Exception('Invalid server response: missing token or userID');
+      }
+      final email = _supabase.auth.currentUser?.email ?? 'unknown';
+      return {
+        'token': data['token'].toString(),
+        'userId': data['userID'].toString(),
+        'username': data['username']?.toString() ?? '',
+        'email': email,
+        'isNewUser': data['isNewUser']?.toString() ?? 'false',
+      };
+    } catch (e, stackTrace) {
+      developer.log('Facebook Sign-In error: $e',
+          name: 'ApiService', stackTrace: stackTrace);
+      throw Exception('Facebook Sign-In failed: $e');
+    }
+  }
+
+  Future<Map<String, String>> signInWithApple() async {
+    try {
+      developer.log('Initiating Apple Sign-In OAuth', name: 'ApiService');
+      final authResponse = await _supabase.auth.signInWithOAuth(
+        OAuthProvider.apple,
+        redirectTo: 'https://gohive-d4359.firebaseapp.com/',
+      );
+
+      if (!authResponse) {
+        throw Exception('Apple Sign-In OAuth initiation failed');
+      }
+
+      final session = await _supabase.auth.onAuthStateChange.firstWhere(
+        (event) => event.event == AuthChangeEvent.signedIn,
+        orElse: () => throw Exception('Authentication timed out'),
+      );
+
+      final supabaseToken = session.session?.accessToken;
+      if (supabaseToken == null) {
+        throw Exception('No Supabase token available');
+      }
+      developer.log('Supabase OAuth token obtained', name: 'ApiService');
+
+      final response = await _client
+          .post(
+            Uri.parse('$_baseUrl/register/oauth/apple'),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({'supabase_token': supabaseToken}),
+          )
+          .timeout(const Duration(seconds: 30));
+
+      developer.log(
+          'Apple OAuth response: ${response.statusCode}, body: ${response.body}',
+          name: 'ApiService');
+      final data = await _handleResponse(response);
+      if (data['token'] == null || data['userID'] == null) {
+        throw Exception('Invalid server response: missing token or userID');
+      }
+      final email = _supabase.auth.currentUser?.email ?? 'unknown';
+      return {
+        'token': data['token'].toString(),
+        'userId': data['userID'].toString(),
+        'username': data['username']?.toString() ?? '',
+        'email': email,
+        'isNewUser': data['isNewUser']?.toString() ?? 'false',
+      };
+    } catch (e, stackTrace) {
+      developer.log('Apple Sign-In error: $e',
+          name: 'ApiService', stackTrace: stackTrace);
+      throw Exception('Apple Sign-In failed: $e');
     }
   }
 
@@ -659,8 +808,8 @@ class ApiService {
       return {
         'userId': data['userID']?.toString() ?? userId,
         'username': data['username']?.toString() ?? '',
-        'bio': data['bio']?.toString() ?? '',
-        'followers': (data['followers'] as num?)?.toInt() ?? 0,
+        'biography': data['biography']?.toString() ?? '',
+        'numOfFollowers': (data['numOfFollowers'] as num?)?.toInt() ?? 0,
         'following': (data['following'] as num?)?.toInt() ?? 0,
         'avatar': data['avatar']?.toString() ?? '',
         'age': (data['age'] as num?)?.toInt(),
@@ -694,23 +843,25 @@ class ApiService {
     }
   }
 
-  Future<bool> updateBio(String userId, String bio, String token) async {
+  Future<bool> updatebiography(
+      String userId, String biography, String token) async {
     try {
-      developer.log('Updating bio for userId: $userId', name: 'ApiService');
+      developer.log('Updating biography for userId: $userId',
+          name: 'ApiService');
       final response = await _client
           .put(
-            Uri.parse('$_baseUrl/profile/$userId/bio'),
+            Uri.parse('$_baseUrl/profile/$userId/biography'),
             headers: {
               'Content-Type': 'application/json',
               'Authorization': 'Bearer $token',
             },
-            body: jsonEncode({'bio': bio}),
+            body: jsonEncode({'biography': biography}),
           )
           .timeout(const Duration(seconds: 30));
       await _handleResponse(response);
       return true;
     } catch (e, stackTrace) {
-      developer.log('UpdateBio error: $e',
+      developer.log('Updatebiography error: $e',
           name: 'ApiService', stackTrace: stackTrace);
       return false;
     }
