@@ -140,6 +140,13 @@ class _AddScreenState extends State<AddScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final screenHeight = MediaQuery.of(context).size.height;
+    final padding = screenWidth * 0.0427; // ~16dp for 375dp width
+    final maxWidth = screenWidth - 2 * padding;
+    final imageSize =
+        screenWidth > 156 ? 156.0 : screenWidth * 0.416; // Adaptive image size
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Создать пост'),
@@ -148,112 +155,216 @@ class _AddScreenState extends State<AddScreen> {
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : SingleChildScrollView(
-              padding: const EdgeInsets.all(16.0),
+              padding: EdgeInsets.all(padding),
               child: Form(
                 key: _formKey,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    SwitchListTile(
-                      title: const Text('Создать событие'),
-                      value: _isEvent,
-                      onChanged: (value) {
-                        setState(() {
-                          _isEvent = value;
-                        });
-                      },
+                    // Header "Photo"
+                    const Padding(
+                      padding: EdgeInsets.only(top: 86.0),
+                      child: Text(
+                        'Photo',
+                        style: TextStyle(
+                          fontFamily: 'Inter',
+                          fontSize: 14,
+                          fontWeight: FontWeight.normal,
+                          color: Color(0xFF222220),
+                          height: 20 / 14, // Line height 20sp
+                        ),
+                      ),
                     ),
-                    TextFormField(
-                      controller: _descriptionController,
-                      decoration: const InputDecoration(labelText: 'Описание'),
-                      validator: (value) =>
-                          value!.isEmpty ? 'Введите описание' : null,
+                    // Image container
+                    Padding(
+                      padding: const EdgeInsets.only(top: 28.0),
+                      child: GestureDetector(
+                        onTap: _pickImage,
+                        child: Container(
+                          width: imageSize,
+                          height:
+                              imageSize * 174 / 156, // Maintain aspect ratio
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: _image != null
+                              ? ClipRRect(
+                                  borderRadius: BorderRadius.circular(8),
+                                  child: Image.file(
+                                    _image!,
+                                    fit: BoxFit.cover,
+                                    width: imageSize,
+                                    height: imageSize * 174 / 156,
+                                  ),
+                                )
+                              : const Center(
+                                  child: Icon(Icons.camera_alt, size: 50)),
+                        ),
+                      ),
                     ),
-                    TextFormField(
-                      controller: _locationController,
-                      decoration:
-                          const InputDecoration(labelText: 'Местоположение'),
-                      validator: (value) =>
-                          value!.isEmpty ? 'Введите местоположение' : null,
+                    // Switch for Event/Goal
+                    Padding(
+                      padding: const EdgeInsets.only(top: 20.0),
+                      child: SwitchListTile(
+                        title: const Text('Создать событие'),
+                        value: _isEvent,
+                        onChanged: (value) {
+                          setState(() {
+                            _isEvent = value;
+                          });
+                        },
+                      ),
                     ),
-                    TextFormField(
-                      controller: _interestController,
-                      decoration: const InputDecoration(labelText: 'Категория'),
-                      validator: (value) =>
-                          value!.isEmpty ? 'Введите категорию' : null,
+                    // Description field
+                    Padding(
+                      padding: const EdgeInsets.only(top: 20.0),
+                      child: SizedBox(
+                        width: maxWidth > 343 ? 343 : maxWidth,
+                        height: 76,
+                        child: TextFormField(
+                          controller: _descriptionController,
+                          decoration:
+                              const InputDecoration(labelText: 'Описание'),
+                          validator: (value) =>
+                              value!.isEmpty ? 'Введите описание' : null,
+                        ),
+                      ),
+                    ),
+                    // Location field
+                    Padding(
+                      padding: const EdgeInsets.only(top: 20.0),
+                      child: SizedBox(
+                        width: maxWidth > 343 ? 343 : maxWidth,
+                        height: 76,
+                        child: TextFormField(
+                          controller: _locationController,
+                          decoration: const InputDecoration(
+                              labelText: 'Местоположение'),
+                          validator: (value) =>
+                              value!.isEmpty ? 'Введите местоположение' : null,
+                        ),
+                      ),
+                    ),
+                    // Interest field
+                    Padding(
+                      padding: const EdgeInsets.only(top: 20.0),
+                      child: SizedBox(
+                        width: maxWidth > 343 ? 343 : maxWidth,
+                        height: 76,
+                        child: TextFormField(
+                          controller: _interestController,
+                          decoration:
+                              const InputDecoration(labelText: 'Категория'),
+                          validator: (value) =>
+                              value!.isEmpty ? 'Введите категорию' : null,
+                        ),
+                      ),
                     ),
                     if (_isEvent)
-                      TextFormField(
-                        controller: _dateTimeController,
-                        decoration:
-                            const InputDecoration(labelText: 'Дата и время'),
-                        validator: (value) =>
-                            value!.isEmpty ? 'Введите дату и время' : null,
+                      Padding(
+                        padding: const EdgeInsets.only(top: 20.0),
+                        child: SizedBox(
+                          width: maxWidth > 343 ? 343 : maxWidth,
+                          height: 76,
+                          child: TextFormField(
+                            controller: _dateTimeController,
+                            decoration: const InputDecoration(
+                                labelText: 'Дата и время'),
+                            validator: (value) =>
+                                value!.isEmpty ? 'Введите дату и время' : null,
+                          ),
+                        ),
                       ),
                     if (!_isEvent) ...[
-                      TextFormField(
-                        controller: _pointAController,
-                        decoration: const InputDecoration(labelText: 'Точка А'),
+                      Padding(
+                        padding: const EdgeInsets.only(top: 20.0),
+                        child: SizedBox(
+                          width: maxWidth > 343 ? 343 : maxWidth,
+                          height: 76,
+                          child: TextFormField(
+                            controller: _pointAController,
+                            decoration:
+                                const InputDecoration(labelText: 'Точка А'),
+                          ),
+                        ),
                       ),
-                      TextFormField(
-                        controller: _pointBController,
-                        decoration: const InputDecoration(labelText: 'Точка Б'),
+                      Padding(
+                        padding: const EdgeInsets.only(top: 20.0),
+                        child: SizedBox(
+                          width: maxWidth > 343 ? 343 : maxWidth,
+                          height: 76,
+                          child: TextFormField(
+                            controller: _pointBController,
+                            decoration:
+                                const InputDecoration(labelText: 'Точка Б'),
+                          ),
+                        ),
                       ),
-                      TextFormField(
-                        controller: _taskController,
-                        decoration: const InputDecoration(labelText: 'Шаги'),
-                        onFieldSubmitted: (_) => _addTask(),
+                      Padding(
+                        padding: const EdgeInsets.only(top: 20.0),
+                        child: SizedBox(
+                          width: maxWidth > 343 ? 343 : maxWidth,
+                          height: 108,
+                          child: TextFormField(
+                            controller: _taskController,
+                            decoration:
+                                const InputDecoration(labelText: 'Шаги'),
+                            onFieldSubmitted: (_) => _addTask(),
+                          ),
+                        ),
                       ),
-                      ElevatedButton(
-                        onPressed: _addTask,
-                        child: const Text('Добавить задачу'),
+                      Padding(
+                        padding: const EdgeInsets.only(top: 8.0),
+                        child: ElevatedButton(
+                          onPressed: _addTask,
+                          child: const Text('Добавить задачу'),
+                        ),
                       ),
                       if (_tasks.isNotEmpty)
-                        Column(
-                          children: _tasks
-                              .asMap()
-                              .entries
-                              .map((entry) => ListTile(
-                                    title: Text(entry.value['title']),
-                                    trailing: IconButton(
-                                      icon: const Icon(Icons.delete),
-                                      onPressed: () {
-                                        setState(() {
-                                          _tasks.removeAt(entry.key);
-                                        });
-                                      },
-                                    ),
-                                  ))
-                              .toList(),
+                        Padding(
+                          padding: const EdgeInsets.only(top: 8.0),
+                          child: SizedBox(
+                            width: maxWidth > 343 ? 343 : maxWidth,
+                            child: Column(
+                              children: _tasks
+                                  .asMap()
+                                  .entries
+                                  .map((entry) => ListTile(
+                                        title: Text(entry.value['title']),
+                                        trailing: IconButton(
+                                          icon: const Icon(Icons.delete),
+                                          onPressed: () {
+                                            setState(() {
+                                              _tasks.removeAt(entry.key);
+                                            });
+                                          },
+                                        ),
+                                      ))
+                                  .toList(),
+                            ),
+                          ),
                         ),
                     ],
-                    const SizedBox(height: 16),
-                    ElevatedButton(
-                      onPressed: _pickImage,
-                      child: const Text('Выбрать изображение'),
-                    ),
-                    if (_image != null)
-                      Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 8.0),
-                        child: Image.file(
-                          _image!,
-                          height: 100,
-                          width: 100,
-                          fit: BoxFit.cover,
-                        ),
-                      ),
                     if (_error != null)
                       Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 8.0),
+                        padding: const EdgeInsets.only(top: 16.0),
                         child: Text(
                           _error!,
                           style: const TextStyle(color: Colors.red),
                         ),
                       ),
-                    const SizedBox(height: 16),
-                    ElevatedButton(
-                      onPressed: _submit,
-                      child: const Text('Создать'),
+                    Padding(
+                      padding: EdgeInsets.only(
+                          top: 20.0, bottom: screenHeight * 0.05),
+                      child: SizedBox(
+                        width: maxWidth > 343 ? 343 : maxWidth,
+                        height: 48,
+                        child: ElevatedButton(
+                          onPressed: _submit,
+                          child: const Text('Создать'),
+                        ),
+                      ),
                     ),
                   ],
                 ),
