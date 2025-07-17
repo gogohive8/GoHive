@@ -94,8 +94,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
         developer.log('Email sign-up response: $authData',
             name: 'SignUpScreen');
         if (mounted) Navigator.pop(context);
-        if (authData != null &&
-            authData['token']?.isNotEmpty == true &&
+        if (authData['token']?.isNotEmpty == true &&
             authData['userId']?.isNotEmpty == true) {
           await authProvider.setAuthData(
             authData['token']!,

@@ -57,7 +57,8 @@ class ApiService {
 
   Future<String> uploadMedia(File file, String token) async {
     try {
-      developer.log('Uploading media file: ${file.path}', name: 'ApiService');
+      developer.log('Uploading media file: ${file.path}, token: $token',
+          name: 'ApiService');
       final dioInstance = dio.Dio();
       final formData = dio.FormData.fromMap({
         'files': await dio.MultipartFile.fromFile(
@@ -73,6 +74,7 @@ class ApiService {
             options: dio.Options(
               headers: {
                 'Authorization': 'Bearer $token',
+                'Content-Type': 'multipart/form-data',
               },
             ),
           )
@@ -86,7 +88,7 @@ class ApiService {
         developer.log('Media uploaded successfully: $url', name: 'ApiService');
         return url;
       }
-      throw Exception('Failed to upload media');
+      throw Exception('Failed to upload media: ${response.data}');
     } catch (e, stackTrace) {
       developer.log('Upload media error: $e',
           name: 'ApiService', stackTrace: stackTrace);
@@ -139,7 +141,8 @@ class ApiService {
   Future<Map<String, dynamic>> createComment(
       String post_id, String userId, String text, String token) async {
     try {
-      developer.log('Creating comment for post_id: $post_id, userId: $userId',
+      developer.log(
+          'Creating comment for post_id: $post_id, userId: $userId, text: $text',
           name: 'ApiService');
       final response = await _client
           .post(
@@ -153,11 +156,11 @@ class ApiService {
           .timeout(const Duration(seconds: 10));
       final data = await _handleResponse(response);
       final comment = {
-        'id': data['id']?.toString() ?? '',
         'post_id': post_id,
         'userId': userId,
-        'username': data['username']?.toString() ?? 'Unknown',
         'text': text,
+        'id': data['id']?.toString() ?? '',
+        'username': data['username']?.toString() ?? 'Unknown',
         'created_at':
             data['created_at']?.toString() ?? DateTime.now().toIso8601String(),
       };
@@ -260,7 +263,7 @@ class ApiService {
                 'tasks': json['tasks'] ?? [],
                 'numOfLikes': json['numOfLikes'] ?? 0,
                 'id': json['id']?.toString() ?? '',
-                'likes': json['likes'] ?? [], // Добавлено свойство likes
+                'likes': json['likes'] ?? [],
               }, type: 'goal'))
           .toList();
       developer.log('Parsed ${posts.length} posts', name: 'ApiService');
@@ -299,7 +302,7 @@ class ApiService {
                 'id': json['id']?.toString() ?? '',
                 'userID': json['userID']?.toString() ?? 'unknown',
                 'username': json['username']?.toString() ?? 'Unknown',
-                'likes': json['likes'] ?? [], // Добавлено свойство likes
+                'likes': json['likes'] ?? [],
               }, type: 'goal'))
           .toList();
       developer.log('Parsed ${posts.length} goals', name: 'ApiService');
@@ -338,10 +341,10 @@ class ApiService {
                 'id': json['id']?.toString() ?? '',
                 'userID': json['userID']?.toString() ?? 'unknown',
                 'username': json['username']?.toString() ?? 'Unknown',
-                'likes': json['likes'] ?? [], // Добавлено свойство likes
+                'likes': json['likes'] ?? [],
               }, type: 'event'))
           .toList();
-      developer.log(' Parsed ${posts.length} events', name: 'ApiService');
+      developer.log('Parsed ${posts.length} events', name: 'ApiService');
       return posts;
     } catch (e, stackTrace) {
       developer.log('Get all events error: $e',
@@ -381,7 +384,7 @@ class ApiService {
                 'numOfLikes': json['numOfLikes'] ?? 0,
                 'numOfComments': json['numOfComments'] ?? 0,
                 'id': json['id']?.toString() ?? '',
-                'likes': json['likes'] ?? [], // Добавлено свойство likes
+                'likes': json['likes'] ?? [],
               }, type: 'goal'))
           .toList();
       developer.log('Parsed ${posts.length} user goals', name: 'ApiService');
@@ -419,7 +422,7 @@ class ApiService {
                 'numOfLikes': json['numOfLikes'] ?? 0,
                 'numOfComments': json['numOfComments'] ?? 0,
                 'id': json['id']?.toString() ?? '',
-                'likes': json['likes'] ?? [], // Добавлено свойство likes
+                'likes': json['likes'] ?? [],
               }, type: 'event'))
           .toList();
       developer.log('Parsed ${posts.length} user events', name: 'ApiService');
@@ -461,7 +464,7 @@ class ApiService {
         'numOfLikes': data['numOfLikes'] ?? 0,
         'numOfComments': data['numOfComments'] ?? 0,
         'id': data['id']?.toString() ?? '',
-        'likes': data['likes'] ?? [], // Добавлено свойство likes
+        'likes': data['likes'] ?? [],
       }, type: data['type']?.toString() ?? 'goal');
     } catch (e, stackTrace) {
       developer.log('Get post by id error: $e',

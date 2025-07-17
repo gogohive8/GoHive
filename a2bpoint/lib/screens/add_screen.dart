@@ -178,9 +178,9 @@ class _AddScreenState extends State<AddScreen> {
                     ),
                     TextFormField(
                       controller: _interestController,
-                      decoration: const InputDecoration(labelText: 'Интерес'),
+                      decoration: const InputDecoration(labelText: 'Категория'),
                       validator: (value) =>
-                          value!.isEmpty ? 'Введите интерес' : null,
+                          value!.isEmpty ? 'Введите категорию' : null,
                     ),
                     if (_isEvent)
                       TextFormField(
@@ -201,7 +201,7 @@ class _AddScreenState extends State<AddScreen> {
                       ),
                       TextFormField(
                         controller: _taskController,
-                        decoration: const InputDecoration(labelText: 'Задача'),
+                        decoration: const InputDecoration(labelText: 'Шаги'),
                         onFieldSubmitted: (_) => _addTask(),
                       ),
                       ElevatedButton(
