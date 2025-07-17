@@ -1,272 +1,196 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'dart:developer' as developer;
 import '../providers/auth_provider.dart';
 import '../services/api_services.dart';
-import 'navbar.dart';
+import 'dart:developer' as developer;
 
 class AIMentorScreen extends StatefulWidget {
   const AIMentorScreen({super.key});
 
   @override
-  _AIMentorScreenState createState() => _AIMentorScreenState();
+  AIMentorScreenState createState() => AIMentorScreenState();
 }
 
-class _AIMentorScreenState extends State<AIMentorScreen>
-    with SingleTickerProviderStateMixin {
-  late TabController _tabController;
-  final TextEditingController _messageController = TextEditingController();
+class AIMentorScreenState extends State<AIMentorScreen> {
+  final TextEditingController _controller = TextEditingController();
   final List<Map<String, dynamic>> _messages = [];
-  final ApiService _apiService = ApiService();
+  bool _isLoading = false;
+  String _requestType = 'goal'; // Default to goal
 
-  @override
-  void initState() {
-    super.initState();
-    _tabController = TabController(length: 2, vsync: this);
-    _tabController.addListener(_handleTabChange);
-  }
+  void _sendMessage() async {
+    final message = _controller.text.trim();
+    if (message.isEmpty) return;
 
-  @override
-  void dispose() {
-    _tabController.removeListener(_handleTabChange);
-    _tabController.dispose();
-    _messageController.dispose();
-    _apiService.dispose();
-    super.dispose();
-  }
-
-  void _handleTabChange() {
-    if (!_tabController.indexIsChanging) {
-      setState(() {});
-    }
-  }
-
-  void _sendMessage() {
-    if (_messageController.text.isNotEmpty) {
-      final messageText = _messageController.text.trim();
-      try {
-        setState(() {
-          _messages.add({
-            'text': messageText,
-            'isUser': true,
-            'time': TimeOfDay.now().format(context),
-          });
-
-          // Проверка триггерного слова "preorder"
-          if (messageText.toLowerCase() == 'preorder') {
-            _handlePreOrder();
-          } else {
-            // Стандартный ответ бота
-            _messages.add({
-              'text':
-                  'Эта функция сейчас находится в стадии разработки, и совсем скоро будет доступна для использования.\n\nУже сейчас вы можете оформить предзаказ полного доступа ко всем функциям ИИ-ассистента и получить скидку 75% на годовой пакет после релиза.',
-              'isUser': false,
-              'time': TimeOfDay.now().format(context),
-              'hasPreOrderButton': true, // Флаг для кнопки
-            });
-          }
-          _messageController.clear();
-        });
-      } catch (e, stackTrace) {
-        developer.log('Error sending message: $e',
-            name: 'AIMentorScreen', stackTrace: stackTrace);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error sending message: $e')),
-        );
-      }
-    }
-  }
-
-  void _handlePreOrder() async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    final userId = authProvider.userId ?? '';
-    final token = authProvider.token ?? '';
+    final apiService = ApiService();
 
-    if (userId.isEmpty || token.isEmpty) {
-      developer.log('No userId or token for pre-order', name: 'AIMentorScreen');
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please sign in to place a pre-order')),
-      );
-      return;
-    }
+    setState(() {
+      _messages.add({
+        'text': message,
+        'isUser': true,
+        'timestamp': DateTime.now(),
+      });
+      _isLoading = true;
+      _controller.clear();
+    });
 
     try {
-      developer.log('Placing pre-order for userId: $userId',
-          name: 'AIMentorScreen');
-      await _apiService.createPreOrder(userId, token);
+      String response;
+      if (_requestType == 'goal') {
+        response =
+            await apiService.generateGoal(message, authProvider.token ?? '');
+      } else {
+        response =
+            await apiService.generateEvent(message, authProvider.token ?? '');
+      }
+
       setState(() {
         _messages.add({
-          'text':
-              'Ваша заявка принята, служба поддержки свяжется с вами к дате релиза.',
+          'text': response,
           'isUser': false,
-          'time': TimeOfDay.now().format(context),
+          'timestamp': DateTime.now(),
         });
+        _isLoading = false;
       });
-    } catch (e, stackTrace) {
-      developer.log('Error placing pre-order: $e',
-          name: 'AIMentorScreen', stackTrace: stackTrace);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error placing pre-order: $e')),
-      );
+    } catch (e) {
+      developer.log('Error sending AI request: $e', name: 'AIMentorScreen');
+      setState(() {
+        _messages.add({
+          'text': 'Ошибка: $e',
+          'isUser': false,
+          'timestamp': DateTime.now(),
+        });
+        _isLoading = false;
+      });
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final authProvider = Provider.of<AuthProvider>(context);
-    final size = MediaQuery.of(context).size;
-    final padding = size.width * 0.05;
-
-    if (!authProvider.isInitialized) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
-    }
-
     return Scaffold(
-      backgroundColor: const Color(0xFFF9F6F2),
       appBar: AppBar(
-        elevation: 0,
+        title: const Text('AI Mentor'),
         backgroundColor: const Color(0xFFF9F6F2),
-        automaticallyImplyLeading: false, // Убираем кнопку "назад"
-        title: const Text(
-          'AI Mentor',
-          style: TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-            color: Color(0xFF1A1A1A),
-          ),
-        ),
-        actions: [
-          IconButton(
-            icon: Image.asset('assets/images/ai_mentor.png', height: 24),
-            onPressed: () {},
-          ),
-        ],
-        bottom: TabBar(
-          controller: _tabController,
-          tabs: const [
-            Tab(text: 'Goals'),
-            Tab(text: 'Events'),
-          ],
-          indicatorColor: const Color(0xFFAFCBEA),
-          labelColor: const Color(0xFFAFCBEA),
-          unselectedLabelColor: const Color(0xFF333333),
-        ),
       ),
-      bottomNavigationBar: Navbar(
-        selectedIndex: 4,
-        onTap: (index) {
-          final routes = ['/home', '/search', '/add', '/profile', '/ai-mentor'];
-          Navigator.pushReplacementNamed(context, routes[index]);
-        },
-      ),
-      body: SafeArea(
-        child: Column(
-          children: [
-            Expanded(
-              child: TabBarView(
-                controller: _tabController,
-                children: [
-                  Padding(
-                    padding: EdgeInsets.all(padding),
-                    child: ListView.builder(
-                      itemCount: _messages.length,
-                      itemBuilder: (context, index) {
-                        final message = _messages[index];
-                        return Align(
-                          alignment: message['isUser']
-                              ? Alignment.centerRight
-                              : Alignment.centerLeft,
-                          child: Container(
-                            margin: const EdgeInsets.symmetric(vertical: 4),
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: message['isUser']
-                                  ? const Color(0xFFAFCBEA).withOpacity(0.1)
-                                  : const Color(0xFFDDDDDD),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  message['text'],
-                                  style: const TextStyle(
-                                    color: Color(0xFF1A1A1A),
-                                  ),
-                                ),
-                                Text(
-                                  message['time'],
-                                  style: const TextStyle(
-                                    fontSize: 12,
-                                    color: Color(0xFF333333),
-                                  ),
-                                ),
-                                if (message['hasPreOrderButton'] == true)
-                                  Padding(
-                                    padding: const EdgeInsets.only(top: 8),
-                                    child: ElevatedButton(
-                                      onPressed: _handlePreOrder,
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor:
-                                            const Color(0xFFAFCBEA),
-                                        foregroundColor:
-                                            const Color(0xFF1A1A1A),
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius:
-                                              BorderRadius.circular(8),
-                                        ),
-                                      ),
-                                      child: const Text('Pre-order'),
-                                    ),
-                                  ),
-                              ],
-                            ),
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                ChoiceChip(
+                  label: const Text('Цель'),
+                  selected: _requestType == 'goal',
+                  onSelected: (selected) {
+                    if (selected) {
+                      setState(() {
+                        _requestType = 'goal';
+                      });
+                    }
+                  },
+                  selectedColor: const Color(0xFFAFCBEA),
+                ),
+                const SizedBox(width: 8),
+                ChoiceChip(
+                  label: const Text('Событие'),
+                  selected: _requestType == 'event',
+                  onSelected: (selected) {
+                    if (selected) {
+                      setState(() {
+                        _requestType = 'event';
+                      });
+                    }
+                  },
+                  selectedColor: const Color(0xFFAFCBEA),
+                ),
+              ],
+            ),
+          ),
+          Expanded(
+            child: ListView.builder(
+              reverse: true,
+              padding: const EdgeInsets.all(8.0),
+              itemCount: _messages.length,
+              itemBuilder: (context, index) {
+                final message = _messages[_messages.length - 1 - index];
+                final isUser = message['isUser'] as bool;
+                return Align(
+                  alignment:
+                      isUser ? Alignment.centerRight : Alignment.centerLeft,
+                  child: Container(
+                    margin: const EdgeInsets.symmetric(vertical: 4.0),
+                    padding: const EdgeInsets.all(12.0),
+                    decoration: BoxDecoration(
+                      color: isUser
+                          ? const Color(0xFFAFCBEA)
+                          : const Color(0xFFE0E0E0),
+                      borderRadius: BorderRadius.circular(12.0),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: isUser
+                          ? CrossAxisAlignment.end
+                          : CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          message['text'] as String,
+                          style: const TextStyle(color: Color(0xFF1A1A1A)),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          _formatTimestamp(message['timestamp'] as DateTime),
+                          style: const TextStyle(
+                            color: Color(0xFF666666),
+                            fontSize: 12,
                           ),
-                        );
-                      },
+                        ),
+                      ],
                     ),
                   ),
-                  const Center(child: Text('Events tab content')),
-                ],
-              ),
+                );
+              },
             ),
-            Padding(
-              padding: EdgeInsets.all(padding),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: _messageController,
-                      decoration: InputDecoration(
-                        hintText: 'Message...',
-                        hintStyle: const TextStyle(color: Color(0xFF333333)),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(20),
-                          borderSide:
-                              const BorderSide(color: Color(0xFFAFCBEA)),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(20),
-                          borderSide:
-                              const BorderSide(color: Color(0xFFAFCBEA)),
-                        ),
-                        contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 16, vertical: 8),
+          ),
+          if (_isLoading)
+            const Padding(
+              padding: EdgeInsets.all(8.0),
+              child: CircularProgressIndicator(),
+            ),
+          Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _controller,
+                    decoration: InputDecoration(
+                      hintText: 'Введите ваше сообщение...',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
                       ),
                     ),
+                    onSubmitted: (_) => _sendMessage(),
                   ),
-                  IconButton(
-                    icon: const Icon(Icons.send, color: Color(0xFFAFCBEA)),
-                    onPressed: _sendMessage,
-                  ),
-                ],
-              ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.send),
+                  onPressed: _sendMessage,
+                ),
+              ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
+  }
+
+  String _formatTimestamp(DateTime timestamp) {
+    return '${timestamp.hour}:${timestamp.minute.toString().padLeft(2, '0')}';
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
   }
 }

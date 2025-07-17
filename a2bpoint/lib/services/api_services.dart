@@ -27,8 +27,7 @@ class ApiService {
     }
     if (response.statusCode == 400) {
       final errorBody = jsonDecode(response.body);
-      final errorMessage =
-          errorBody['message']['error']?.toString() ?? 'Invalid input';
+      final errorMessage = errorBody['error']?.toString() ?? 'Invalid input';
       developer.log('Validation error: $errorMessage', name: 'ApiService');
       throw DataValidationException('Invalid input: $errorMessage');
     }
@@ -53,6 +52,58 @@ class ApiService {
       }
     }
     throw Exception('Request failed after $retries attempts');
+  }
+
+  Future<String> generateGoal(String prompt, String token) async {
+    try {
+      developer.log('Sending goal generation request: prompt: $prompt',
+          name: 'ApiService');
+      final response = await _client
+          .post(
+            Uri.parse('$_postsUrl/api/generate-goal'),
+            headers: {
+              'Authorization': 'Bearer $token',
+              'Content-Type': 'application/json',
+            },
+            body: jsonEncode({'prompt': prompt}),
+          )
+          .timeout(const Duration(seconds: 30));
+      final data = await _handleResponse(response);
+      final aiResponse = data.toString();
+      developer.log('Goal generation response: $aiResponse',
+          name: 'ApiService');
+      return aiResponse;
+    } catch (e, stackTrace) {
+      developer.log('Goal generation error: $e',
+          name: 'ApiService', stackTrace: stackTrace);
+      throw Exception('Failed to generate goal: $e');
+    }
+  }
+
+  Future<String> generateEvent(String prompt, String token) async {
+    try {
+      developer.log('Sending event generation request: prompt: $prompt',
+          name: 'ApiService');
+      final response = await _client
+          .post(
+            Uri.parse('$_postsUrl/api/generate-event'),
+            headers: {
+              'Authorization': 'Bearer $token',
+              'Content-Type': 'application/json',
+            },
+            body: jsonEncode({'prompt': prompt}),
+          )
+          .timeout(const Duration(seconds: 30));
+      final data = await _handleResponse(response);
+      final aiResponse = data.toString();
+      developer.log('Event generation response: $aiResponse',
+          name: 'ApiService');
+      return aiResponse;
+    } catch (e, stackTrace) {
+      developer.log('Event generation error: $e',
+          name: 'ApiService', stackTrace: stackTrace);
+      throw Exception('Failed to generate event: $e');
+    }
   }
 
   Future<String> uploadMedia(File file, String token) async {
