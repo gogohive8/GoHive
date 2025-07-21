@@ -30,7 +30,7 @@ class _HomeScreenState extends State<HomeScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController = TabController(length: 3, vsync: this);
     _tabController.addListener(_handleTabSelection);
     _checkAuthAndFetchPosts();
   }
@@ -93,7 +93,7 @@ class _HomeScreenState extends State<HomeScreen>
     if (token.isEmpty || userId.isEmpty) {
       developer.log('No token or userId, skipping fetch', name: 'HomeScreen');
       setState(() {
-        _postsFuture = Future.value({});
+        _postsFuture = Future.value(<String, List<Post>>{});
       });
       return;
     }
@@ -101,14 +101,16 @@ class _HomeScreenState extends State<HomeScreen>
         name: 'HomeScreen');
     _postsFuture = (_selectedTabIndex == 0
             ? _apiService.getAllGoals(token, userId)
-            : _apiService.getAllEvents(token, userId))
-        .then(_groupPostsByUser)
+            : _selectedTabIndex == 1
+                ? _apiService.getAllEvents(token, userId)
+                : Future<List<Post>>.value([])) // Заглушка для миссий
+        .then((value) => _groupPostsByUser(value as List<Post>))
         .catchError((e, stackTrace) {
       developer.log('Fetch posts error: $e',
           name: 'HomeScreen', stackTrace: stackTrace);
       authProvider.handleAuthError(context, e);
       return <String, List<Post>>{};
-    });
+    }) as Future<Map<String, List<Post>>>;
   }
 
   Future<Map<String, List<Post>>> _groupPostsByUser(List<Post> posts) async {
@@ -251,6 +253,70 @@ class _HomeScreenState extends State<HomeScreen>
     );
   }
 
+  Widget _buildMissionsView() {
+    final size = MediaQuery.of(context).size;
+    final padding = size.width * 0.05;
+    final aspectRatio = 375 / 790;
+    final containerHeight = size.width / aspectRatio;
+
+    return Center(
+      child: SizedBox(
+        width: size.width * 0.9,
+        height: containerHeight * 0.9,
+        child: CustomPaint(
+          painter: MissionsBackgroundPainter(),
+          child: Padding(
+            padding: EdgeInsets.all(padding),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Миссии',
+                  style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF000000),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Expanded(
+                  child: ListView(
+                    children: [
+                      Card(
+                        color: const Color(0xFFDDDDDD),
+                        elevation: 2,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        margin: const EdgeInsets.symmetric(vertical: 8),
+                        child: ListTile(
+                          title: const Text('Миссия 1: Пройти 10 км'),
+                          subtitle: const Text('Награда: 50 баллов'),
+                        ),
+                      ),
+                      Card(
+                        color: const Color(0xFFDDDDDD),
+                        elevation: 2,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        margin: const EdgeInsets.symmetric(vertical: 8),
+                        child: ListTile(
+                          title: const Text('Миссия 2: Прочитать книгу'),
+                          subtitle: const Text('Награда: 30 баллов'),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final authProvider = Provider.of<AuthProvider>(context);
@@ -315,6 +381,30 @@ class _HomeScreenState extends State<HomeScreen>
                 ),
               ),
             ),
+            const SizedBox(width: 8),
+            GestureDetector(
+              onTap: () => _tabController.animateTo(2),
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: _selectedTabIndex == 2
+                      ? const Color.fromRGBO(175, 203, 234, 0.1)
+                      : Colors.transparent,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  'Миссии',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: _selectedTabIndex == 2
+                        ? const Color(0xFFAFCBEA)
+                        : const Color(0xFF1A1A1A),
+                  ),
+                ),
+              ),
+            ),
           ],
         ),
         actions: [
@@ -329,6 +419,7 @@ class _HomeScreenState extends State<HomeScreen>
         children: [
           _buildPostsView(type: 'goal'),
           _buildPostsView(type: 'event'),
+          _buildMissionsView(),
         ],
       ),
       bottomNavigationBar: Navbar(
@@ -616,4 +707,27 @@ class _HomeScreenState extends State<HomeScreen>
       },
     );
   }
+}
+
+class MissionsBackgroundPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()..color = const Color(0xFFF4F3EE);
+    final radius = 32.0;
+    final path = Path()
+      ..moveTo(radius, 0)
+      ..lineTo(size.width - radius, 0)
+      ..arcToPoint(Offset(size.width, radius), radius: Radius.circular(radius), clockwise: false)
+      ..lineTo(size.width, size.height - radius)
+      ..arcToPoint(Offset(size.width - radius, size.height), radius: Radius.circular(radius), clockwise: false)
+      ..lineTo(radius, size.height)
+      ..arcToPoint(Offset(0, size.height - radius), radius: Radius.circular(radius), clockwise: false)
+      ..lineTo(0, radius)
+      ..arcToPoint(Offset(radius, 0), radius: Radius.circular(radius), clockwise: false)
+      ..close();
+    canvas.drawPath(path, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
