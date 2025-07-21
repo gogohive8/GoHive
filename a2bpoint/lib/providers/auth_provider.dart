@@ -7,6 +7,7 @@ class AuthProvider with ChangeNotifier {
   String? _userId;
   String? _email;
   String? _username;
+  String? _bio;
   bool _isAuthenticated = false;
   bool _isInitialized = false;
   bool _isNewGoogleUser = false;
@@ -15,6 +16,7 @@ class AuthProvider with ChangeNotifier {
   String? get userId => _userId;
   String? get email => _email;
   String? get username => _username;
+  String? get bio => _bio;
   bool get isAuthenticated => _isAuthenticated;
   bool get isInitialized => _isInitialized;
   bool get isNewGoogleUser => _isNewGoogleUser;
@@ -36,6 +38,7 @@ class AuthProvider with ChangeNotifier {
       _userId = prefs.getString('userId');
       _email = prefs.getString('email');
       _username = prefs.getString('username');
+      _bio = prefs.getString('bio_${_userId ?? ''}') ?? '';
       _isAuthenticated = _token != null &&
           _userId != null &&
           _token!.isNotEmpty &&
@@ -43,7 +46,7 @@ class AuthProvider with ChangeNotifier {
       _isInitialized = true;
       _isNewGoogleUser = prefs.getBool('isNewGoogleUser') ?? false;
       developer.log(
-          'Auth data loaded: token=${_token != null}, userId=${_userId != null}, email=${_email != null}, username=${_username != null}, isAuthenticated=$_isAuthenticated, isNewGoogleUser=$_isNewGoogleUser',
+          'Auth data loaded: token=${_token != null}, userId=${_userId != null}, email=${_email != null}, username=${_username != null}, bio=${_bio != null}, isAuthenticated=$_isAuthenticated, isNewGoogleUser=$_isNewGoogleUser',
           name: 'AuthProvider');
       notifyListeners();
     } catch (e, stackTrace) {
@@ -63,12 +66,13 @@ class AuthProvider with ChangeNotifier {
     String userId,
     String email,
     String? username, {
+    String? bio,
     bool isGoogleLogin = false,
     bool isNewUser = false,
   }) async {
     try {
       developer.log(
-          'Setting auth data: token=$token, userId=$userId, email=$email, username=$username, isGoogleLogin=$isGoogleLogin, isNewUser=$isNewUser',
+          'Setting auth data: token=$token, userId=$userId, email=$email, username=$username, bio=$bio, isGoogleLogin=$isGoogleLogin, isNewUser=$isNewUser',
           name: 'AuthProvider');
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('token', token);
@@ -79,11 +83,17 @@ class AuthProvider with ChangeNotifier {
       } else {
         await prefs.remove('username');
       }
+      if (bio != null) {
+        await prefs.setString('bio_$userId', bio);
+      } else {
+        await prefs.remove('bio_$userId');
+      }
       await prefs.setBool('isNewGoogleUser', isGoogleLogin && isNewUser);
       _token = token;
       _userId = userId;
       _email = email;
       _username = username;
+      _bio = bio;
       _isAuthenticated = true;
       _isNewGoogleUser = isGoogleLogin && isNewUser;
       developer.log('Auth data set: isAuthenticated=true',
@@ -96,6 +106,23 @@ class AuthProvider with ChangeNotifier {
     }
   }
 
+  Future<void> updateProfile(String username, String bio) async {
+    try {
+      developer.log('Updating profile: username=$username, bio=$bio',
+          name: 'AuthProvider');
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('username', username);
+      await prefs.setString('bio_${_userId ?? ''}', bio);
+      _username = username;
+      _bio = bio;
+      developer.log('Profile updated locally', name: 'AuthProvider');
+      notifyListeners();
+    } catch (e, stackTrace) {
+      developer.log('Error updating profile: $e',
+          name: 'AuthProvider', stackTrace: stackTrace);
+    }
+  }
+
   Future<void> clearAuthData() async {
     try {
       developer.log('Clearing auth data', name: 'AuthProvider');
@@ -104,11 +131,13 @@ class AuthProvider with ChangeNotifier {
       await prefs.remove('userId');
       await prefs.remove('email');
       await prefs.remove('username');
+      await prefs.remove('bio_${_userId ?? ''}');
       await prefs.remove('isNewGoogleUser');
       _token = null;
       _userId = null;
       _email = null;
       _username = null;
+      _bio = null;
       _isAuthenticated = false;
       _isNewGoogleUser = false;
       developer.log('Auth data cleared', name: 'AuthProvider');

@@ -107,9 +107,6 @@ class ApiService {
           'Content-Type': 'application/json',
         },
       ).timeout(const Duration(seconds: 10));
-      developer.log(
-          'Get comments response: ${response.statusCode}, body: ${response.body}',
-          name: 'ApiService');
       final data = await _handleResponse(response);
       final comments = (data as List<dynamic>)
           .map((json) => Comment.fromJson({
@@ -119,6 +116,7 @@ class ApiService {
                 'text': json['text']?.toString() ?? '',
                 'created_at': json['created_at']?.toString() ??
                     DateTime.now().toIso8601String(),
+                'postId': json['postId']?.toString() ?? postId,
               }))
           .toList();
       developer.log('Parsed ${comments.length} comments', name: 'ApiService');
@@ -130,9 +128,12 @@ class ApiService {
     }
   }
 
-  Future<void> createComment(String postId, String text, String token) async {
+  Future<Map<String, dynamic>> createComment(
+      String postId, String text, String userId, String token) async {
     try {
-      developer.log('Creating comment for postId: $postId', name: 'ApiService');
+      developer.log(
+          'Creating comment for postId: $postId, userId: $userId, text: $text',
+          name: 'ApiService');
       final response = await _client
           .post(
             Uri.parse('$_postsUrl/posts/$postId/comments'),
@@ -140,12 +141,16 @@ class ApiService {
               'Authorization': 'Bearer $token',
               'Content-Type': 'application/json',
             },
-            body: jsonEncode({'text': text}),
+            body: jsonEncode({'text': text, 'userId': userId}),
           )
           .timeout(const Duration(seconds: 10));
-      developer.log('Create comment response: ${response.statusCode}',
-          name: 'ApiService');
-      await _handleResponse(response);
+      final data = await _handleResponse(response);
+      return {
+        'postId': postId,
+        'userId': userId,
+        'text': text,
+        'commentId': data['id']?.toString() ?? '',
+      };
     } catch (e, stackTrace) {
       developer.log('Create comment error: $e',
           name: 'ApiService', stackTrace: stackTrace);
@@ -163,9 +168,6 @@ class ApiService {
           'Content-Type': 'application/json',
         },
       ).timeout(const Duration(seconds: 10));
-      developer.log(
-          'Get posts response: ${response.statusCode}, body: ${response.body}',
-          name: 'ApiService');
       final data = await _handleResponse(response);
       final posts = (data as List<dynamic>)
           .map((json) => Post.fromJson({
@@ -206,9 +208,6 @@ class ApiService {
           'Content-Type': 'application/json',
         },
       ).timeout(const Duration(seconds: 10));
-      developer.log(
-          'Get goals response: ${response.statusCode}, body: ${response.body}',
-          name: 'ApiService');
       final data = await _handleResponse(response);
       final posts = (data as List<dynamic>)
           .map((json) => Post.fromJson({
@@ -244,9 +243,6 @@ class ApiService {
           'Content-Type': 'application/json',
         },
       ).timeout(const Duration(seconds: 10));
-      developer.log(
-          'Get events response: ${response.statusCode}, body: ${response.body}',
-          name: 'ApiService');
       final data = await _handleResponse(response);
       final posts = (data as List<dynamic>)
           .map((json) => Post.fromJson({
@@ -281,9 +277,6 @@ class ApiService {
           'Authorization': 'Bearer $token',
         },
       ).timeout(const Duration(seconds: 30));
-      developer.log(
-          'Get goals response: ${response.statusCode}, body: ${response.body}',
-          name: 'ApiService');
       final data = await _handleResponse(response);
       final posts = (data as List<dynamic>)
           .map((json) => Post.fromJson({
@@ -323,9 +316,6 @@ class ApiService {
           'Authorization': 'Bearer $token',
         },
       ).timeout(const Duration(seconds: 30));
-      developer.log(
-          'Get events response: ${response.statusCode}, body: ${response.body}',
-          name: 'ApiService');
       final data = await _handleResponse(response);
       final posts = (data as List<dynamic>)
           .map((json) => Post.fromJson({
@@ -360,9 +350,6 @@ class ApiService {
           'Content-Type': 'application/json',
         },
       ).timeout(const Duration(seconds: 10));
-      developer.log(
-          'Get post by id response: ${response.statusCode}, body: ${response.body}',
-          name: 'ApiService');
       final data = await _handleResponse(response);
       return Post.fromJson({
         ...data,
@@ -388,7 +375,7 @@ class ApiService {
     }
   }
 
-  Future<void> likePost(String postId, String token) async {
+  Future<Map<String, dynamic>> likePost(String postId, String token) async {
     try {
       developer.log('Liking post: postId: $postId', name: 'ApiService');
       final response = await _client
@@ -401,9 +388,11 @@ class ApiService {
             body: jsonEncode({'post_id': postId}),
           )
           .timeout(const Duration(seconds: 10));
-      developer.log('Like post response: ${response.statusCode}',
-          name: 'ApiService');
-      await _handleResponse(response);
+      final data = await _handleResponse(response);
+      return {
+        'postId': postId,
+        'userId': _supabase.auth.currentUser?.id ?? '',
+      };
     } catch (e, stackTrace) {
       developer.log('Like post error: $e',
           name: 'ApiService', stackTrace: stackTrace);
@@ -411,7 +400,7 @@ class ApiService {
     }
   }
 
-  Future<void> joinEvent(String eventId, String token) async {
+  Future<Map<String, dynamic>> joinEvent(String eventId, String token) async {
     try {
       developer.log('Joining event: eventId: $eventId', name: 'ApiService');
       final response = await _client.post(
@@ -421,9 +410,11 @@ class ApiService {
           'Content-Type': 'application/json',
         },
       ).timeout(const Duration(seconds: 10));
-      developer.log('Join event response: ${response.statusCode}',
-          name: 'ApiService');
-      await _handleResponse(response);
+      final data = await _handleResponse(response);
+      return {
+        'eventId': eventId,
+        'userId': _supabase.auth.currentUser?.id ?? '',
+      };
     } catch (e, stackTrace) {
       developer.log('Join event error: $e',
           name: 'ApiService', stackTrace: stackTrace);
@@ -675,7 +666,8 @@ class ApiService {
   Future<void> updateProfile(
       String userId, String token, Map<String, dynamic> data) async {
     try {
-      developer.log('Updating profile for userId: $userId', name: 'ApiService');
+      developer.log('Updating profile for userId: $userId, data: $data',
+          name: 'ApiService');
       final response = await _client
           .post(
             Uri.parse('$_baseUrl/profile/$userId'),

@@ -112,7 +112,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
   void _addComment() async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final postsProvider = Provider.of<PostsProvider>(context, listen: false);
-    if (!authProvider.isAuthenticated || authProvider.token == null) {
+    if (!authProvider.isAuthenticated || authProvider.token == null || authProvider.userId == null) {
       authProvider.handleAuthError(
           context, AuthenticationException('Not authenticated'));
       return;
@@ -128,7 +128,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
         _isLoading = true;
       });
       await _apiService.createComment(
-          widget.post.id, _commentController.text, authProvider.token!);
+          widget.post.id, _commentController.text, authProvider.userId!, authProvider.token!);
       await postsProvider.addComment(widget.post.id);
       setState(() {
         _comments.insert(

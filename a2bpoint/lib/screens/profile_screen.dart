@@ -7,6 +7,7 @@ import '../services/api_services.dart';
 import '../models/post.dart';
 import '../services/exceptions.dart';
 import 'navbar.dart';
+import 'profile_edit_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -22,7 +23,6 @@ class _ProfileScreenState extends State<ProfileScreen>
   List<Post> _goals = [];
   List<Post> _events = [];
   bool _isLoading = true;
-  final TextEditingController _bioController = TextEditingController();
   late TabController _tabController;
 
   @override
@@ -37,7 +37,6 @@ class _ProfileScreenState extends State<ProfileScreen>
   void dispose() {
     _tabController.removeListener(_handleTabChange);
     _tabController.dispose();
-    _bioController.dispose();
     _apiService.dispose();
     super.dispose();
   }
@@ -66,9 +65,6 @@ class _ProfileScreenState extends State<ProfileScreen>
       developer.log('Loading profile for userId=$userId',
           name: 'ProfileScreen');
 
-      final prefs = await SharedPreferences.getInstance();
-      final savedBio = prefs.getString('bio_$userId') ?? '';
-
       final profile = await _apiService.getProfile(userId, token);
       final goals = await _apiService.getGoals(userId, token);
       final events = await _apiService.getEvents(userId, token);
@@ -78,14 +74,12 @@ class _ProfileScreenState extends State<ProfileScreen>
           _profile = profile;
           _goals = goals;
           _events = events;
-          _bioController.text = profile['bio']?.toString() ?? savedBio;
           _isLoading = false;
         });
-        await prefs.setString('bio_$userId', _bioController.text);
+        developer.log(
+            'Profile loaded: username=${_profile?['username'] ?? 'User'}, bio=${_profile?['bio'] ?? 'none'}, avatar=${_profile?['avatar'] ?? 'none'}',
+            name: 'ProfileScreen');
       }
-      developer.log(
-          'Profile loaded: username=${_profile?['username'] ?? 'User'}, bio=${_bioController.text}, avatar=${_profile?['avatar'] ?? 'none'}',
-          name: 'ProfileScreen');
     } catch (e, stackTrace) {
       developer.log('Load profile error: $e',
           name: 'ProfileScreen', stackTrace: stackTrace);
@@ -99,44 +93,11 @@ class _ProfileScreenState extends State<ProfileScreen>
     }
   }
 
-  Future<void> _updateBio() async {
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    final userId = authProvider.userId ?? '';
-    final token = authProvider.token ?? '';
-
-    if (_bioController.text.isEmpty || userId.isEmpty || token.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Bio or authentication details missing')),
-      );
-      return;
-    }
-
-    try {
-      developer.log('Updating bio for userId=$userId', name: 'ProfileScreen');
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('bio_$userId', _bioController.text);
-
-      final success =
-          await _apiService.updateBio(userId, _bioController.text, token);
-      if (success && mounted) {
-        setState(() {
-          _profile = {...?_profile, 'bio': _bioController.text};
-        });
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Bio updated successfully')),
-        );
-        developer.log('Bio updated: ${_bioController.text}',
-            name: 'ProfileScreen');
-      }
-    } catch (e, stackTrace) {
-      developer.log('Update bio error: $e',
-          name: 'ProfileScreen', stackTrace: stackTrace);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error updating bio: $e')),
-        );
-      }
-    }
+  void _editProfile() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const ProfileEditScreen()),
+    );
   }
 
   @override
@@ -158,7 +119,7 @@ class _ProfileScreenState extends State<ProfileScreen>
         elevation: 0,
         automaticallyImplyLeading: false,
         title: Text(
-          _profile?['username'] ?? 'User',
+          authProvider.username ?? 'User',
           style: const TextStyle(
             fontSize: 20,
             fontWeight: FontWeight.bold,
@@ -192,7 +153,6 @@ class _ProfileScreenState extends State<ProfileScreen>
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Avatar
                       Center(
                         child: CircleAvatar(
                           radius: 40,
@@ -205,9 +165,8 @@ class _ProfileScreenState extends State<ProfileScreen>
                         ),
                       ),
                       const SizedBox(height: 16),
-                      // Username
                       Text(
-                        _profile?['username'] ?? 'User',
+                        authProvider.username ?? 'User',
                         style: const TextStyle(
                           fontSize: 24,
                           fontWeight: FontWeight.bold,
@@ -215,7 +174,6 @@ class _ProfileScreenState extends State<ProfileScreen>
                         ),
                       ),
                       const SizedBox(height: 8),
-                      // Followers/Following
                       Text(
                         '${_profile?['followers'] ?? 0} followers  ${_profile?['following'] ?? 0} following',
                         style: const TextStyle(
@@ -224,9 +182,9 @@ class _ProfileScreenState extends State<ProfileScreen>
                         ),
                       ),
                       const SizedBox(height: 16),
-                      // Bio
                       TextFormField(
-                        controller: _bioController,
+                        initialValue: authProvider.bio ?? '',
+                        readOnly: true,
                         decoration: InputDecoration(
                           filled: true,
                           fillColor: const Color.fromRGBO(249, 246, 242, 0.9),
@@ -243,7 +201,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                           suffixIcon: IconButton(
                             icon: const Icon(Icons.edit,
                                 color: Color(0xFFAFCBEA)),
-                            onPressed: _updateBio,
+                            onPressed: _editProfile,
                           ),
                         ),
                         maxLines: 3,
@@ -253,7 +211,6 @@ class _ProfileScreenState extends State<ProfileScreen>
                         ),
                       ),
                       const SizedBox(height: 20),
-                      // Posts
                       SizedBox(
                         height: size.height * 0.5,
                         child: TabBarView(
