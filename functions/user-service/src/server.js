@@ -335,7 +335,7 @@ app.get('/profile/:id', verifyToken, async (req, res) => {
     return res.status(200).json({
       id: user.id,
       username: user.username,
-      biography: profileInfo.biography,
+      biographygraphy: profileInfo.biographygraphy,
       numOfFollowers: profileInfo.numOfFollowers,
       numOfFollowing: profileInfo.numOfFollowing,
       profileImage: profileInfo.profileImage,
@@ -347,36 +347,36 @@ app.get('/profile/:id', verifyToken, async (req, res) => {
   }
 });
 
-app.put('/profile/:id/bio', verifyToken, async (req, res) => {
+app.put('/profile/:id/biography', verifyToken, async (req, res) => {
   try {
     const { id } = req.params;
-    const { bio } = req.body;
-    console.log(`Updating bio for user: ${id}, bio: ${bio}`);
+    const { biography } = req.body;
+    console.log(`Updating biography for user: ${id}, biography: ${biography}`);
 
-    if (!bio) {
-      return res.status(400).json({ error: 'Missing biography' });
+    if (!biography) {
+      return res.status(400).json({ error: 'Missing biographygraphy' });
     }
 
     const { data, error } = await supabase
       .schema('public')
       .from('profiles')
-      .update({ biography: bio })
+      .update({ biographygraphy: biography })
       .eq('id', id)
       // .select()
       // .single();
 
     if (error) {
-      console.error('Error updating bio:', error.message, 'Code:', error.code);
+      console.error('Error updating biography:', error.message, 'Code:', error.code);
       if (error.code === 'PGRST116') {
         return res.status(404).json({ error: 'Profile not found' });
       }
       return res.status(400).json({ error: error.message });
     }
 
-    // res.status(200).json({ message: 'Biography updated', biography: data.biography });
-    return res.status(200).json({message: 'Biography updated'});
+    // res.status(200).json({ message: 'biographygraphy updated', biographygraphy: data.biographygraphy });
+    return res.status(200).json({message: 'biographygraphy updated'});
   } catch (error) {
-    console.error('Error in /profile/:id/bio:', error.message);
+    console.error('Error in /profile/:id/biography:', error.message);
     res.status(400).json({ error: error.message });
   }
 });

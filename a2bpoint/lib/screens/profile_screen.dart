@@ -23,6 +23,7 @@ class _ProfileScreenState extends State<ProfileScreen>
   List<Post> _goals = [];
   List<Post> _events = [];
   bool _isLoading = true;
+  final TextEditingController _biographyController = TextEditingController();
   late TabController _tabController;
 
   @override
@@ -37,6 +38,7 @@ class _ProfileScreenState extends State<ProfileScreen>
   void dispose() {
     _tabController.removeListener(_handleTabChange);
     _tabController.dispose();
+    _biographyController.dispose();
     _apiService.dispose();
     super.dispose();
   }
@@ -65,6 +67,9 @@ class _ProfileScreenState extends State<ProfileScreen>
       developer.log('Loading profile for userId=$userId',
           name: 'ProfileScreen');
 
+      final prefs = await SharedPreferences.getInstance();
+      final savedbiography = prefs.getString('biography_$userId') ?? '';
+
       final profile = await _apiService.getProfile(userId, token);
       final goals = await _apiService.getGoals(userId, token);
       final events = await _apiService.getEvents(userId, token);
@@ -74,12 +79,15 @@ class _ProfileScreenState extends State<ProfileScreen>
           _profile = profile;
           _goals = goals;
           _events = events;
+          _biographyController.text =
+              profile['biography']?.toString() ?? savedbiography;
           _isLoading = false;
         });
-        developer.log(
-            'Profile loaded: username=${_profile?['username'] ?? 'User'}, bio=${_profile?['bio'] ?? 'none'}, avatar=${_profile?['avatar'] ?? 'none'}',
-            name: 'ProfileScreen');
+        await prefs.setString('biography_$userId', _biographyController.text);
       }
+      developer.log(
+          'Profile loaded: username=${_profile?['username'] ?? 'User'}, biography=${_biographyController.text}, profileImage=${_profile?['profileImage'] ?? 'none'}',
+          name: 'ProfileScreen');
     } catch (e, stackTrace) {
       developer.log('Load profile error: $e',
           name: 'ProfileScreen', stackTrace: stackTrace);
@@ -93,11 +101,46 @@ class _ProfileScreenState extends State<ProfileScreen>
     }
   }
 
-  void _editProfile() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (context) => const ProfileEditScreen()),
-    );
+  Future<void> _updatebiography() async {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final userId = authProvider.userId ?? '';
+    final token = authProvider.token ?? '';
+
+    if (_biographyController.text.isEmpty || userId.isEmpty || token.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('biography or authentication details missing')),
+      );
+      return;
+    }
+
+    try {
+      developer.log('Updating biography for userId=$userId',
+          name: 'ProfileScreen');
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('biography_$userId', _biographyController.text);
+
+      final success = await _apiService.updatebiography(
+          userId, _biographyController.text, token);
+      if (success && mounted) {
+        setState(() {
+          _profile = {...?_profile, 'biography': _biographyController.text};
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('biography updated successfully')),
+        );
+        developer.log('biography updated: ${_biographyController.text}',
+            name: 'ProfileScreen');
+      }
+    } catch (e, stackTrace) {
+      developer.log('Update biography error: $e',
+          name: 'ProfileScreen', stackTrace: stackTrace);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error updating biography: $e')),
+        );
+      }
+    }
   }
 
   @override
@@ -153,6 +196,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      // Profile Image
                       Center(
                         child: CircleAvatar(
                           radius: 40,
@@ -175,16 +219,16 @@ class _ProfileScreenState extends State<ProfileScreen>
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        '${_profile?['followers'] ?? 0} followers  ${_profile?['following'] ?? 0} following',
+                        '${_profile?['numOfFollowers'] ?? 0} Followers  ${_profile?['following'] ?? 0} Following',
                         style: const TextStyle(
                           fontSize: 12,
                           color: Color(0xFF333333),
                         ),
                       ),
                       const SizedBox(height: 16),
+                      // Biography
                       TextFormField(
-                        initialValue: authProvider.bio ?? '',
-                        readOnly: true,
+                        controller: _biographyController,
                         decoration: InputDecoration(
                           filled: true,
                           fillColor: const Color.fromRGBO(249, 246, 242, 0.9),
@@ -201,7 +245,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                           suffixIcon: IconButton(
                             icon: const Icon(Icons.edit,
                                 color: Color(0xFFAFCBEA)),
-                            onPressed: _editProfile,
+                            onPressed: _updatebiography,
                           ),
                         ),
                         maxLines: 3,
@@ -245,7 +289,7 @@ class _ProfileScreenState extends State<ProfileScreen>
         itemBuilder: (context, index) {
           final post = posts[index];
           developer.log(
-              'Rendering $type[$index]: id=${post.id}, text=${post.text}, likes=${post.likes}',
+              'Rendering $type[$index]: id=${post.id}, text=${post.text}, numOfLikes=${post.numOfLikes}',
               name: 'ProfileScreen');
           return Card(
             color: const Color(0xFFDDDDDD),
@@ -284,7 +328,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                               color: Color(0xFF333333)),
                           const SizedBox(width: 4),
                           Text(
-                            '${post.likes}',
+                            '${post.numOfLikes}',
                             style: const TextStyle(color: Color(0xFF1A1A1A)),
                           ),
                         ],

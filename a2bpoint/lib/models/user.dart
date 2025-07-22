@@ -3,12 +3,12 @@ import 'dart:developer' as developer;
 class User {
   final String id;
   final String username;
-  final String avatarUrl;
+  final String profileImage;
 
   User({
     required this.id,
     required this.username,
-    required this.avatarUrl,
+    required this.profileImage,
   });
 
   factory User.fromJson(Map<String, dynamic> json) {
@@ -17,7 +17,7 @@ class User {
     return User(
       id: json['userID']?.toString() ?? json['id']?.toString() ?? 'unknown',
       username: json['username']?.toString() ?? 'Unknown',
-      avatarUrl: json['avatar']?.toString() ?? '',
+      profileImage: json['avatar']?.toString() ?? '',
     );
   }
 }
