@@ -474,6 +474,34 @@ app.post('/like', verifyToken,  async (req, res) => {
 })
 
 
+app.post('/joinEvent', verifyToken, async(req, res) => {
+  try{
+
+    const { post_id, user_id } = req.body;
+
+    const {error: userJoinError} = await supabase
+    .schema('posts')
+    .from('joinedEvent')
+    .insert(
+      {
+        eventID: post_id,
+        userID: user_id
+      }
+    )
+
+    if (userJoinError) {
+      console.error('Error of insert user like information: ', userJoinError);
+      res.status(400).json({ error: userJoinError.message})
+    }
+
+    return res.status(200).json({message: 'Like update successfully'});
+
+  } catch (joinError) {
+    console.error('Error of join event: ', joinError);
+    res.status(400).json({error: joinError});
+  }
+})
+
 app.post('/upload', upload.array('images', 10), async (req, res) => {
   try {
     if (!req.files || req.files.length === 0) {

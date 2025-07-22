@@ -1,179 +1,163 @@
+import 'dart:developer' as developer;
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
-import '../services/exceptions.dart';
-import 'dart:developer' as developer;
 
 class AuthProvider with ChangeNotifier {
-  final SupabaseClient _supabaseClient = Supabase.instance.client;
   String? _token;
   String? _userId;
-  String? _username;
-  String? _profileImage;
   String? _email;
+  String? _username;
+  String? _bio;
+  bool _isAuthenticated = false;
   bool _isInitialized = false;
+  bool _isNewGoogleUser = false;
 
   String? get token => _token;
   String? get userId => _userId;
-  String? get username => _username;
-  String? get profileImage => _profileImage;
   String? get email => _email;
+  String? get username => _username;
+  String? get bio => _bio;
+  bool get isAuthenticated => _isAuthenticated;
   bool get isInitialized => _isInitialized;
-  bool get isAuthenticated => _token != null && _userId != null;
+  bool get isNewGoogleUser => _isNewGoogleUser;
 
   AuthProvider() {
-    developer.log('AuthProvider created', name: 'AuthProvider');
+    _loadAuthData();
   }
 
   Future<void> initialize() async {
-    if (_isInitialized) {
-      developer.log('AuthProvider already initialized', name: 'AuthProvider');
-      return;
-    }
+    await _loadAuthData();
+  }
+
+  Future<void> _loadAuthData() async {
     try {
-      developer.log('Initializing AuthProvider', name: 'AuthProvider');
+      developer.log('Loading auth data from SharedPreferences',
+          name: 'AuthProvider');
       final prefs = await SharedPreferences.getInstance();
-      _token = prefs.getString('auth_token');
-      _userId = prefs.getString('user_id');
-      _username = prefs.getString('username');
-      _profileImage = prefs.getString('avatar_url');
+      _token = prefs.getString('token');
+      _userId = prefs.getString('userId');
       _email = prefs.getString('email');
+      _username = prefs.getString('username');
+      _bio = prefs.getString('bio_${_userId ?? ''}') ?? '';
+      _isAuthenticated = _token != null &&
+          _userId != null &&
+          _token!.isNotEmpty &&
+          _userId!.isNotEmpty;
       _isInitialized = true;
+      _isNewGoogleUser = prefs.getBool('isNewGoogleUser') ?? false;
       developer.log(
-          'AuthProvider initialized: token=${_token != null}, userId=$_userId',
+          'Auth data loaded: token=${_token != null}, userId=${_userId != null}, email=${_email != null}, username=${_username != null}, bio=${_bio != null}, isAuthenticated=$_isAuthenticated, isNewGoogleUser=$_isNewGoogleUser',
           name: 'AuthProvider');
       notifyListeners();
     } catch (e, stackTrace) {
-      developer.log('Initialization error: $e',
+      developer.log('Error loading auth data: $e',
           name: 'AuthProvider', stackTrace: stackTrace);
-      _isInitialized =
-          true; // Mark as initialized even on error to avoid repeated attempts
+      _isInitialized = true;
       notifyListeners();
     }
   }
 
   bool shouldRedirectTo() {
-    final shouldRedirect =
-        _isInitialized && (_token == null || _userId == null);
-    developer.log('shouldRedirectTo: $shouldRedirect', name: 'AuthProvider');
-    return shouldRedirect;
+    return !isAuthenticated || _token == null || _userId == null;
   }
 
   Future<void> setAuthData(
-      String token, String userId, String email, String username,
-      {bool isGoogleLogin = false, bool isNewUser = false}) async {
+    String token,
+    String userId,
+    String email,
+    String? username, {
+    String? bio,
+    bool isGoogleLogin = false,
+    bool isNewUser = false,
+  }) async {
     try {
       developer.log(
-          'Setting auth data: userId=$userId, username=$username, email=$email',
+          'Setting auth data: token=$token, userId=$userId, email=$email, username=$username, bio=$bio, isGoogleLogin=$isGoogleLogin, isNewUser=$isNewUser',
           name: 'AuthProvider');
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('token', token);
+      await prefs.setString('userId', userId);
+      await prefs.setString('email', email);
+      if (username != null) {
+        await prefs.setString('username', username);
+      } else {
+        await prefs.remove('username');
+      }
+      if (bio != null) {
+        await prefs.setString('bio_$userId', bio);
+      } else {
+        await prefs.remove('bio_$userId');
+      }
+      await prefs.setBool('isNewGoogleUser', isGoogleLogin && isNewUser);
       _token = token;
       _userId = userId;
-      _username = username;
       _email = email;
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('auth_token', token);
-      await prefs.setString('user_id', userId);
-      await prefs.setString('username', username);
-      await prefs.setString('email', email);
-      if (_profileImage != null) {
-        await prefs.setString('avatar_url', _profileImage!);
-      } else {
-        await prefs.remove('avatar_url');
-      }
+      _username = username;
+      _bio = bio;
+      _isAuthenticated = true;
+      _isNewGoogleUser = isGoogleLogin && isNewUser;
+      developer.log('Auth data set: isAuthenticated=true',
+          name: 'AuthProvider');
       notifyListeners();
     } catch (e, stackTrace) {
       developer.log('Error setting auth data: $e',
           name: 'AuthProvider', stackTrace: stackTrace);
-      rethrow;
+      await clearAuthData();
     }
   }
 
-  Future<void> signIn(String email, String password) async {
+  Future<void> updateProfile(String username, String bio) async {
     try {
-      developer.log('Attempting sign in for email: $email',
+      developer.log('Updating profile: username=$username, bio=$bio',
           name: 'AuthProvider');
-      final response = await _supabaseClient.auth.signInWithPassword(
-        email: email,
-        password: password,
-      );
-      final user = response.user;
-      if (user == null) {
-        throw AuthenticationException('Sign-in failed: No user returned');
-      }
-      final token = response.session?.accessToken;
-      if (token == null) {
-        throw AuthenticationException('Sign-in failed: No token returned');
-      }
-      final username = user.userMetadata?['username']?.toString() ?? 'Unknown';
-      final profileImage = user.userMetadata?['avatar_url']?.toString();
-      await setAuthData(token, user.id, email, username);
-      developer.log('Sign-in successful: userId=${user.id}',
-          name: 'AuthProvider');
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('username', username);
+      await prefs.setString('bio_${_userId ?? ''}', bio);
+      _username = username;
+      _bio = bio;
+      developer.log('Profile updated locally', name: 'AuthProvider');
+      notifyListeners();
     } catch (e, stackTrace) {
-      developer.log('Sign-in error: $e',
+      developer.log('Error updating profile: $e',
           name: 'AuthProvider', stackTrace: stackTrace);
-      rethrow;
     }
   }
 
-  Future<void> signUp(String email, String password, String username) async {
+  Future<void> clearAuthData() async {
     try {
-      developer.log('Attempting sign up for email: $email',
-          name: 'AuthProvider');
-      final response = await _supabaseClient.auth.signUp(
-        email: email,
-        password: password,
-        data: {'username': username},
-      );
-      final user = response.user;
-      if (user == null) {
-        throw AuthenticationException('Sign-up failed: No user returned');
-      }
-      final token = response.session?.accessToken;
-      if (token == null) {
-        throw AuthenticationException('Sign-up failed: No token returned');
-      }
-      await setAuthData(token, user.id, email, username);
-      developer.log('Sign-up successful: userId=${user.id}',
-          name: 'AuthProvider');
-    } catch (e, stackTrace) {
-      developer.log('Sign-up error: $e',
-          name: 'AuthProvider', stackTrace: stackTrace);
-      rethrow;
-    }
-  }
-
-  Future<void> signOut() async {
-    try {
-      developer.log('Signing out', name: 'AuthProvider');
-      await _supabaseClient.auth.signOut();
+      developer.log('Clearing auth data', name: 'AuthProvider');
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('token');
+      await prefs.remove('userId');
+      await prefs.remove('email');
+      await prefs.remove('username');
+      await prefs.remove('bio_${_userId ?? ''}');
+      await prefs.remove('isNewGoogleUser');
       _token = null;
       _userId = null;
-      _username = null;
-      _profileImage = null;
       _email = null;
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.remove('auth_token');
-      await prefs.remove('user_id');
-      await prefs.remove('username');
-      await prefs.remove('avatar_url');
-      await prefs.remove('email');
+      _username = null;
+      _bio = null;
+      _isAuthenticated = false;
+      _isNewGoogleUser = false;
+      developer.log('Auth data cleared', name: 'AuthProvider');
       notifyListeners();
-      developer.log('Sign-out successful', name: 'AuthProvider');
     } catch (e, stackTrace) {
-      developer.log('Sign-out error: $e',
+      developer.log('Error clearing auth data: $e',
           name: 'AuthProvider', stackTrace: stackTrace);
-      rethrow;
     }
   }
 
-  void handleAuthError(BuildContext context, Object error) {
+  void handleAuthError(BuildContext context, dynamic error) {
     developer.log('Handling auth error: $error', name: 'AuthProvider');
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Ошибка авторизации: $error')),
-    );
-    if (_token == null || _userId == null) {
-      Navigator.pushReplacementNamed(context, '/sign_in');
-    }
+    clearAuthData();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (context.mounted) {
+        Navigator.pushReplacementNamed(context, '/sign_in');
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Authentication error: ${error.toString()}')),
+        );
+      }
+    });
   }
 }

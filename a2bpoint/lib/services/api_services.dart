@@ -176,7 +176,6 @@ class ApiService {
                 'text': json['text']?.toString() ?? '',
                 'created_at': json['created_at']?.toString() ??
                     DateTime.now().toIso8601String(),
-                'postId': json['postId']?.toString() ?? postId,
               }))
           .toList();
       developer.log(
