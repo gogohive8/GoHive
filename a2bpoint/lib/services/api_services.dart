@@ -147,7 +147,8 @@ class ApiService {
     }
   }
 
-  Future<List<Comment>> getComments(String post_id, String token,
+  Future<List<Comment>> getComments(
+      String post_id, String token, String post_type,
       {int limit = 10, int offset = 0}) async {
     try {
       developer.log(
@@ -155,7 +156,7 @@ class ApiService {
           name: 'ApiService');
       final response = await _client.get(
         Uri.parse(
-            '$_postsUrl/posts/$post_id/comments?limit=$limit&offset=$offset'),
+            '$_postsUrl/posts/$post_id/comments?limit=$limit&offset=$offset&post_type=$post_type'),
         headers: {
           'Authorization': 'Bearer $token',
           'Content-Type': 'application/json',

@@ -599,6 +599,69 @@ app.post('/posts/:post_id/comments', verifyToken, async (req, res) => {
   } 
 })
 
+app.get('/posts/:post_id/comments', verifyToken, async (req, res) => {
+  try{
+    const {post_id} = req.params;
+    const limit = parseInt(req.query.limit) || 10;
+    const offset = parseInt(req.query.offset) || 0;
+    const post_type = req.query.post_type;
+
+    if (post_type == 'goal'){
+      const {data: fetchComments, error: goalCommentsSelectError} = await supabase
+      .schema('posts')
+      .from('goalsComments')
+      .select()
+      .eq('goalID', post_id);
+
+      
+      if (goalCommentsSelectError) {
+        console.error('Problem to insert comment to goal', goalCommentsSelectError);
+        return res.status(400).json({error: goalCommentsSelectError});
+      }
+
+      if (!fetchComments || fetchComments.length === 0) {
+        console.log('No comments found');
+        return res.status(200).json([]);
+    }
+
+      console.log('Goal comments fetched')
+      return res.status(200).json({fetchComments})
+    }
+
+    else if (post_type == 'event') {
+      const {data: fetchComments, error: eventCommentsSelectError} = await supabase
+      .schema('posts')
+      .from('eventsComments')
+      .select()
+      .eq('eventsID', post_id);
+
+      
+      if (eventCommentsSelectError) {
+        console.error('Problem to insert comment to goal', eventCommentsSelectError);
+        return res.status(400).json({error: eventCommentsSelectError});
+      }
+
+      if (!fetchComments || fetchComments.length === 0) {
+        console.log('No comments found');
+        return res.status(200).json([]);
+    }
+
+      console.log('Event comments fetched')
+      return res.status(200).json({fetchComments})
+    }
+
+    else {
+      console.error('Undefined type of post');
+      return res.status(400).json({message: 'Undefined type of post'});
+    }
+
+  } catch (fetchCommentError) {
+    console.error('Error of fetching comments', fetchCommentError);
+    return res.status(400).json({error: fetchCommentError});
+  }
+})
+
+
 const PORT = process.env.PORT || 3002; // Fallback for local testing
 app.listen(PORT, '127.0.0.1', () => {
   console.log(`Server running on port ${PORT}`);
