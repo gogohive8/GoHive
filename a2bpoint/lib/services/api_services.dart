@@ -189,8 +189,8 @@ class ApiService {
     }
   }
 
-  Future<Map<String, dynamic>> createComment(
-      String post_id, String userId, String text, String token) async {
+  Future<Map<String, dynamic>> createComment(String post_id, String userId,
+      String text, String post_type, String token) async {
     try {
       developer.log(
           'Creating comment for post_id: $post_id, userId: $userId, text: $text',
@@ -202,7 +202,12 @@ class ApiService {
               'Authorization': 'Bearer $token',
               'Content-Type': 'application/json',
             },
-            body: jsonEncode({'text': text, 'userId': userId}),
+            body: jsonEncode({
+              'text': text,
+              'userId': userId,
+              'postId': post_id,
+              'postType': post_type
+            }),
           )
           .timeout(const Duration(seconds: 10));
       final data = await _handleResponse(response);
@@ -266,7 +271,7 @@ class ApiService {
               'Authorization': 'Bearer $token',
               'Content-Type': 'application/json',
             },
-            body: jsonEncode({'user_id': userId}),
+            body: jsonEncode({'post_id': eventId, 'user_id': userId}),
           )
           .timeout(const Duration(seconds: 10));
       final data = await _handleResponse(response);

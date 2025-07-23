@@ -4,6 +4,7 @@ const jwt = require('jsonwebtoken');
 const cors = require('cors');
 const multer = require('multer');
 const path = require('path');
+const { error } = require('console');
 
 require('dotenv').config({ path: __dirname + '/../.env'});
 
@@ -417,7 +418,7 @@ app.get('/events/:id', verifyToken, async (req, res) => {
     return res.status(200).json(usersEvents);
   } catch (error) {
     console.error('Error of fetching photos url: ', error.message);
-    res.status(400).json({error: error.message});
+    return res.status(400).json({error: error.message});
   }
 });
 
@@ -469,7 +470,7 @@ app.post('/like', verifyToken,  async (req, res) => {
 
   } catch (error) {
     console.error('Error of like: ', error.message);
-    res.status(400).json({error: error.message});
+    return res.status(400).json({error: error.message});
   }
 })
 
@@ -498,7 +499,7 @@ app.post('/joinEvent', verifyToken, async(req, res) => {
 
   } catch (joinError) {
     console.error('Error of join event: ', joinError);
-    res.status(400).json({error: joinError});
+    return res.status(400).json({error: joinError});
   }
 })
 
@@ -541,6 +542,61 @@ app.post('/upload', upload.array('images', 10), async (req, res) => {
     return res.status(500).json({ error: 'Internal server error' });
   }
 });
+
+app.post('/posts/:post_id/comments', verifyToken, async (req, res) => {
+  try{
+    const {text, userId, postId, post_type} = req.body;
+
+    if (post_type == 'goal'){
+      const {error: goalCommentsInsertError} = await supabase
+      .schema('posts')
+      .from('goalsComments')
+      .insert(
+        {
+          userID: userId,
+          goalID: postId,
+          comment: text
+        }
+      ).single()
+
+      if (goalCommentsInsertError) {
+        console.error('Problem to insert comment to goal', goalCommentsInsertError);
+        return res.status(400).json({error: goalCommentsInsertError});
+      }
+
+      console.log('Goal comments created')
+      return res.status(200).json({message: 'Complete to create comment to goal'})
+    }
+
+    else if (post_type == 'event') {
+      const {error: eventCommentsInsertError} = await supabase
+      .schema('posts')
+      .from('eventsComments')
+      .insert({
+        userID: userId,
+        eventsID: postId,
+        comments: text
+      }).single();
+
+      if (eventCommentsInsertError) {
+        console.error('Problem to insert comment to goal', eventCommentsInsertError);
+        return res.status(400).json({error: eventCommentsInsertError});
+      }
+      
+      console.log('Event comments created');
+      return res.status(200).json({message: 'Complete to create comment to event'});
+    }
+
+    else {
+      console.error('Undefined type of post');
+      return res.status(400).json({message: 'Undefined type of post'});
+    }
+
+  } catch (commentError) {
+    console.error('Error of create comments', commentError);
+    return res.status(500).json({error: commentError.message});
+  } 
+})
 
 const PORT = process.env.PORT || 3002; // Fallback for local testing
 app.listen(PORT, '127.0.0.1', () => {
