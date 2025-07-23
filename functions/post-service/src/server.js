@@ -503,7 +503,7 @@ app.post('/joinEvent', verifyToken, async(req, res) => {
   }
 })
 
-app.post('/upload', upload.array('images', 10), async (req, res) => {
+app.post('/upload', upload.array('files', 10), async (req, res) => {
   try {
     if (!req.files || req.files.length === 0) {
       return res.status(400).json({ error: 'No images provided' });
@@ -536,7 +536,8 @@ app.post('/upload', upload.array('images', 10), async (req, res) => {
     }
 
     console.log('Images uploaded:', photoUrls);
-    return res.status(200).json(photoUrls);
+    // return res.status(200).json(photoUrls);
+    return res.status(200).json(photoUrls.length === 1 ? { url: photoUrls[0] } : photoUrls);
   } catch (error) {
     console.error('Error in /upload:', error.message);
     return res.status(500).json({ error: 'Internal server error' });
