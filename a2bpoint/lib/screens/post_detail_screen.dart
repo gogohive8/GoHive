@@ -19,50 +19,71 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
   bool _isLoading = false;
 
   Future<void> _addComment() async {
-    setState(() {
-      _isLoading = true;
-    });
+  setState(() {
+    _isLoading = true;
+  });
 
-    try {
-      final authProvider = Provider.of<AuthProvider>(context, listen: false);
-      final postsProvider = Provider.of<PostsProvider>(context, listen: false);
+  try {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final postsProvider = Provider.of<PostsProvider>(context, listen: false);
 
-      if (!authProvider.isAuthenticated) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please sign in to comment')),
-        );
-        return;
-      }
-
-      final commentText = _commentController.text;
-      if (commentText.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Comment cannot be empty')),
-        );
-        return;
-      }
-
-      await postsProvider.addComment(
-        widget.post_id,
-        authProvider.userId!,
-        commentText,
-        authProvider.token!,
-      );
-      _commentController.clear();
-      developer.log('Comment added successfully for post_id: ${widget.post_id}',
-          name: 'PostDetailScreen');
-    } catch (e, stackTrace) {
-      developer.log('Error adding comment: $e',
-          name: 'PostDetailScreen', stackTrace: stackTrace);
+    if (!authProvider.isAuthenticated) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Failed to add comment')),
+        const SnackBar(content: Text('Please sign in to comment')),
       );
-    } finally {
-      setState(() {
-        _isLoading = false;
-      });
+      return;
     }
+
+    final commentText = _commentController.text;
+    if (commentText.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Comment cannot be empty')),
+      );
+      return;
+    }
+
+    // Retrieve the post to get its type
+    final post = postsProvider.posts.firstWhere(
+      (post) => post.id == widget.post_id,
+      orElse: () => Post(
+        id: widget.post_id,
+        user: User(id: 'unknown', username: 'Unknown', profileImage: ''),
+        type: 'goal', // Default to 'goal' if post not found
+        numOfLikes: 0,
+        numComments: 0,
+        createdAt: DateTime.now(),
+      ),
+    );
+
+    // Validate post type
+    if (post.type != 'goal' && post.type != 'event') {
+      throw Exception('Invalid post type: ${post.type}');
+    }
+
+    developer.log('Adding comment with post_type: ${post.type}', name: 'PostDetailScreen');
+
+    await postsProvider.addComment(
+      widget.post_id,
+      authProvider.userId!,
+      commentText,
+      post.type, // Use post.type ('goal' or 'event')
+      authProvider.token!,
+    );
+    _commentController.clear();
+    developer.log('Comment added successfully for post_id: ${widget.post_id}, type: ${post.type}',
+        name: 'PostDetailScreen');
+  } catch (e, stackTrace) {
+    developer.log('Error adding comment: $e',
+        name: 'PostDetailScreen', stackTrace: stackTrace);
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Failed to add comment')),
+    );
+  } finally {
+    setState(() {
+      _isLoading = false;
+    });
   }
+}
 
   @override
   void dispose() {

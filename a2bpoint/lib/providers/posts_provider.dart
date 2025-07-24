@@ -71,11 +71,11 @@ class PostsProvider with ChangeNotifier {
   }
 
   Future<void> addComment(
-      String post_id, String userId, String text, String token) async {
+      String post_id, String userId, String text, String post_type, String token) async {
     try {
       developer.log('Adding comment to post_id: $post_id',
           name: 'PostsProvider');
-      await _apiService.createComment(post_id, userId, text, token);
+      await _apiService.createComment(post_id, userId, text, post_type,  token);
       final index = _posts.indexWhere((post) => post.id == post_id);
       if (index != -1) {
         _posts[index] = _posts[index].copyWith(
