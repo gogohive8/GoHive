@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../services/api_services.dart';
 import 'dart:developer' as developer;
+import 'navbar.dart';
 
 class AIMentorScreen extends StatefulWidget {
   const AIMentorScreen({super.key});
@@ -56,7 +57,7 @@ class AIMentorScreenState extends State<AIMentorScreen> {
       developer.log('Error sending AI request: $e', name: 'AIMentorScreen');
       setState(() {
         _messages.add({
-          'text': 'Ошибка: $e',
+          'text': 'Error: $e',
           'isUser': false,
           'timestamp': DateTime.now(),
         });
@@ -80,7 +81,7 @@ class AIMentorScreenState extends State<AIMentorScreen> {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 ChoiceChip(
-                  label: const Text('Цель'),
+                  label: const Text('Goal'),
                   selected: _requestType == 'goal',
                   onSelected: (selected) {
                     if (selected) {
@@ -93,7 +94,7 @@ class AIMentorScreenState extends State<AIMentorScreen> {
                 ),
                 const SizedBox(width: 8),
                 ChoiceChip(
-                  label: const Text('Событие'),
+                  label: const Text('Event'),
                   selected: _requestType == 'event',
                   onSelected: (selected) {
                     if (selected) {
@@ -164,7 +165,7 @@ class AIMentorScreenState extends State<AIMentorScreen> {
                   child: TextField(
                     controller: _controller,
                     decoration: InputDecoration(
-                      hintText: 'Введите ваше сообщение...',
+                      hintText: 'Enter your message...',
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(10),
                       ),
@@ -180,6 +181,13 @@ class AIMentorScreenState extends State<AIMentorScreen> {
             ),
           ),
         ],
+      ),
+      bottomNavigationBar: Navbar(
+        selectedIndex: 4, // AI Mentor is the 5th item (index 4)
+        onTap: (index) {
+          final routes = ['/home', '/search', '/add', '/profile', '/ai-mentor'];
+          Navigator.pushReplacementNamed(context, routes[index]);
+        },
       ),
     );
   }
