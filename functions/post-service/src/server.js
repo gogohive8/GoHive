@@ -199,7 +199,7 @@ app.post('/events/create',verifyToken, async (req, res) => {
 
 app.get('/goals/all', verifyToken, async (req, res) => {
   try{
-    const {user_id} = req.body;
+    const user_id = req.userId;
 
     const { data: goals, error: fetchError} = await supabase
     .schema('posts')
@@ -610,7 +610,7 @@ app.get('/posts/:post_id/comments', verifyToken, async (req, res) => {
       const {data: fetchComments, error: goalCommentsSelectError} = await supabase
       .schema('posts')
       .from('goalsComments')
-      .select()
+      .select('*')
       .eq('goalID', post_id);
 
       
@@ -632,7 +632,7 @@ app.get('/posts/:post_id/comments', verifyToken, async (req, res) => {
       const {data: fetchComments, error: eventCommentsSelectError} = await supabase
       .schema('posts')
       .from('eventsComments')
-      .select()
+      .select('*')
       .eq('eventsID', post_id);
 
       
@@ -663,6 +663,6 @@ app.get('/posts/:post_id/comments', verifyToken, async (req, res) => {
 
 
 const PORT = process.env.PORT || 3002; // Fallback for local testing
-app.listen(PORT, '127.0.0.1', () => {
+app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });

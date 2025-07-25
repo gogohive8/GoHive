@@ -16,6 +16,8 @@ class ApiService {
       'https://gohive-user-service-efb5dea164ed.herokuapp.com';
   static const String _postsUrl =
       'https://gohive-post-service-9ac288c0fa11.herokuapp.com';
+  static const String _aiUrl =
+      'https://gohive-ai-service-38f2e813d406.herokuapp.com';
 
   SupabaseClient get supabase => _supabase;
 
@@ -61,7 +63,7 @@ class ApiService {
           name: 'ApiService');
       final response = await _client
           .post(
-            Uri.parse('$_postsUrl/api/generate-goal'),
+            Uri.parse('$_aiUrl/api/generate-goal'),
             headers: {
               'Authorization': 'Bearer $token',
               'Content-Type': 'application/json',
@@ -87,7 +89,7 @@ class ApiService {
           name: 'ApiService');
       final response = await _client
           .post(
-            Uri.parse('$_postsUrl/api/generate-event'),
+            Uri.parse('$_aiUrl/api/generate-event'),
             headers: {
               'Authorization': 'Bearer $token',
               'Content-Type': 'application/json',
@@ -268,7 +270,7 @@ class ApiService {
           name: 'ApiService');
       final response = await _client
           .post(
-            Uri.parse('$_postsUrl/events/$eventId/join'),
+            Uri.parse('$_postsUrl/joinEvent'),
             headers: {
               'Authorization': 'Bearer $token',
               'Content-Type': 'application/json',
@@ -865,7 +867,11 @@ class ApiService {
   }
 
   Future<void> updateProfile(
-      String userId, String token, Map<String, dynamic> data, { XFile? avatarFile,}) async {
+    String userId,
+    String token,
+    Map<String, dynamic> data, {
+    XFile? avatarFile,
+  }) async {
     try {
       developer.log('Updating profile for userId: $userId, data: $data',
           name: 'ApiService');
