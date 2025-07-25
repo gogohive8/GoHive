@@ -204,7 +204,7 @@ app.get('/goals/all', verifyToken, async (req, res) => {
     const { data: goals, error: fetchError} = await supabase
     .schema('posts')
     .from('goals')
-    .select('id, userID, goalInfo, numOfLikes, numOfComments')
+    .select('id, userID, goalInfo, numOfLikes, numOfComments, created_at')
     .limit(100)
 
     if (fetchError) {
@@ -256,6 +256,7 @@ app.get('/goals/all', verifyToken, async (req, res) => {
           numOfLikes: goal.numOfLikes,
           numOfComments: goal.numOfComments,
           likedCurrentGoal: likedCurrentGoal,
+          created_at: goal.created_at,
         };
       })
     );

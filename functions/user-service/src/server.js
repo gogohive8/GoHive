@@ -347,39 +347,81 @@ app.get('/profile/:id', verifyToken, async (req, res) => {
   }
 });
 
-app.put('/profile/:id/biography', verifyToken, async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { biography } = req.body;
-    console.log(`Updating biography for user: ${id}, biography: ${biography}`);
 
-    if (!biography) {
-      return res.status(400).json({ error: 'Missing biographygraphy' });
+app.post('/profile/:userID', verifyToken, async (req, res) => {
+  try{
+    const {userId, photoURL, data} = req.body;
+
+    const {username, bio} = data;
+
+
+    const {error: updateUsernameError} = await supabase
+    .schema('public')
+    .from('users')
+    .update({username: username})
+    .eq('id', userId)
+
+    if (updateUsernameError){
+      console.error("Error of update username", updateUsernameError);
+      return res.status(400).json({error: updateUsernameError.message});
     }
 
-    const { data, error } = await supabase
+
+    const { error: updateBioError } = await supabase
       .schema('public')
       .from('profiles')
-      .update({ biographygraphy: biography })
-      .eq('id', id)
-      // .select()
-      // .single();
+      .update({ biography: bio,
+        profileImage: photoURL
+       })
+      .eq('id', userId)
 
-    if (error) {
+    if (updateBioError) {
       console.error('Error updating biography:', error.message, 'Code:', error.code);
       if (error.code === 'PGRST116') {
         return res.status(404).json({ error: 'Profile not found' });
       }
       return res.status(400).json({ error: error.message });
     }
-
-    // res.status(200).json({ message: 'biographygraphy updated', biographygraphy: data.biographygraphy });
-    return res.status(200).json({message: 'biographygraphy updated'});
-  } catch (error) {
-    console.error('Error in /profile/:id/biography:', error.message);
-    res.status(400).json({ error: error.message });
+  } catch (updateProfileError) {
+    console.error('Error of update profile', updateProfileError);
+    return res.status(400).json({error: updateProfileError.message});
   }
 });
+
+
+// app.put('/profile/:id/biography', verifyToken, async (req, res) => {
+//   try {
+//     const { id } = req.params;
+//     const { biography } = req.body;
+//     console.log(`Updating biography for user: ${id}, biography: ${biography}`);
+
+//     if (!biography) {
+//       return res.status(400).json({ error: 'Missing biographygraphy' });
+//     }
+
+//     const { data, error } = await supabase
+//       .schema('public')
+//       .from('profiles')
+//       .update({ biographygraphy: biography })
+//       .eq('id', id)
+//       // .select()
+//       // .single();
+
+//     if (error) {
+//       console.error('Error updating biography:', error.message, 'Code:', error.code);
+//       if (error.code === 'PGRST116') {
+//         return res.status(404).json({ error: 'Profile not found' });
+//       }
+//       return res.status(400).json({ error: error.message });
+//     }
+
+//     // res.status(200).json({ message: 'biographygraphy updated', biographygraphy: data.biographygraphy });
+//     return res.status(200).json({message: 'biographygraphy updated'});
+//   } catch (error) {
+//     console.error('Error in /profile/:id/biography:', error.message);
+//     res.status(400).json({ error: error.message });
+//   }
+// });
 
 app.post('/search/users', verifyToken, async (req, res) => {
   try {

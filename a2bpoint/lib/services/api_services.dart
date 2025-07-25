@@ -866,12 +866,8 @@ class ApiService {
     }
   }
 
-  Future<void> updateProfile(
-    String userId,
-    String token,
-    Map<String, dynamic> data, {
-    XFile? avatarFile,
-  }) async {
+  Future<void> updateProfile(String userId, String token,
+      Map<String, dynamic> data, String photoURL) async {
     try {
       developer.log('Updating profile for userId: $userId, data: $data',
           name: 'ApiService');
@@ -882,7 +878,7 @@ class ApiService {
               'Authorization': 'Bearer $token',
               'Content-Type': 'application/json',
             },
-            body: jsonEncode(data),
+            body: jsonEncode({userId, photoURL, data}),
           )
           .timeout(const Duration(seconds: 10));
       await _handleResponse(response);
@@ -893,29 +889,29 @@ class ApiService {
     }
   }
 
-  Future<bool> updatebiography(
-      String userId, String biography, String token) async {
-    try {
-      developer.log('Updating biography for userId: $userId',
-          name: 'ApiService');
-      final response = await _client
-          .put(
-            Uri.parse('$_baseUrl/profile/$userId/biography'),
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': 'Bearer $token',
-            },
-            body: jsonEncode({'biography': biography}),
-          )
-          .timeout(const Duration(seconds: 30));
-      await _handleResponse(response);
-      return true;
-    } catch (e, stackTrace) {
-      developer.log('Updatebiography error: $e',
-          name: 'ApiService', stackTrace: stackTrace);
-      return false;
-    }
-  }
+  // Future<bool> updatebiography(
+  //     String userId, String biography, String token) async {
+  //   try {
+  //     developer.log('Updating biography for userId: $userId',
+  //         name: 'ApiService');
+  //     final response = await _client
+  //         .put(
+  //           Uri.parse('$_baseUrl/profile/$userId/biography'),
+  //           headers: {
+  //             'Content-Type': 'application/json',
+  //             'Authorization': 'Bearer $token',
+  //           },
+  //           body: jsonEncode({'biography': biography}),
+  //         )
+  //         .timeout(const Duration(seconds: 30));
+  //     await _handleResponse(response);
+  //     return true;
+  //   } catch (e, stackTrace) {
+  //     developer.log('Updatebiography error: $e',
+  //         name: 'ApiService', stackTrace: stackTrace);
+  //     return false;
+  //   }
+  // }
 
   Future<List<Map<String, dynamic>>> searchUsers(
     String query, {
