@@ -1,14 +1,17 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:ionicons/ionicons.dart';
+import 'package:like_button/like_button.dart';
 import 'package:provider/provider.dart';
+import 'package:timeago/timeago.dart' as timeago;
 import 'package:video_player/video_player.dart';
-import 'dart:developer' as developer;
 import '../models/post.dart';
 import '../services/api_services.dart';
 import '../services/exceptions.dart';
 import '../providers/auth_provider.dart';
-import '../providers/posts_provider.dart' as posts;
 import '../screens/post_detail_screen.dart';
 import 'navbar.dart';
+import 'dart:developer' as developer;
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -23,9 +26,11 @@ class _HomeScreenState extends State<HomeScreen>
   int _selectedTabIndex = 0;
   final ApiService _apiService = ApiService();
   late TabController _tabController;
-  late Future<Map<String, List<Post>>> _postsFuture;
   final Map<String, VideoPlayerController> _videoControllers = {};
-  final Set<String> _likedPosts = {};
+  List<Post> _goals = [];
+  List<Post> _events = [];
+  bool _isLoading = true;
+  String? _error;
 
   @override
   void initState() {
@@ -51,28 +56,43 @@ class _HomeScreenState extends State<HomeScreen>
           name: 'HomeScreen');
       authProvider.initialize().then((_) {
         if (mounted) {
-          _redirectIfNotAuthenticated(authProvider);
-          _fetchPosts();
+          _fetchPosts(authProvider);
         }
       });
     } else {
-      developer.log('AuthProvider initialized, checking authentication',
-          name: 'HomeScreen');
-      _redirectIfNotAuthenticated(authProvider);
-      _fetchPosts();
+      developer.log('AuthProvider initialized, fetching posts', name: 'HomeScreen');
+      _fetchPosts(authProvider);
     }
   }
 
-  void _redirectIfNotAuthenticated(AuthProvider authProvider) {
-    if (!authProvider.isInitialized) {
-      developer.log('AuthProvider not initialized, skipping redirect',
-          name: 'HomeScreen');
+  void _fetchPosts(AuthProvider authProvider) async {
+    if (!authProvider.isAuthenticated || authProvider.userId == null || authProvider.token == null) {
+      developer.log('No token or userId, handling auth error', name: 'HomeScreen');
+      authProvider.handleAuthError(context, AuthenticationException('Not authenticated'));
       return;
     }
-    if (authProvider.shouldRedirectTo()) {
-      developer.log('No token found, handling auth error', name: 'HomeScreen');
-      authProvider.handleAuthError(
-          context, AuthenticationException('Not authenticated'));
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+    try {
+      final goals = await _apiService.getAllGoals(authProvider.token!, authProvider.userId!);
+      final events = await _apiService.getAllEvents(authProvider.token!, authProvider.userId!);
+      if (mounted) {
+        setState(() {
+          _goals = goals;
+          _events = events;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      developer.log('Fetch posts error: $e', name: 'HomeScreen');
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _error = e.toString();
+        });
+      }
     }
   }
 
@@ -81,53 +101,7 @@ class _HomeScreenState extends State<HomeScreen>
       setState(() {
         _selectedTabIndex = _tabController.index;
       });
-      _fetchPosts();
     }
-  }
-
-  void _fetchPosts() {
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    final postsProvider =
-        Provider.of<posts.PostsProvider>(context, listen: false);
-    final token = authProvider.token ?? '';
-    final userId = authProvider.userId ?? '';
-    developer.log('Token: $token, UserId: $userId', name: 'HomeScreen');
-    if (token.isEmpty || userId.isEmpty) {
-      developer.log('No token or userId, skipping fetch', name: 'HomeScreen');
-      setState(() {
-        _postsFuture = Future.value(<String, List<Post>>{});
-      });
-      return;
-    }
-    developer.log('Fetching posts: tabIndex=$_selectedTabIndex, userId=$userId',
-        name: 'HomeScreen');
-    _postsFuture = postsProvider
-        .fetchPosts(token, isEvent: _selectedTabIndex == 1)
-        .then((_) => _groupPostsByUser(postsProvider.posts))
-        .catchError((e, stackTrace) {
-      developer.log('Fetch posts error: $e',
-          name: 'HomeScreen', stackTrace: stackTrace);
-      authProvider.handleAuthError(context, e);
-      return <String, List<Post>>{};
-    }) as Future<Map<String, List<Post>>>;
-  }
-
-  Future<Map<String, List<Post>>> _groupPostsByUser(List<Post> posts) async {
-    final Map<String, List<Post>> groupedPosts = {};
-    for (var post in posts) {
-      final userId = post.user.id.isEmpty ? 'unknown' : post.user.id;
-      developer.log(
-          'Processing post: id=${post.id}, userId=$userId, username=${post.user.username}',
-          name: 'HomeScreen');
-      if (!groupedPosts.containsKey(userId)) {
-        groupedPosts[userId] = [];
-      }
-      groupedPosts[userId]!.add(post);
-    }
-    developer.log(
-        'Grouped posts: ${groupedPosts.length} users, total posts: ${posts.length}',
-        name: 'HomeScreen');
-    return groupedPosts;
   }
 
   void _onItemTapped(int index) {
@@ -136,64 +110,6 @@ class _HomeScreenState extends State<HomeScreen>
     });
     final routes = ['/home', '/search', '/add', '/profile', '/ai-mentor'];
     Navigator.pushReplacementNamed(context, routes[index]);
-  }
-
-  void _likePost(
-      String post_id, int currentLikes, String userId, int index) async {
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    final postsProvider =
-        Provider.of<posts.PostsProvider>(context, listen: false);
-    if (!authProvider.isAuthenticated ||
-        authProvider.token == null ||
-        authProvider.userId == null) {
-      authProvider.handleAuthError(
-          context, AuthenticationException('Not authenticated'));
-      return;
-    }
-    try {
-      developer.log('Liking post: post_id=$post_id', name: 'HomeScreen');
-      final isLiked = _likedPosts.contains(post_id);
-      await postsProvider.likePost(post_id, authProvider.userId!,
-          authProvider.token!, !isLiked, currentLikes);
-      setState(() {
-        if (isLiked) {
-          _likedPosts.remove(post_id);
-        } else {
-          _likedPosts.add(post_id);
-        }
-      });
-    } catch (e, stackTrace) {
-      developer.log('Like post error: $e',
-          name: 'HomeScreen', stackTrace: stackTrace);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to like post: $e')),
-      );
-    }
-  }
-
-  void _joinEvent(String eventId, String eventText) async {
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    if (!authProvider.isAuthenticated ||
-        authProvider.token == null ||
-        authProvider.userId == null) {
-      authProvider.handleAuthError(
-          context, AuthenticationException('Not authenticated'));
-      return;
-    }
-    try {
-      developer.log('Joining event: eventId=$eventId', name: 'HomeScreen');
-      await _apiService.joinEvent(
-          eventId, authProvider.userId!, authProvider.token!);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Joined $eventText')),
-      );
-    } catch (e, stackTrace) {
-      developer.log('Join event error: $e',
-          name: 'HomeScreen', stackTrace: stackTrace);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to join event: $e')),
-      );
-    }
   }
 
   Widget _buildMediaWidget(Post post) {
@@ -232,27 +148,13 @@ class _HomeScreenState extends State<HomeScreen>
             )
           : const Center(child: CircularProgressIndicator());
     }
-    return ListView.builder(
-      scrollDirection: Axis.horizontal,
-      itemCount: post.imageUrls!.length,
-      itemBuilder: (context, imgIndex) {
-        return Padding(
-          padding: const EdgeInsets.only(right: 8),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(8),
-            child: Image.network(
-              post.imageUrls![imgIndex],
-              width: 200,
-              height: 200,
-              fit: BoxFit.cover,
-              errorBuilder: (context, error, stackTrace) {
-                developer.log('Image load error: $error', name: 'HomeScreen');
-                return const Icon(Icons.broken_image, size: 100);
-              },
-            ),
-          ),
-        );
-      },
+    return CachedNetworkImage(
+      imageUrl: url,
+      height: 200,
+      width: double.infinity,
+      fit: BoxFit.cover,
+      placeholder: (context, url) => const Center(child: CircularProgressIndicator()),
+      errorWidget: (context, url, error) => const Icon(Icons.broken_image, size: 100),
     );
   }
 
@@ -320,6 +222,70 @@ class _HomeScreenState extends State<HomeScreen>
     );
   }
 
+  Future<bool> _onLikeButtonTapped(String postId, bool isLiked) async {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final userId = authProvider.userId ?? '';
+    final token = authProvider.token ?? '';
+    if (userId.isEmpty || token.isEmpty) {
+      authProvider.handleAuthError(
+          context, AuthenticationException('Not authenticated'));
+      return isLiked;
+    }
+    try {
+      if (!isLiked) {
+        await _apiService.likePost(postId, userId, token);
+        setState(() {
+          if (_selectedTabIndex == 0) {
+            _goals = _goals.map((post) {
+              if (post.id == postId) {
+                return post.copyWith(numOfLikes: post.numOfLikes + 1);
+              }
+              return post;
+            }).toList();
+          } else if (_selectedTabIndex == 1) {
+            _events = _events.map((post) {
+              if (post.id == postId) {
+                return post.copyWith(numOfLikes: post.numOfLikes + 1);
+              }
+              return post;
+            }).toList();
+          }
+        });
+      }
+      return !isLiked;
+    } catch (e) {
+      developer.log('Like post error: $e', name: 'HomeScreen');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to like post: $e')),
+      );
+      return isLiked;
+    }
+  }
+
+  void _joinEvent(String eventId, String eventText) async {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    if (!authProvider.isAuthenticated ||
+        authProvider.token == null ||
+        authProvider.userId == null) {
+      authProvider.handleAuthError(
+          context, AuthenticationException('Not authenticated'));
+      return;
+    }
+    try {
+      developer.log('Joining event: eventId=$eventId', name: 'HomeScreen');
+      await _apiService.joinEvent(
+          eventId, authProvider.userId!, authProvider.token!);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Joined $eventText')),
+      );
+    } catch (e) {
+      developer.log('Join event error: $e', name: 'HomeScreen');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to join event: $e')),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final authProvider = Provider.of<AuthProvider>(context);
@@ -340,8 +306,7 @@ class _HomeScreenState extends State<HomeScreen>
             GestureDetector(
               onTap: () => _tabController.animateTo(0),
               child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
                   color: _selectedTabIndex == 0
                       ? const Color.fromRGBO(175, 203, 234, 0.1)
@@ -364,8 +329,7 @@ class _HomeScreenState extends State<HomeScreen>
             GestureDetector(
               onTap: () => _tabController.animateTo(1),
               child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
                   color: _selectedTabIndex == 1
                       ? const Color.fromRGBO(175, 203, 234, 0.1)
@@ -388,8 +352,7 @@ class _HomeScreenState extends State<HomeScreen>
             GestureDetector(
               onTap: () => _tabController.animateTo(2),
               child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
                   color: _selectedTabIndex == 2
                       ? const Color.fromRGBO(175, 203, 234, 0.1)
@@ -420,8 +383,8 @@ class _HomeScreenState extends State<HomeScreen>
       body: TabBarView(
         controller: _tabController,
         children: [
-          _buildPostsView(type: 'goal'),
-          _buildPostsView(type: 'event'),
+          _buildPostsView(type: 'goal', posts: _goals),
+          _buildPostsView(type: 'event', posts: _events),
           _buildMissionsView(),
         ],
       ),
@@ -432,297 +395,185 @@ class _HomeScreenState extends State<HomeScreen>
     );
   }
 
-  Widget _buildPostsView({required String type}) {
-    return Consumer<posts.PostsProvider>(
-      builder: (context, postsProvider, child) {
-        if (postsProvider.isLoading) {
-          return const Center(child: CircularProgressIndicator());
-        }
-        if (postsProvider.error != null) {
-          return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(postsProvider.error!),
-                const SizedBox(height: 16),
-                ElevatedButton(
-                  onPressed: _fetchPosts,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFAFCBEA),
-                    foregroundColor: const Color(0xFF000000),
-                  ),
-                  child: const Text('Retry'),
-                ),
-              ],
+  Widget _buildPostsView({required String type, required List<Post> posts}) {
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (_error != null) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text('Error loading $type: $_error'),
+            const SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: () => _fetchPosts(Provider.of<AuthProvider>(context, listen: false)),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFAFCBEA),
+                foregroundColor: const Color(0xFF000000),
+              ),
+              child: const Text('Retry'),
             ),
-          );
-        }
-        return FutureBuilder<Map<String, List<Post>>>(
-          future: _postsFuture,
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Center(child: CircularProgressIndicator());
-            }
-            if (snapshot.hasError) {
-              developer.log('Snapshot error: ${snapshot.error}',
-                  name: 'HomeScreen', stackTrace: snapshot.stackTrace);
-              return Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text('Error loading $type: ${snapshot.error}'),
-                    const SizedBox(height: 16),
-                    ElevatedButton(
-                      onPressed: _fetchPosts,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFAFCBEA),
-                        foregroundColor: const Color(0xFF000000),
-                      ),
-                      child: const Text('Retry'),
-                    ),
-                  ],
-                ),
-              );
-            }
-            final groupedPosts = snapshot.data ?? {};
-            final totalPosts = groupedPosts.values
-                .fold<int>(0, (sum, posts) => sum + posts.length);
-            developer.log(
-                'Displaying $type posts: ${groupedPosts.length} users, $totalPosts posts',
-                name: 'HomeScreen');
-            return RefreshIndicator(
-              onRefresh: () async {
-                _fetchPosts();
-                await _postsFuture;
+          ],
+        ),
+      );
+    }
+    if (posts.isEmpty) {
+      return Center(child: Text('No $type to display'));
+    }
+    return RefreshIndicator(
+      onRefresh: () async => _fetchPosts(Provider.of<AuthProvider>(context, listen: false)),
+      child: ListView.builder(
+        padding: const EdgeInsets.all(16),
+        itemCount: posts.length,
+        itemBuilder: (context, index) {
+          final post = posts[index];
+          return Card(
+            color: const Color(0xFFDDDDDD),
+            elevation: 2,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            margin: const EdgeInsets.symmetric(vertical: 8),
+            child: GestureDetector(
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => PostDetailScreen(postId: post.id, postType: type),
+                  ),
+                );
               },
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(16),
+              child: Padding(
+                padding: const EdgeInsets.all(12),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    if (groupedPosts.isEmpty)
-                      Center(child: Text('No $type to display'))
-                    else
-                      ...groupedPosts.entries.map((entry) {
-                        final userId = entry.key;
-                        final posts = entry.value;
-                        final username = posts.isNotEmpty
-                            ? posts[0].user.username
-                            : 'Unknown';
-                        return Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 8),
-                              child: Text(
-                                username,
+                    Row(
+                      children: [
+                        CircleAvatar(
+                          backgroundImage: post.user.profileImage.isNotEmpty
+                              ? NetworkImage(post.user.profileImage)
+                              : null,
+                          backgroundColor: const Color(0xFF333333),
+                          radius: 20,
+                          child: post.user.profileImage.isEmpty
+                              ? Text(
+                                  post.user.username[0].toUpperCase(),
+                                  style: const TextStyle(color: Colors.white),
+                                )
+                              : null,
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                post.user.username,
                                 style: const TextStyle(
-                                  fontSize: 18,
                                   fontWeight: FontWeight.bold,
                                   color: Color(0xFF000000),
                                 ),
                               ),
+                              Text(
+                                timeago.format(post.createdAt),
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: Color(0xFF333333),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    _buildMediaWidget(post),
+                    const SizedBox(height: 12),
+                    Text(
+                      post.text ?? 'No description',
+                      style: const TextStyle(
+                        fontSize: 16,
+                        color: Color(0xFF1A1A1A),
+                      ),
+                    ),
+                    if (type == 'goal' && post.tasks != null && post.tasks!.isNotEmpty) ...[
+                      const SizedBox(height: 12),
+                      const Text(
+                        'Tasks',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF000000),
+                        ),
+                      ),
+                      ...post.tasks!.map((task) => Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 4),
+                            child: Text(
+                              task['title']?.toString() ?? 'No title',
+                              style: const TextStyle(color: Color(0xFF333333)),
                             ),
-                            ListView.builder(
-                              shrinkWrap: true,
-                              physics: const NeverScrollableScrollPhysics(),
-                              itemCount: posts.length,
-                              itemBuilder: (context, index) {
-                                final post = posts[index];
-                                developer.log(
-                                    'Rendering $type[$index]: id=${post.id}, text=${post.text}, tasks=${post.tasks?.length ?? 0}',
-                                    name: 'HomeScreen');
-                                final isLiked = _likedPosts.contains(post.id);
-                                return Card(
-                                  color: const Color(0xFFDDDDDD),
-                                  elevation: 2,
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  margin:
-                                      const EdgeInsets.symmetric(vertical: 8),
-                                  child: GestureDetector(
-                                    onTap: () {
-                                      Navigator.push(
-                                        context,
-                                        MaterialPageRoute(
-                                          builder: (context) =>
-                                              PostDetailScreen(
-                                                  post_id: post.id),
-                                        ),
-                                      );
-                                    },
-                                    child: Padding(
-                                      padding: const EdgeInsets.all(12),
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Row(
-                                            children: [
-                                              CircleAvatar(
-                                                backgroundImage: post.user
-                                                        .profileImage.isNotEmpty
-                                                    ? NetworkImage(
-                                                        post.user.profileImage)
-                                                    : null,
-                                                backgroundColor:
-                                                    const Color(0xFF333333),
-                                                radius: 20,
-                                                child: post.user.profileImage
-                                                        .isEmpty
-                                                    ? Text(
-                                                        post.user.username[0]
-                                                            .toUpperCase(),
-                                                        style: const TextStyle(
-                                                            color:
-                                                                Colors.white),
-                                                      )
-                                                    : null,
-                                              ),
-                                              const SizedBox(width: 12),
-                                              Expanded(
-                                                child: Column(
-                                                  crossAxisAlignment:
-                                                      CrossAxisAlignment.start,
-                                                  children: [
-                                                    Text(
-                                                      post.user.username,
-                                                      style: const TextStyle(
-                                                        fontWeight:
-                                                            FontWeight.bold,
-                                                        color:
-                                                            Color(0xFF000000),
-                                                      ),
-                                                    ),
-                                                    Text(
-                                                      post.createdAt
-                                                          .toLocal()
-                                                          .toString()
-                                                          .split('.')[0],
-                                                      style: const TextStyle(
-                                                        fontSize: 12,
-                                                        color:
-                                                            Color(0xFF333333),
-                                                      ),
-                                                    ),
-                                                  ],
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                          const SizedBox(height: 12),
-                                          if (post.imageUrls != null &&
-                                              post.imageUrls!.isNotEmpty)
-                                            SizedBox(
-                                              height: 200,
-                                              child: _buildMediaWidget(post),
-                                            ),
-                                          const SizedBox(height: 12),
-                                          Text(
-                                            post.text ?? 'No description',
-                                            style: const TextStyle(
-                                              fontSize: 16,
-                                              color: Color(0xFF1A1A1A),
-                                            ),
-                                          ),
-                                          if (type == 'goal' &&
-                                              post.tasks != null &&
-                                              post.tasks!.isNotEmpty) ...[
-                                            const SizedBox(height: 12),
-                                            const Text(
-                                              'Tasks',
-                                              style: TextStyle(
-                                                fontSize: 14,
-                                                fontWeight: FontWeight.bold,
-                                                color: Color(0xFF000000),
-                                              ),
-                                            ),
-                                            ...post.tasks!.map((task) =>
-                                                Padding(
-                                                  padding: const EdgeInsets
-                                                      .symmetric(vertical: 4),
-                                                  child: Text(
-                                                    task['title']?.toString() ??
-                                                        'No title',
-                                                    style: const TextStyle(
-                                                        color:
-                                                            Color(0xFF333333)),
-                                                  ),
-                                                )),
-                                          ],
-                                          const SizedBox(height: 12),
-                                          Row(
-                                            mainAxisAlignment:
-                                                MainAxisAlignment.spaceBetween,
-                                            children: [
-                                              if (type == 'goal')
-                                                Row(
-                                                  children: [
-                                                    IconButton(
-                                                      icon: Icon(
-                                                        isLiked
-                                                            ? Icons.favorite
-                                                            : Icons
-                                                                .favorite_border,
-                                                        color: isLiked
-                                                            ? Colors.red
-                                                            : const Color(
-                                                                0xFF333333),
-                                                      ),
-                                                      onPressed: () =>
-                                                          _likePost(
-                                                              post.id,
-                                                              post.numOfLikes,
-                                                              userId,
-                                                              index),
-                                                    ),
-                                                    Text(
-                                                      '${post.numOfLikes}',
-                                                      style: const TextStyle(
-                                                          color: Color(
-                                                              0xFF000000)),
-                                                    ),
-                                                  ],
-                                                )
-                                              else
-                                                ElevatedButton(
-                                                  onPressed: () => _joinEvent(
-                                                      post.id, post.text ?? ''),
-                                                  style:
-                                                      ElevatedButton.styleFrom(
-                                                    backgroundColor:
-                                                        const Color(0xFFAFCBEA),
-                                                    foregroundColor:
-                                                        const Color(0xFF000000),
-                                                    shape:
-                                                        RoundedRectangleBorder(
-                                                      borderRadius:
-                                                          BorderRadius.circular(
-                                                              8),
-                                                    ),
-                                                  ),
-                                                  child: const Text('Join'),
-                                                ),
-                                            ],
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                );
-                              },
+                          )),
+                    ],
+                    const SizedBox(height: 12),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Row(
+                          children: [
+                            Text(
+                              '${post.numOfLikes} likes',
+                              style: const TextStyle(color: Color(0xFF000000)),
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              '${post.numComments} comments',
+                              style: const TextStyle(color: Color(0xFF000000)),
                             ),
                           ],
-                        );
-                      }).toList(),
+                        ),
+                        if (type == 'goal')
+                          LikeButton(
+                            onTap: (isLiked) => _onLikeButtonTapped(post.id, isLiked),
+                            size: 25,
+                            circleColor: const CircleColor(
+                                start: Color(0xffFFC0CB), end: Color(0xffff0000)),
+                            bubblesColor: const BubblesColor(
+                              dotPrimaryColor: Color(0xffFFA500),
+                              dotSecondaryColor: Color(0xffd8392b),
+                              dotThirdColor: Color(0xffFF69B4),
+                              dotLastColor: Color(0xffff8c00),
+                            ),
+                            likeBuilder: (isLiked) {
+                              return Icon(
+                                isLiked ? Ionicons.heart : Ionicons.heart_outline,
+                                color: isLiked ? Colors.red : const Color(0xFF333333),
+                                size: 25,
+                              );
+                            },
+                          )
+                        else
+                          ElevatedButton(
+                            onPressed: () => _joinEvent(post.id, post.text ?? ''),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFFAFCBEA),
+                              foregroundColor: const Color(0xFF000000),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            ),
+                            child: const Text('Join'),
+                          ),
+                      ],
+                    ),
                   ],
                 ),
               ),
-            );
-          },
-        );
-      },
+            ),
+          );
+        },
+      ),
     );
   }
 }

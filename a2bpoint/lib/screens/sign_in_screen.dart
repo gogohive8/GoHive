@@ -164,20 +164,20 @@ class _SignInScreenState extends State<SignInScreen> {
     }
   }
 
-  Future<void> _signInWithFacebook() async {
-    developer.log('Attempting Facebook sign-in', name: 'SignInScreen');
-    await _handleSignIn(_apiService.signInWithFacebook(), false);
-  }
+  // Future<void> _signInWithFacebook() async {
+  //   developer.log('Attempting Facebook sign-in', name: 'SignInScreen');
+  //   await _handleSignIn(_apiService.signInWithFacebook(), false);
+  // }
 
   Future<void> _signInWithGoogle() async {
     developer.log('Attempting Google sign-in', name: 'SignInScreen');
     await _handleSignIn(_apiService.signInWithGoogle(), true);
   }
 
-  Future<void> _signInWithApple() async {
-    developer.log('Attempting Apple sign-in', name: 'SignInScreen');
-    await _handleSignIn(_apiService.signInWithApple(), false);
-  }
+  // Future<void> _signInWithApple() async {
+  //   developer.log('Attempting Apple sign-in', name: 'SignInScreen');
+  //   await _handleSignIn(_apiService.signInWithApple(), false);
+  // }
 
   @override
   Widget build(BuildContext context) {
@@ -354,24 +354,24 @@ class _SignInScreenState extends State<SignInScreen> {
                                 height: 24),
                             onPressed: _signInWithEmail,
                           ),
-                          SizedBox(width: size.width * 0.05),
-                          _buildSocialButton(
-                            icon: Image.asset('assets/facebook_icon.png',
-                                height: 24),
-                            onPressed: _signInWithFacebook,
-                          ),
+                          // SizedBox(width: size.width * 0.05),
+                          // _buildSocialButton(
+                          //   icon: Image.asset('assets/facebook_icon.png',
+                          //       height: 24),
+                          //   onPressed: _signInWithFacebook,
+                          // ),
                           SizedBox(width: size.width * 0.05),
                           _buildSocialButton(
                             icon: Image.asset('assets/google_icon.png',
                                 height: 24),
                             onPressed: _signInWithGoogle,
                           ),
-                          SizedBox(width: size.width * 0.05),
-                          _buildSocialButton(
-                            icon: Image.asset('assets/apple_icon.png',
-                                height: 24),
-                            onPressed: _signInWithApple,
-                          ),
+                          // SizedBox(width: size.width * 0.05),
+                          // _buildSocialButton(
+                          //   icon: Image.asset('assets/apple_icon.png',
+                          //       height: 24),
+                          //   onPressed: _signInWithApple,
+                          // ),
                         ],
                       ),
                       SizedBox(height: size.height * 0.03),
