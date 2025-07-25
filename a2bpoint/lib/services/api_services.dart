@@ -356,7 +356,7 @@ class ApiService {
                 'id': json['id']?.toString() ?? '',
                 'userID': json['userID']?.toString() ?? 'unknown',
                 'username': json['username']?.toString() ?? 'Unknown',
-                'likes': json['likes'] ?? [],
+                'likedCurrentGoal': json['likedCurrentGoal'] ?? [],
               }, type: 'goal'))
           .toList();
       developer.log('Parsed ${posts.length} goals', name: 'ApiService');

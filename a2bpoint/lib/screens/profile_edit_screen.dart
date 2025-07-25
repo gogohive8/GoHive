@@ -19,7 +19,7 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
   final _usernameController = TextEditingController();
   final _bioController = TextEditingController();
   bool _isLoading = false;
-  XFile? _newAvatar;
+  File? _newAvatar;
   final ApiService _apiService = ApiService();
 
   @override
@@ -65,13 +65,18 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
         'bio': _bioController.text.trim(),
       };
 
+      // TODO Вот здесь надо передать фото в uploadMedia
+      String photoURL = await _apiService.uploadMedia(_newAvatar, auth.token!);
+
+      // Вот здесь вместо фото передать её ссылку
       await _apiService.updateProfile(
         auth.userId!,
         auth.token!,
         data,
-        avatarFile: _newAvatar,
+        photoURL,
       );
 
+// а дальше я не понял
       // Update AuthProvider with the new data, including avatar URL if available
       auth.updateProfile(
         _usernameController.text.trim(),
@@ -170,9 +175,11 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
                           radius: sw * 0.15,
                           backgroundImage: _newAvatar != null
                               ? FileImage(File(_newAvatar!.path))
-                              : (auth.avatarUrl != null && auth.avatarUrl!.isNotEmpty
-                                  ? NetworkImage(auth.avatarUrl!)
-                                  : const AssetImage('assets/images/default_avatar.png'))
+                              : (auth.avatarUrl != null &&
+                                          auth.avatarUrl!.isNotEmpty
+                                      ? NetworkImage(auth.avatarUrl!)
+                                      : const AssetImage(
+                                          'assets/images/default_avatar.png'))
                                   as ImageProvider,
                         ),
                         Container(
@@ -181,7 +188,8 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
                             shape: BoxShape.circle,
                             color: const Color(0xFFAFCBEA),
                           ),
-                          child: const Icon(Icons.camera_alt, size: 20, color: Colors.white),
+                          child: const Icon(Icons.camera_alt,
+                              size: 20, color: Colors.white),
                         ),
                       ],
                     ),
@@ -190,16 +198,19 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
                 SizedBox(height: sh * 0.03),
                 Text(
                   'Username',
-                  style: TextStyle(fontSize: sw * 0.04, fontWeight: FontWeight.bold),
+                  style: TextStyle(
+                      fontSize: sw * 0.04, fontWeight: FontWeight.bold),
                 ),
                 SizedBox(height: sh * 0.01),
                 TextFormField(
                   controller: _usernameController,
                   decoration: InputDecoration(
-                    prefixIcon: const Icon(Icons.person_outline, color: Color(0xFFAFCBEA)),
+                    prefixIcon: const Icon(Icons.person_outline,
+                        color: Color(0xFFAFCBEA)),
                     filled: true,
                     fillColor: const Color(0xFFDDDDDD),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                    border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8)),
                   ),
                   validator: _validateUsername,
                   enabled: !_isLoading,
@@ -207,7 +218,8 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
                 SizedBox(height: sh * 0.03),
                 Text(
                   'Bio',
-                  style: TextStyle(fontSize: sw * 0.04, fontWeight: FontWeight.bold),
+                  style: TextStyle(
+                      fontSize: sw * 0.04, fontWeight: FontWeight.bold),
                 ),
                 SizedBox(height: sh * 0.01),
                 TextFormField(
@@ -215,7 +227,8 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
                   decoration: InputDecoration(
                     filled: true,
                     fillColor: const Color(0xFFDDDDDD),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                    border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8)),
                   ),
                   maxLines: 4,
                   enabled: !_isLoading,

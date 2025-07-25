@@ -252,6 +252,7 @@ app.get('/goals/all', verifyToken, async (req, res) => {
         return {
           id: goal.id,
           username: user ? user.username : null,
+          userID: goal.userID,
           goalInfo: goal.goalInfo,
           numOfLikes: goal.numOfLikes,
           numOfComments: goal.numOfComments,
