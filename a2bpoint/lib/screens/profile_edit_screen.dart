@@ -1,8 +1,11 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:loading_overlay/loading_overlay.dart';
 import '../providers/auth_provider.dart';
 import '../services/api_services.dart';
 import '../screens/navbar.dart';
+import 'package:image_picker/image_picker.dart';
 
 class ProfileEditScreen extends StatefulWidget {
   const ProfileEditScreen({super.key});
@@ -12,17 +15,19 @@ class ProfileEditScreen extends StatefulWidget {
 }
 
 class _ProfileEditScreenState extends State<ProfileEditScreen> {
-  final TextEditingController _usernameController = TextEditingController();
-  final TextEditingController _bioController = TextEditingController();
-  bool _isEditing = false;
+  final _formKey = GlobalKey<FormState>();
+  final _usernameController = TextEditingController();
+  final _bioController = TextEditingController();
+  bool _isLoading = false;
+  XFile? _newAvatar;
   final ApiService _apiService = ApiService();
 
   @override
   void initState() {
     super.initState();
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    _usernameController.text = authProvider.username ?? '';
-    _bioController.text = authProvider.bio ?? '';
+    final auth = Provider.of<AuthProvider>(context, listen: false);
+    _usernameController.text = auth.username ?? '';
+    _bioController.text = auth.bio ?? '';
   }
 
   @override
@@ -33,212 +38,195 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
     super.dispose();
   }
 
-  Future<void> _saveChanges() async {
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    if (authProvider.userId == null || authProvider.token == null) {
-      authProvider.handleAuthError(context, 'Authentication required');
+  String? _validateUsername(String? val) {
+    if (val == null || val.trim().isEmpty) return 'Username is required';
+    if (val.trim().length < 3) return 'Minimum 3 characters';
+    return null;
+  }
+
+  Future<void> _pickImage() async {
+    final img = await ImagePicker().pickImage(source: ImageSource.gallery);
+    if (img != null) setState(() => _newAvatar = img);
+  }
+
+  Future<void> _save() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    final auth = Provider.of<AuthProvider>(context, listen: false);
+    if (auth.userId == null || auth.token == null) {
+      auth.handleAuthError(context, 'Authentication required');
       return;
     }
 
+    setState(() => _isLoading = true);
     try {
+      final data = {
+        'username': _usernameController.text.trim(),
+        'bio': _bioController.text.trim(),
+      };
+
       await _apiService.updateProfile(
-        authProvider.userId!,
-        authProvider.token!,
-        {
-          'username': _usernameController.text.trim(),
-          'bio': _bioController.text.trim(),
-        },
+        auth.userId!,
+        auth.token!,
+        data,
+        avatarFile: _newAvatar,
       );
-      authProvider.updateProfile(
+
+      // Update AuthProvider with the new data, including avatar URL if available
+      auth.updateProfile(
         _usernameController.text.trim(),
         _bioController.text.trim(),
+        newAvatar: _newAvatar,
       );
-      setState(() {
-        _isEditing = false;
-      });
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Профиль обновлён')),
-      );
+
+      // Update avatarUrl in AuthProvider if an avatar was uploaded
+      if (data['avatarUrl'] != null) {
+        auth.avatarUrl = data['avatarUrl'];
+      }
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Profile updated successfully'),
+            backgroundColor: Color(0xFFAFCBEA),
+          ),
+        );
+        Navigator.pop(context);
+      }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Ошибка обновления профиля: $e')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error updating profile: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final screenWidth = MediaQuery.of(context).size.width;
-    final screenHeight = MediaQuery.of(context).size.height;
-    final authProvider = Provider.of<AuthProvider>(context);
+    final sw = MediaQuery.of(context).size.width;
+    final sh = MediaQuery.of(context).size.height;
+    final auth = Provider.of<AuthProvider>(context);
 
-    if (!authProvider.isInitialized) {
+    if (!auth.isInitialized) {
       return const Scaffold(
         body: Center(child: CircularProgressIndicator()),
       );
     }
 
-    return Scaffold(
-      backgroundColor: const Color(0xFFF9F6F2),
-      appBar: PreferredSize(
-        preferredSize: Size.fromHeight(screenHeight * 0.12),
-        child: Container(
-          padding: EdgeInsets.only(top: screenHeight * 0.04),
-          child: Row(
-            children: [
-              IconButton(
-                icon: const Icon(Icons.arrow_back, color: Color(0xFF1A1A1A)),
-                onPressed: () => Navigator.pop(context),
-                padding: EdgeInsets.only(left: screenWidth * 0.04),
-              ),
-              Expanded(
-                child: Center(
-                  child: Text(
-                    'Редактировать профиль',
-                    style: TextStyle(
-                      fontSize: screenWidth * 0.05,
-                      fontWeight: FontWeight.bold,
-                      color: const Color(0xFF1A1A1A),
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
+    return LoadingOverlay(
+      isLoading: _isLoading,
+      progressIndicator: const CircularProgressIndicator(
+        valueColor: AlwaysStoppedAnimation(Color(0xFFAFCBEA)),
       ),
-      body: SingleChildScrollView(
-        child: Padding(
-          padding: EdgeInsets.symmetric(horizontal: screenWidth * 0.04),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              SizedBox(height: screenHeight * 0.05),
-              Center(
-                child: CustomPaint(
-                  painter: CircleImagePainter(),
-                  child: Container(
-                    width: screenWidth * 0.3,
-                    height: screenWidth * 0.3,
-                    color: Colors.transparent,
-                  ),
-                ),
+      child: Scaffold(
+        backgroundColor: const Color(0xFFF9F6F2),
+        appBar: AppBar(
+          backgroundColor: const Color(0xFFF9F6F2),
+          elevation: 0,
+          title: Text(
+            'Edit Profile',
+            style: TextStyle(
+              color: const Color(0xFF1A1A1A),
+              fontSize: sw * 0.05,
+            ),
+          ),
+          centerTitle: true,
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back, color: Color(0xFF1A1A1A)),
+            onPressed: () => Navigator.pop(context),
+          ),
+          actions: [
+            TextButton(
+              onPressed: _isLoading ? null : _save,
+              child: Text(
+                'SAVE',
+                style: TextStyle(color: const Color(0xFFAFCBEA)),
               ),
-              SizedBox(height: screenHeight * 0.02),
-              Center(
-                child: GestureDetector(
-                  onTap: () {
-                    setState(() {
-                      _isEditing = true;
-                    });
-                  },
-                  child: CustomPaint(
-                    painter: EditIconPainter(),
-                    child: Container(
-                      width: screenWidth * 0.085,
-                      height: screenWidth * 0.085,
-                      color: Colors.transparent,
-                    ),
-                  ),
-                ),
-              ),
-              SizedBox(height: screenHeight * 0.04),
-              Text(
-                'Имя пользователя',
-                style: TextStyle(
-                  fontSize: screenWidth * 0.04,
-                  color: const Color(0xFF1A1A1A),
-                ),
-              ),
-              SizedBox(height: screenHeight * 0.01),
-              TextField(
-                controller: _usernameController,
-                enabled: _isEditing,
-                decoration: InputDecoration(
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  filled: true,
-                  fillColor: const Color(0xFFDDDDDD),
-                ),
-              ),
-              SizedBox(height: screenHeight * 0.03),
-              Text(
-                'О себе',
-                style: TextStyle(
-                  fontSize: screenWidth * 0.04,
-                  color: const Color(0xFF1A1A1A),
-                ),
-              ),
-              SizedBox(height: screenHeight * 0.01),
-              TextField(
-                controller: _bioController,
-                enabled: _isEditing,
-                maxLines: 4,
-                decoration: InputDecoration(
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  filled: true,
-                  fillColor: const Color(0xFFDDDDDD),
-                ),
-              ),
-              SizedBox(height: screenHeight * 0.06),
-              if (_isEditing)
+            ),
+          ],
+        ),
+        body: SingleChildScrollView(
+          padding: EdgeInsets.symmetric(horizontal: sw * 0.04),
+          child: Form(
+            key: _formKey,
+            autovalidateMode: AutovalidateMode.onUserInteraction,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SizedBox(height: sh * 0.04),
                 Center(
-                  child: ElevatedButton(
-                    onPressed: _saveChanges,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFFAFCBEA),
-                      foregroundColor: const Color(0xFF000000),
-                      minimumSize: Size(screenWidth * 0.5, screenHeight * 0.06),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
+                  child: GestureDetector(
+                    onTap: _pickImage,
+                    child: Stack(
+                      alignment: Alignment.bottomRight,
+                      children: [
+                        CircleAvatar(
+                          radius: sw * 0.15,
+                          backgroundImage: _newAvatar != null
+                              ? FileImage(File(_newAvatar!.path))
+                              : (auth.avatarUrl != null && auth.avatarUrl!.isNotEmpty
+                                  ? NetworkImage(auth.avatarUrl!)
+                                  : const AssetImage('assets/images/default_avatar.png'))
+                                  as ImageProvider,
+                        ),
+                        Container(
+                          padding: EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: const Color(0xFFAFCBEA),
+                          ),
+                          child: const Icon(Icons.camera_alt, size: 20, color: Colors.white),
+                        ),
+                      ],
                     ),
-                    child: const Text('Сохранить'),
                   ),
                 ),
-              SizedBox(height: screenHeight * 0.1),
-            ],
+                SizedBox(height: sh * 0.03),
+                Text(
+                  'Username',
+                  style: TextStyle(fontSize: sw * 0.04, fontWeight: FontWeight.bold),
+                ),
+                SizedBox(height: sh * 0.01),
+                TextFormField(
+                  controller: _usernameController,
+                  decoration: InputDecoration(
+                    prefixIcon: const Icon(Icons.person_outline, color: Color(0xFFAFCBEA)),
+                    filled: true,
+                    fillColor: const Color(0xFFDDDDDD),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                  validator: _validateUsername,
+                  enabled: !_isLoading,
+                ),
+                SizedBox(height: sh * 0.03),
+                Text(
+                  'Bio',
+                  style: TextStyle(fontSize: sw * 0.04, fontWeight: FontWeight.bold),
+                ),
+                SizedBox(height: sh * 0.01),
+                TextFormField(
+                  controller: _bioController,
+                  decoration: InputDecoration(
+                    filled: true,
+                    fillColor: const Color(0xFFDDDDDD),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                  maxLines: 4,
+                  enabled: !_isLoading,
+                ),
+                SizedBox(height: sh * 0.05),
+              ],
+            ),
           ),
         ),
-      ),
-      bottomNavigationBar: Navbar(
-        selectedIndex: 3,
-        onTap: (index) {
-          // Пустая функция или навигация, если нужно
-          // Например: Navigator.pushNamed(context, '/route$index');
-        },
+        bottomNavigationBar: Navbar(selectedIndex: 3, onTap: (_) {}),
       ),
     );
   }
-}
-
-class CircleImagePainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()..color = const Color(0xFF333333);
-    final center = Offset(size.width / 2, size.height / 2);
-    canvas.drawCircle(center, size.width / 2, paint);
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
-}
-
-class EditIconPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()..color = const Color(0xFFFFFFFF);
-    final path = Path()
-      ..moveTo(0, size.height)
-      ..lineTo(size.width, 0)
-      ..lineTo(size.width, size.height)
-      ..close();
-    canvas.drawPath(path, paint);
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

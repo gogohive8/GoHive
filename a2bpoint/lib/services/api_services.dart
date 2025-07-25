@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:developer' as developer;
 import 'package:http/http.dart' as http;
+import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/post.dart';
 import '../models/comment.dart';
@@ -864,7 +865,7 @@ class ApiService {
   }
 
   Future<void> updateProfile(
-      String userId, String token, Map<String, dynamic> data) async {
+      String userId, String token, Map<String, dynamic> data, { XFile? avatarFile,}) async {
     try {
       developer.log('Updating profile for userId: $userId, data: $data',
           name: 'ApiService');
