@@ -1,7 +1,8 @@
 import 'dart:developer' as developer;
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:io';
+import '../services/api_services.dart';
 
 class AuthProvider with ChangeNotifier {
   String? _token;
@@ -9,7 +10,7 @@ class AuthProvider with ChangeNotifier {
   String? _email;
   String? _username;
   String? _bio;
-  String? _avatarUrl; // Added avatarUrl field
+  String? _avatarUrl;
   bool _isAuthenticated = false;
   bool _isInitialized = false;
   bool _isNewGoogleUser = false;
@@ -19,24 +20,21 @@ class AuthProvider with ChangeNotifier {
   String? get email => _email;
   String? get username => _username;
   String? get bio => _bio;
-  String? get avatarUrl => _avatarUrl; // Getter for avatarUrl
+  String? get avatarUrl => _avatarUrl;
   bool get isAuthenticated => _isAuthenticated;
   bool get isInitialized => _isInitialized;
   bool get isNewGoogleUser => _isNewGoogleUser;
 
-  // Setter for username
   set username(String? value) {
     _username = value;
     notifyListeners();
   }
 
-  // Setter for bio
   set bio(String? value) {
     _bio = value;
     notifyListeners();
   }
 
-  // Setter for avatarUrl
   set avatarUrl(String? value) {
     _avatarUrl = value;
     notifyListeners();
@@ -60,7 +58,7 @@ class AuthProvider with ChangeNotifier {
       _email = prefs.getString('email');
       _username = prefs.getString('username');
       _bio = prefs.getString('bio_${_userId ?? ''}') ?? '';
-      _avatarUrl = prefs.getString('avatarUrl_${_userId ?? ''}') ?? ''; // Load avatarUrl
+      _avatarUrl = prefs.getString('avatarUrl_${_userId ?? ''}') ?? '';
       _isAuthenticated = _token != null &&
           _userId != null &&
           _token!.isNotEmpty &&
@@ -89,7 +87,7 @@ class AuthProvider with ChangeNotifier {
     String email,
     String? username, {
     String? bio,
-    String? avatarUrl, // Added avatarUrl parameter
+    String? avatarUrl,
     bool isGoogleLogin = false,
     bool isNewUser = false,
   }) async {
@@ -122,7 +120,7 @@ class AuthProvider with ChangeNotifier {
       _email = email;
       _username = username;
       _bio = bio;
-      _avatarUrl = avatarUrl; // Set avatarUrl
+      _avatarUrl = avatarUrl;
       _isAuthenticated = true;
       _isNewGoogleUser = isGoogleLogin && isNewUser;
       developer.log('Auth data set: isAuthenticated=true',
@@ -135,23 +133,38 @@ class AuthProvider with ChangeNotifier {
     }
   }
 
-  Future<void> updateProfile(String username, String bio, {XFile? newAvatar}) async {
+  Future<void> updateProfile(String username, String bio, String email, File? newAvatar) async {
     try {
-      developer.log('Updating profile: username=$username, bio=$bio, newAvatar=${newAvatar?.path}',
+      developer.log('Updating profile: username=$username, bio=$bio, email=$email, newAvatar=${newAvatar?.path}',
           name: 'AuthProvider');
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('username', username);
       await prefs.setString('bio_${_userId ?? ''}', bio);
+      await prefs.setString('email', email);
+      String? photoURL;
       if (newAvatar != null) {
-        // Note: The actual avatar URL should come from the API response after uploading
-        // This is a placeholder; the real URL will be set in ProfileEditScreen after API call
-        await prefs.setString('avatarUrl_${_userId ?? ''}', newAvatar.path);
-        _avatarUrl = newAvatar.path; // Temporary, will be updated with real URL
+        photoURL = await ApiService().uploadMedia(newAvatar, _token ?? '');
+        await prefs.setString('avatarUrl_${_userId ?? ''}', photoURL);
+        _avatarUrl = photoURL;
       }
       _username = username;
       _bio = bio;
+      _email = email;
       developer.log('Profile updated locally', name: 'AuthProvider');
       notifyListeners();
+
+      // Синхронизация с сервером
+      await ApiService().updateProfile(
+        _userId ?? '',
+        _token ?? '',
+        {
+          'username': username,
+          'bio': bio,
+          'email': email,
+          if (photoURL != null) 'avatarUrl': photoURL,
+        },
+        photoURL ?? '',
+      );
     } catch (e, stackTrace) {
       developer.log('Error updating profile: $e',
           name: 'AuthProvider', stackTrace: stackTrace);
@@ -167,14 +180,14 @@ class AuthProvider with ChangeNotifier {
       await prefs.remove('email');
       await prefs.remove('username');
       await prefs.remove('bio_${_userId ?? ''}');
-      await prefs.remove('avatarUrl_${_userId ?? ''}'); // Remove avatarUrl
+      await prefs.remove('avatarUrl_${_userId ?? ''}');
       await prefs.remove('isNewGoogleUser');
       _token = null;
       _userId = null;
       _email = null;
       _username = null;
       _bio = null;
-      _avatarUrl = null; // Clear avatarUrl
+      _avatarUrl = null;
       _isAuthenticated = false;
       _isNewGoogleUser = false;
       developer.log('Auth data cleared', name: 'AuthProvider');

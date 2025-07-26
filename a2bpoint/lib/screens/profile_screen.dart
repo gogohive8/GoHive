@@ -104,49 +104,60 @@ class _ProfileScreenState extends State<ProfileScreen>
   }
 
   Future<void> _updateBiography() async {
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    final userId = authProvider.userId ?? '';
-    final token = authProvider.token ?? '';
+  final authProvider = Provider.of<AuthProvider>(context, listen: false);
+  final userId = authProvider.userId ?? '';
+  final token = authProvider.token ?? '';
 
-    if (_biographyController.text.isEmpty || userId.isEmpty || token.isEmpty) {
+  if (_biographyController.text.isEmpty || userId.isEmpty || token.isEmpty) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Biography or authentication details missing'),
+        backgroundColor: Colors.red,
+      ),
+    );
+    return;
+  }
+
+  try {
+    developer.log('Updating biography for userId=$userId', name: 'ProfileScreen');
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('biography_$userId', _biographyController.text);
+
+    await _apiService.updateProfile(
+      userId,
+      token,
+      {'bio': _biographyController.text},
+      '', // photoURL
+    );
+
+    if (mounted) {
+      setState(() {
+        _profile = {...?_profile, 'biography': _biographyController.text};
+      });
+      await authProvider.updateProfile(
+        authProvider.username ?? '',
+        _biographyController.text,
+        authProvider.email ?? '',
+        null, // newAvatar
+      );
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Biography or authentication details missing'),
+          content: Text('Biography updated successfully'),
+          backgroundColor: Color(0xFFAFCBEA),
+        ),
+      );
+    }
+  } catch (e) {
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error updating biography: $e'),
           backgroundColor: Colors.red,
         ),
       );
-      return;
-    }
-
-    try {
-      developer.log('Updating biography for userId=$userId', name: 'ProfileScreen');
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('biography_$userId', _biographyController.text);
-
-      final success = await _apiService.updatebiography(
-          userId, _biographyController.text, token);
-      if (success && mounted) {
-        setState(() {
-          _profile = {...?_profile, 'biography': _biographyController.text};
-        });
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Biography updated successfully'),
-            backgroundColor: Color(0xFFAFCBEA),
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error updating biography: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
     }
   }
+}
 
   @override
   Widget build(BuildContext context) {
@@ -173,7 +184,6 @@ class _ProfileScreenState extends State<ProfileScreen>
               : CustomScrollView(
                   controller: _scrollController,
                   slivers: <Widget>[
-                    // Custom App Bar with Profile Info
                     SliverAppBar(
                       backgroundColor: const Color(0xFFF9F6F2),
                       expandedHeight: size.height * 0.35,
@@ -183,8 +193,6 @@ class _ProfileScreenState extends State<ProfileScreen>
                         background: _buildProfileHeader(authProvider, size),
                       ),
                     ),
-                    
-                    // Tab Bar
                     SliverPersistentHeader(
                       pinned: true,
                       delegate: _SliverTabBarDelegate(
@@ -201,8 +209,6 @@ class _ProfileScreenState extends State<ProfileScreen>
                         ),
                       ),
                     ),
-                    
-                    // Tab Content
                     SliverFillRemaining(
                       child: TabBarView(
                         controller: _tabController,
@@ -230,12 +236,9 @@ class _ProfileScreenState extends State<ProfileScreen>
       child: Column(
         children: [
           SizedBox(height: size.height * 0.06),
-          
-          // Profile Image and Edit Button
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Profile Avatar
               Container(
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
@@ -245,7 +248,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.grey.withOpacity(0.3),
+                      color: Colors.grey.withValues(alpha: 0.3),
                       blurRadius: 5,
                       offset: const Offset(0, 2),
                     ),
@@ -260,10 +263,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                           as ImageProvider,
                 ),
               ),
-              
               SizedBox(width: size.width * 0.04),
-              
-              // Profile Info
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -297,8 +297,6 @@ class _ProfileScreenState extends State<ProfileScreen>
                   ],
                 ),
               ),
-              
-              // Edit Profile Button
               IconButton(
                 onPressed: () {
                   Navigator.push(
@@ -315,15 +313,9 @@ class _ProfileScreenState extends State<ProfileScreen>
               ),
             ],
           ),
-          
           SizedBox(height: size.height * 0.02),
-          
-          // Stats Row
           _buildStatsRow(size),
-          
           SizedBox(height: size.height * 0.02),
-          
-          // Biography
           TextFormField(
             controller: _biographyController,
             decoration: InputDecoration(

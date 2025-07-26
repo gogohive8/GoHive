@@ -56,7 +56,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
 
       if (_isGoogleSignUp && _userId != null) {
-        // Update profile for Google user
         await _apiService.updateProfile(
           _userId!,
           authProvider.token!,
@@ -67,10 +66,10 @@ class _SignUpScreenState extends State<SignUpScreen> {
             'age': int.parse(_ageController.text.trim()),
             'phone': _phoneController.text.trim(),
           },
+          '', // photoURL
         );
         developer.log('Google profile updated for userId: $_userId',
             name: 'SignUpScreen');
-        // Update AuthProvider with username
         await authProvider.setAuthData(
           authProvider.token!,
           _userId!,
@@ -78,10 +77,15 @@ class _SignUpScreenState extends State<SignUpScreen> {
           _usernameController.text.trim(),
           isGoogleLogin: true,
         );
+        await authProvider.updateProfile(
+          _usernameController.text.trim(),
+          '', // bio
+          _googleEmail ?? '',
+          null, // newAvatar
+        );
         if (mounted) Navigator.pop(context);
         if (mounted) Navigator.pushReplacementNamed(context, '/home');
       } else {
-        // Regular email sign-up
         final authData = await _apiService.signUp(
           _usernameController.text.trim(),
           _emailController.text.trim(),
@@ -101,6 +105,12 @@ class _SignUpScreenState extends State<SignUpScreen> {
             authData['userId']!,
             authData['email'] ?? _emailController.text.trim(),
             authData['username'] ?? _usernameController.text.trim(),
+          );
+          await authProvider.updateProfile(
+            authData['username'] ?? _usernameController.text.trim(),
+            '', // bio
+            authData['email'] ?? _emailController.text.trim(),
+            null, // newAvatar
           );
           if (mounted) Navigator.pushReplacementNamed(context, '/home');
         } else {

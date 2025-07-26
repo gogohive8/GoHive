@@ -2,10 +2,10 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:loading_overlay/loading_overlay.dart';
+import 'package:image_picker/image_picker.dart';
 import '../providers/auth_provider.dart';
 import '../services/api_services.dart';
 import '../screens/navbar.dart';
-import 'package:image_picker/image_picker.dart';
 
 class ProfileEditScreen extends StatefulWidget {
   const ProfileEditScreen({super.key});
@@ -46,71 +46,69 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
 
   Future<void> _pickImage() async {
     final img = await ImagePicker().pickImage(source: ImageSource.gallery);
-    if (img != null) setState(() => _newAvatar = img);
+    if (img != null) {
+      setState(() => _newAvatar = File(img.path));
+    }
   }
 
   Future<void> _save() async {
-    if (!_formKey.currentState!.validate()) return;
+  if (!_formKey.currentState!.validate()) return;
 
-    final auth = Provider.of<AuthProvider>(context, listen: false);
-    if (auth.userId == null || auth.token == null) {
-      auth.handleAuthError(context, 'Authentication required');
-      return;
-    }
-
-    setState(() => _isLoading = true);
-    try {
-      final data = {
-        'username': _usernameController.text.trim(),
-        'bio': _bioController.text.trim(),
-      };
-
-      // TODO Вот здесь надо передать фото в uploadMedia
-      String photoURL = await _apiService.uploadMedia(_newAvatar, auth.token!);
-
-      // Вот здесь вместо фото передать её ссылку
-      await _apiService.updateProfile(
-        auth.userId!,
-        auth.token!,
-        data,
-        photoURL,
-      );
-
-// а дальше я не понял
-      // Update AuthProvider with the new data, including avatar URL if available
-      auth.updateProfile(
-        _usernameController.text.trim(),
-        _bioController.text.trim(),
-        newAvatar: _newAvatar,
-      );
-
-      // Update avatarUrl in AuthProvider if an avatar was uploaded
-      if (data['avatarUrl'] != null) {
-        auth.avatarUrl = data['avatarUrl'];
-      }
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Profile updated successfully'),
-            backgroundColor: Color(0xFFAFCBEA),
-          ),
-        );
-        Navigator.pop(context);
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error updating profile: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
-    }
+  final auth = Provider.of<AuthProvider>(context, listen: false);
+  if (auth.userId == null || auth.token == null) {
+    auth.handleAuthError(context, 'Authentication required');
+    return;
   }
+
+  setState(() => _isLoading = true);
+  try {
+    String? photoURL;
+    if (_newAvatar != null) {
+      photoURL = await _apiService.uploadMedia(_newAvatar!, auth.token!);
+    }
+
+    final data = {
+      'username': _usernameController.text.trim(),
+      'bio': _bioController.text.trim(),
+      if (photoURL != null) 'avatarUrl': photoURL,
+    };
+
+    await _apiService.updateProfile(
+      auth.userId!,
+      auth.token!,
+      data,
+      photoURL ?? '',
+    );
+
+    await auth.updateProfile(
+      _usernameController.text.trim(),
+      _bioController.text.trim(),
+      auth.email ?? '',
+      _newAvatar,
+    );
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Profile updated successfully'),
+          backgroundColor: Color(0xFFAFCBEA),
+        ),
+      );
+      Navigator.pop(context);
+    }
+  } catch (e) {
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error updating profile: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  } finally {
+    if (mounted) setState(() => _isLoading = false);
+  }
+}
 
   @override
   Widget build(BuildContext context) {
@@ -174,7 +172,7 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
                         CircleAvatar(
                           radius: sw * 0.15,
                           backgroundImage: _newAvatar != null
-                              ? FileImage(File(_newAvatar!.path))
+                              ? FileImage(_newAvatar!)
                               : (auth.avatarUrl != null &&
                                           auth.avatarUrl!.isNotEmpty
                                       ? NetworkImage(auth.avatarUrl!)
