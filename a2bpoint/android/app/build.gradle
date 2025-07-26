@@ -1,29 +1,40 @@
 plugins {
-    id 'com.android.application'
-    id 'kotlin-android'
+    id "com.android.application"
+    id "kotlin-android"
+    id "dev.flutter.flutter-gradle-plugin"
 }
 
 android {
-    namespace "com.example.a2bpoint"
-    compileSdk 34
-
+    namespace 'com.example.a2bpoint'
+    compileSdkVersion 35
     defaultConfig {
         applicationId "com.example.a2bpoint"
-        minSdk 24
-        targetSdk 34
+        minSdkVersion 35
+        targetSdkVersion 35
         versionCode 1
         versionName "1.0"
+        multiDexEnabled true
     }
-
     buildTypes {
-        release {
+        debug {
             signingConfig signingConfigs.debug
-            minifyEnabled false
         }
     }
+}
 
-    compileOptions {
-        sourceCompatibility JavaVersion.VERSION_1_8
-        targetCompatibility JavaVersion.VERSION_1_8
+kotlin{
+    jvmToolchain(21)
+}
+
+dependencies {
+    implementation 'androidx.multidex:multidex:2.0.1'
+    testImplementation("net.bytebuddy:byte-buddy:1.16.1")
+    testImplementation("net.bytebuddy:byte-buddy-agent:1.16.1")
+}
+
+configurations.all {
+    resolutionStrategy {
+        force "net.bytebuddy:byte-buddy:1.16.1"
+        force "net.bytebuddy:byte-buddy-agent:1.16.1"
     }
 }
