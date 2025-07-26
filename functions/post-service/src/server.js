@@ -93,7 +93,7 @@ const upload = multer({
 
 app.post('/goals/create', verifyToken, async (req, res) => {
   try{
-    const { user_id, description, location, interest, point_a, point_b, tasks } = req.body;
+    const { user_id, description, location, interest, point_a, point_b, tasks, image_urls } = req.body;
 
     const { data: goalInfo, error: insertGoalError } = await supabase
     .schema('posts')
@@ -128,20 +128,20 @@ app.post('/goals/create', verifyToken, async (req, res) => {
       return res.status(400).json( { error: insertStepsError });
     }
 
-  //   if (image_urls){
-  //   const { error: insertPhotoError } = await supabase
-  //   .schema('posts')
-  //   .from('goalsPhoto')
-  //   .insert({
-  //     goalsId: goalInfo.id,
-  //     photoURL: image_urls || '',
-  //   });
+    if (image_urls){
+    const { error: insertPhotoError } = await supabase
+    .schema('posts')
+    .from('goalsPhoto')
+    .insert({
+      goalsId: goalInfo.id,
+      photoURL: image_urls || '',
+    });
 
-  //   if ( insertPhotoError ) {
-  //     console.error('Error of insert photo url', insertPhotoError);
-  //     res.status(400).json({ error: insertPhotoError });
-  //   }
-  // };
+    if ( insertPhotoError ) {
+      console.error('Error of insert photo url', insertPhotoError);
+      res.status(400).json({ error: insertPhotoError });
+    }
+  };
 
     return res.status(200).json({ message: 'Goals created successfully'});
 
@@ -152,7 +152,7 @@ app.post('/goals/create', verifyToken, async (req, res) => {
 
 app.post('/events/create',verifyToken, async (req, res) => {
   try{
-    const { user_id, description, location, date_time } = req.body;
+    const { user_id, description, location, date_time, image_urls } = req.body;
 
     const { data: eventInfo, error: insertEventError } = await supabase
     .schema('posts')
@@ -173,21 +173,21 @@ app.post('/events/create',verifyToken, async (req, res) => {
     };
 
 
-  //   if (image_urls){
-  //   const { error: insertPhotoError } = await supabase
-  //   .schema('posts')
-  //   .from('eventsPhoto')
-  //   .insert({
-  //     eventID: eventInfo.id,
-  //     photoURL: image_urls || '',
-  //   });
+    if (image_urls){
+    const { error: insertPhotoError } = await supabase
+    .schema('posts')
+    .from('eventsPhoto')
+    .insert({
+      eventID: eventInfo.id,
+      photoURL: image_urls || '',
+    });
 
 
-  //   if ( insertPhotoError ) {
-  //     console.error('Error of insert photo url', insertPhotoError);
-  //     res.status(400).json({ error: insertPhotoError });
-  //   }
-  // };
+    if ( insertPhotoError ) {
+      console.error('Error of insert photo url', insertPhotoError);
+      res.status(400).json({ error: insertPhotoError });
+    }
+  };
     return res.status(200).json({ message: 'Event created successfully'});
 
   } catch (error) {
@@ -248,6 +248,18 @@ app.get('/goals/all', verifyToken, async (req, res) => {
           likedCurrentGoal = true
         }
 
+
+        const {data: imageURL, error: fetchUrlError} = await supabase
+        .schema('posts')
+        .from('goalsPhotos')
+        .select('photoURL')
+        .eq('goalId', goal.id)
+
+        if (fetchUrlError) {
+          console.error('Error of fetch urls', fetchUrlError);
+          return {...goal, image_urls: ""}
+        }
+
         // Replace userID with username
         return {
           id: goal.id,
@@ -258,6 +270,7 @@ app.get('/goals/all', verifyToken, async (req, res) => {
           numOfComments: goal.numOfComments,
           likedCurrentGoal: likedCurrentGoal,
           created_at: goal.created_at,
+          image_urls: imageURL.photoURL,
         };
       })
     );
@@ -299,6 +312,18 @@ app.get('/events/all', verifyToken, async (req, res) => {
           return { ...event, username: null }; // Fallback to null if user not found
         }
 
+        const {data: imageURL, error: fetchUrlError} = await supabase
+        .schema('posts')
+        .from('eventsPhotos')
+        .select('photoURL')
+        .eq('eventID', event.id)
+
+        if (fetchUrlError) {
+          console.error('Error of fetch urls', fetchUrlError);
+          return {...goal, image_urls: ""}
+        }
+
+
         // Replace userID with username
         return {
           id: event.id,
@@ -306,6 +331,7 @@ app.get('/events/all', verifyToken, async (req, res) => {
           description: event.description,
           numOfLikes: event.numOfLikes,
           numOfComments: event.numOfComments,
+          image_urls: imageURL.photoURL,
         };
       })
     );
@@ -344,28 +370,33 @@ app.get('/goals/:id', verifyToken,  async (req, res) => {
     }
 
 
-    // const userGoalsPhotos = await Promise.all(
-    //   usersGoals.map(async (goal) => {
-    //     const {data: photo, error: photoFetchError } = await supabase
-    //     .schema('posts')
-    //     .from('goalsPhotos')
-    //     .select('photoUrl')
-    //     .eq('goalId', goal.id)
+    const userGoalsPhotos = await Promise.all(
+      usersGoals.map(async (goal) => {
+        const {data: photo, error: photoFetchError } = await supabase
+        .schema('posts')
+        .from('goalsPhotos')
+        .select('photoUrl')
+        .eq('goalId', goal.id)
 
-    //     if (fetchError) {
-    //       console.error('Error with fetching photo url', fetchError.message);
-    //       res.status(400).json({error: photoFetchError.message});
-    //     }
+        if (fetchError) {
+          console.error('Error with fetching photo url', fetchError.message);
+          res.status(400).json({error: photoFetchError.message});
+        }
 
-    //     return {
-    //       id: goal.id,
-    //       photoURL: photo.photoURL,
-    //     };
-    //   }) 
-    // );
+        return {
+          userID: id,
+          description: goal.goalInfo,
+          created_at: goal.created_at,
+          numOfLikes: goal.numOfLikes,
+          numOfComments: goal.numOfComments,
+          id: goal.id,
+          photoURL: photo.photoURL,
+        };
+      }) 
+    );
 
-    console.log('photos url: ', goals);
-    return res.status(200).json(goals);
+    console.log('photos url: ', userGoalsPhotos);
+    return res.status(200).json(userGoalsPhotos);
   } catch (error) {
     console.error('Error of fetching photos url: ', error.message);
     return res.status(400).json({error: error.message});
@@ -396,28 +427,33 @@ app.get('/events/:id', verifyToken, async (req, res) => {
       return res.status(200).json([]);
     }
     
-    // const userEventsPhotos = await Promise.all(
-    //   usersEvents.map(async (event) => {
-    //     const {data: photo, error: photoFetchError } = await supabase
-    //     .schema('posts')
-    //     .from('eventsPhotos')
-    //     .select('photoUrl')
-    //     .eq('eventId', event.id)
+    const userEventsPhotos = await Promise.all(
+      usersEvents.map(async (event) => {
+        const {data: photo, error: photoFetchError } = await supabase
+        .schema('posts')
+        .from('eventsPhotos')
+        .select('photoUrl')
+        .eq('eventId', event.id)
 
-    //     if (fetchError) {
-    //       console.error('Error with fetching photo url', fetchError.message);
-    //       res.status(400).json({error: photoFetchError.message});
-    //     }
+        if (fetchError) {
+          console.error('Error with fetching photo url', fetchError.message);
+          res.status(400).json({error: photoFetchError.message});
+        }
 
-    //     return {
-    //       id: event.id,
-    //       photoURL: photo.photoURL,
-    //     };
-    //   }) 
-    // );
+        return {
+          userID: id,
+          description: event.description,
+          created_at: event.created_at,
+          numOfLikes: event.numOfLikes,
+          numOfComments: event.numOfComments,
+          id: event.id,
+          photoURL: photo.photoURL,
+        };
+      }) 
+    );
 
-    console.log('photos url: ', usersEvents);
-    return res.status(200).json(usersEvents);
+    console.log('photos url: ', userEventsPhotos);
+    return res.status(200).json(userEventsPhotos);
   } catch (error) {
     console.error('Error of fetching photos url: ', error.message);
     return res.status(400).json({error: error.message});
