@@ -52,63 +52,62 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
   }
 
   Future<void> _save() async {
-  if (!_formKey.currentState!.validate()) return;
+    if (!_formKey.currentState!.validate()) return;
 
-  final auth = Provider.of<AuthProvider>(context, listen: false);
-  if (auth.userId == null || auth.token == null) {
-    auth.handleAuthError(context, 'Authentication required');
-    return;
-  }
-
-  setState(() => _isLoading = true);
-  try {
-    String? photoURL;
-    if (_newAvatar != null) {
-      photoURL = await _apiService.uploadMedia(_newAvatar!, auth.token!);
+    final auth = Provider.of<AuthProvider>(context, listen: false);
+    if (auth.userId == null || auth.token == null) {
+      auth.handleAuthError(context, 'Authentication required');
+      return;
     }
 
-    final data = {
-      'username': _usernameController.text.trim(),
-      'bio': _bioController.text.trim(),
-      if (photoURL != null) 'avatarUrl': photoURL,
-    };
+    setState(() => _isLoading = true);
+    try {
+      String? photoURL;
+      if (_newAvatar != null) {
+        photoURL = await _apiService.uploadMedia(_newAvatar!, auth.token!);
+      }
 
-    await _apiService.updateProfile(
-      auth.userId!,
-      auth.token!,
-      data,
-      photoURL ?? '',
-    );
+      final data = {
+        'username': _usernameController.text.trim(),
+        'bio': _bioController.text.trim(),
+      };
 
-    await auth.updateProfile(
-      _usernameController.text.trim(),
-      _bioController.text.trim(),
-      auth.email ?? '',
-      _newAvatar,
-    );
-
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Profile updated successfully'),
-          backgroundColor: Color(0xFFAFCBEA),
-        ),
+      await _apiService.updateProfile(
+        auth.userId!,
+        auth.token!,
+        data,
+        photoURL ?? '',
       );
-      Navigator.pop(context);
-    }
-  } catch (e) {
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error updating profile: $e'),
-          backgroundColor: Colors.red,
-        ),
+
+      await auth.updateProfile(
+        _usernameController.text.trim(),
+        _bioController.text.trim(),
+        auth.email ?? '',
+        _newAvatar,
       );
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Profile updated successfully'),
+            backgroundColor: Color(0xFFAFCBEA),
+          ),
+        );
+        Navigator.pop(context);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error updating profile: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
-  } finally {
-    if (mounted) setState(() => _isLoading = false);
   }
-}
 
   @override
   Widget build(BuildContext context) {
