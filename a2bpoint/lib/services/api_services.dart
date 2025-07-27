@@ -150,87 +150,98 @@ class ApiService {
   }
 
   Future<List<Comment>> getComments(
-      String post_id, String token, String post_type,
-      {int limit = 10, int offset = 0}) async {
-    try {
-      developer.log(
-          'Fetching comments for post_id: $post_id, limit: $limit, offset: $offset',
+    String post_id, String token, String post_type,
+    {int limit = 10, int offset = 0}) async {
+  try {
+    developer.log(
+        'Fetching comments for post_id: $post_id, limit: $limit, offset: $offset',
+        name: 'ApiService');
+    final response = await _client.get(
+      Uri.parse(
+          '$_postsUrl/posts/$post_id/comments?limit=$limit&offset=$offset&post_type=$post_type'),
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+      },
+    ).timeout(const Duration(seconds: 10));
+    
+    final data = await _handleResponse(response);
+    
+    // ИСПРАВЛЕНО: правильная обработка ответа сервера
+    if (data.isEmpty || data['fetchComments'] == null) {
+      developer.log('No comments found for post_id: $post_id',
           name: 'ApiService');
-      final response = await _client.get(
-        Uri.parse(
-            '$_postsUrl/posts/$post_id/comments?limit=$limit&offset=$offset&post_type=$post_type'),
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Content-Type': 'application/json',
-        },
-      ).timeout(const Duration(seconds: 10));
-      final data = await _handleResponse(response);
-      if (data.isEmpty) {
-        developer.log('No comments found for post_id: $post_id',
-            name: 'ApiService');
-        return [];
-      }
-      final comments = (data as List<dynamic>)
-          .map((json) => Comment.fromJson({
-                'id': json['id']?.toString() ?? '',
-                'post_id': json['post_id']?.toString() ?? post_id,
-                'userId': json['userId']?.toString() ?? 'unknown',
-                'username': json['username']?.toString() ?? 'Unknown',
-                'text': json['text']?.toString() ?? '',
-                'created_at': json['created_at']?.toString() ??
-                    DateTime.now().toIso8601String(),
-              }))
-          .toList();
-      developer.log(
-          'Parsed ${comments.length} comments: ${comments.map((c) => c.id)}',
-          name: 'ApiService');
-      return comments;
-    } catch (e, stackTrace) {
-      developer.log('Get comments error: $e',
-          name: 'ApiService', stackTrace: stackTrace);
-      rethrow;
+      return [];
     }
+    
+    // Берем массив комментариев из fetchComments
+    final commentsData = data['fetchComments'] as List<dynamic>;
+    
+    final comments = commentsData
+        .map((json) => Comment.fromJson({
+              'id': json['id']?.toString() ?? '',
+              'post_id': post_id,
+              'userId': json['userID']?.toString() ?? 'unknown', // ИСПРАВЛЕНО
+              'username': json['username']?.toString() ?? 'Unknown',
+              'text': json['comment']?.toString() ?? json['comments']?.toString() ?? '', // ИСПРАВЛЕНО
+              'created_at': json['created_at']?.toString() ??
+                  DateTime.now().toIso8601String(),
+            }))
+        .toList();
+    
+    developer.log(
+        'Parsed ${comments.length} comments: ${comments.map((c) => c.id)}',
+        name: 'ApiService');
+    return comments;
+  } catch (e, stackTrace) {
+    developer.log('Get comments error: $e',
+        name: 'ApiService', stackTrace: stackTrace);
+    rethrow;
   }
+}
 
   Future<Map<String, dynamic>> createComment(String post_id, String userId,
-      String text, String post_type, String token) async {
-    try {
-      developer.log(
-          'Creating comment for post_id: $post_id, userId: $userId, text: $text',
-          name: 'ApiService');
-      final response = await _client
-          .post(
-            Uri.parse('$_postsUrl/posts/$post_id/comments'),
-            headers: {
-              'Authorization': 'Bearer $token',
-              'Content-Type': 'application/json',
-            },
-            body: jsonEncode({
-              'text': text,
-              'userId': userId,
-              'postId': post_id,
-              'postType': post_type
-            }),
-          )
-          .timeout(const Duration(seconds: 10));
-      final data = await _handleResponse(response);
-      final comment = {
-        'post_id': post_id,
-        'userId': userId,
-        'text': text,
-        'id': data['id']?.toString() ?? '',
-        'username': data['username']?.toString() ?? 'Unknown',
-        'created_at':
-            data['created_at']?.toString() ?? DateTime.now().toIso8601String(),
-      };
-      developer.log('Comment created: $comment', name: 'ApiService');
-      return comment;
-    } catch (e, stackTrace) {
-      developer.log('Create comment error: $e',
-          name: 'ApiService', stackTrace: stackTrace);
-      rethrow;
-    }
+    String text, String post_type, String token) async {
+  try {
+    developer.log(
+        'Creating comment for post_id: $post_id, userId: $userId, text: $text',
+        name: 'ApiService');
+    final response = await _client
+        .post(
+          Uri.parse('$_postsUrl/posts/$post_id/comments'),
+          headers: {
+            'Authorization': 'Bearer $token',
+            'Content-Type': 'application/json',
+          },
+          body: jsonEncode({
+            'text': text,
+            'userId': userId,
+            'postId': post_id,
+            'post_type': post_type // ИСПРАВЛЕНО: правильное название поля
+          }),
+        )
+        .timeout(const Duration(seconds: 10));
+    
+    final data = await _handleResponse(response);
+    
+    // Возвращаем данные в правильном формате
+    final comment = {
+      'post_id': post_id,
+      'userId': userId,
+      'text': text,
+      'id': DateTime.now().millisecondsSinceEpoch.toString(), // Временный ID
+      'username': 'Current User', // Можно получить из AuthProvider
+      'created_at': DateTime.now().toIso8601String(),
+    };
+    
+    developer.log('Comment created: $comment', name: 'ApiService');
+    return comment;
+  } catch (e, stackTrace) {
+    developer.log('Create comment error: $e',
+        name: 'ApiService', stackTrace: stackTrace);
+    rethrow;
   }
+}
 
   Future<Map<String, dynamic>> likePost(
       String post_id, String userId, String token) async {
@@ -332,41 +343,55 @@ class ApiService {
   }
 
   Future<List<Post>> getAllGoals(String token, String userId) async {
-    try {
-      developer.log('Fetching all goals for userId: $userId',
-          name: 'ApiService');
-      final response = await _client.get(
-        Uri.parse('$_postsUrl/goals/all'),
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Content-Type': 'application/json',
-        },
-      ).timeout(const Duration(seconds: 10));
-      final data = await _handleResponse(response);
-      final posts = (data as List<dynamic>)
-          .map((json) => Post.fromJson({
-                ...json,
-                'type': 'goal',
-                'description': json['goalInfo']?.toString() ?? '',
-                'created_at': json['created_at']?.toString() ??
-                    DateTime.now().toIso8601String(),
-                'numOfLikes': json['numOfLikes'] ?? 0,
-                'numOfComments': json['numOfComments'] ?? 0,
-                'id': json['id']?.toString() ?? '',
-                'userID': json['userID']?.toString() ?? 'unknown',
-                'username': json['username']?.toString() ?? 'Unknown',
-                'likedCurrentGoal': json['likedCurrentGoal'] ?? [],
-                'image_urls': json['image_urls'] ?? [],
-              }, type: 'goal'))
-          .toList();
-      developer.log('Parsed ${posts.length} goals', name: 'ApiService');
-      return posts;
-    } catch (e, stackTrace) {
-      developer.log('Get all goals error: $e',
-          name: 'ApiService', stackTrace: stackTrace);
-      rethrow;
-    }
+  try {
+    developer.log('Fetching all goals for userId: $userId',
+        name: 'ApiService');
+    final response = await _client.get(
+      Uri.parse('$_postsUrl/goals/all'),
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+      },
+    ).timeout(const Duration(seconds: 10));
+    
+    final data = await _handleResponse(response);
+    final posts = (data as List<dynamic>)
+        .map((json) {
+          // ИСПРАВЛЕНО: правильная обработка image_urls
+          List<String>? imageUrls;
+          if (json['image_urls'] != null) {
+            if (json['image_urls'] is String && json['image_urls'].isNotEmpty) {
+              imageUrls = [json['image_urls']];
+            } else if (json['image_urls'] is List) {
+              imageUrls = List<String>.from(json['image_urls']);
+            }
+          }
+          
+          return Post.fromJson({
+            ...json,
+            'type': 'goal',
+            'description': json['goalInfo']?.toString() ?? '',
+            'created_at': json['created_at']?.toString() ??
+                DateTime.now().toIso8601String(),
+            'numOfLikes': json['numOfLikes'] ?? 0,
+            'numOfComments': json['numOfComments'] ?? 0,
+            'id': json['id']?.toString() ?? '',
+            'userID': json['userID']?.toString() ?? 'unknown',
+            'username': json['username']?.toString() ?? 'Unknown',
+            'likedCurrentGoal': json['likedCurrentGoal'] ?? false,
+            'image_urls': imageUrls, // ИСПРАВЛЕНО
+          }, type: 'goal');
+        })
+        .toList();
+    
+    developer.log('Parsed ${posts.length} goals', name: 'ApiService');
+    return posts;
+  } catch (e, stackTrace) {
+    developer.log('Get all goals error: $e',
+        name: 'ApiService', stackTrace: stackTrace);
+    rethrow;
   }
+}
 
   Future<List<Post>> getAllEvents(String token, String userId) async {
     try {

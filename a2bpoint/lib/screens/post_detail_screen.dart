@@ -242,14 +242,48 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                   ),
                   const SizedBox(height: 12),
                   if (_post!.imageUrls != null && _post!.imageUrls!.isNotEmpty)
-                    CachedNetworkImage(
-                      imageUrl: _post!.imageUrls![0],
-                      height: 300,
-                      width: double.infinity,
-                      fit: BoxFit.cover,
-                      placeholder: (context, url) => const Center(child: CircularProgressIndicator()),
-                      errorWidget: (context, url, error) => const Icon(Icons.error, size: 100),
-                    ),
+  Container(
+    height: 300,
+    width: double.infinity,
+    decoration: BoxDecoration(
+      borderRadius: BorderRadius.circular(8),
+    ),
+    child: CachedNetworkImage(
+      imageUrl: _post!.imageUrls![0],
+      height: 300,
+      width: double.infinity,
+      fit: BoxFit.cover,
+      placeholder: (context, url) => Container(
+        height: 300,
+        width: double.infinity,
+        color: Colors.grey[200],
+        child: const Center(
+          child: CircularProgressIndicator(),
+        ),
+      ),
+      errorWidget: (context, url, error) {
+        print('Error loading image: $error'); // Добавьте логирование
+        print('URL: $url'); // Логируем URL
+        return Container(
+          height: 300,
+          width: double.infinity,
+          color: Colors.grey[300],
+          child: const Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.error, size: 50, color: Colors.red),
+              SizedBox(height: 8),
+              Text('Failed to load image'),
+            ],
+          ),
+        );
+      },
+      // Добавьте заголовки для авторизации если нужно
+      httpHeaders: const {
+        'User-Agent': 'YourApp/1.0',
+      },
+    ),
+  ),
                   const SizedBox(height: 12),
                   Text(
                     _post!.text ?? 'No description',
