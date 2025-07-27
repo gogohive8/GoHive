@@ -578,9 +578,8 @@ class ApiService {
     required String location,
     required String interest,
     required String dateTime,
-    List<String>? imageUrls,
     required String token,
-    required String image_urls,
+    required List<String>? image_urls,
   }) async {
     try {
       final body = {
@@ -589,7 +588,8 @@ class ApiService {
         'location': location,
         'interest': interest,
         'date_time': dateTime,
-        if (imageUrls != null && imageUrls.isNotEmpty) 'image_urls': imageUrls,
+        if (image_urls != null && image_urls.isNotEmpty)
+          'image_urls': image_urls,
       };
 
       developer.log(
@@ -930,16 +930,14 @@ class ApiService {
     try {
       developer.log('Creating pre-order for userId: $userId',
           name: 'ApiService');
-      final response = await _client
-          .post(
-            Uri.parse('$_baseUrl/preorder'),
-            headers: {
-              'Authorization': 'Bearer $token',
-              'Content-Type': 'application/json',
-            },
-            body: {'user_id': userId},
-          )
-          .timeout(const Duration(seconds: 10));
+      final response = await _client.post(
+        Uri.parse('$_baseUrl/preorder'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+        body: {'user_id': userId},
+      ).timeout(const Duration(seconds: 10));
       developer.log(
           'Create pre-order response: ${response.statusCode}, ${response.body}',
           name: 'ApiService');
