@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'dart:developer' as developer;
 import 'package:http/http.dart' as http;
-import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/post.dart';
 import '../models/comment.dart';
@@ -73,7 +72,7 @@ class ApiService {
           .timeout(const Duration(seconds: 30));
       final data = await _handleResponse(response);
       final aiResponse = data.toString();
-      developer.log('Goal generation response: $aiResponse',
+      developer.log('Goal generation response: $aiResponse}',
           name: 'ApiService');
       return aiResponse;
     } catch (e, stackTrace) {
@@ -99,7 +98,7 @@ class ApiService {
           .timeout(const Duration(seconds: 30));
       final data = await _handleResponse(response);
       final aiResponse = data.toString();
-      developer.log('Event generation response: $aiResponse',
+      developer.log('Event generation response: $aiResponse}',
           name: 'ApiService');
       return aiResponse;
     } catch (e, stackTrace) {
@@ -574,6 +573,7 @@ class ApiService {
     required String location,
     required String interest,
     required String dateTime,
+    List<String>? imageUrls,
     required String token,
   }) async {
     try {
@@ -583,6 +583,7 @@ class ApiService {
         'location': location,
         'interest': interest,
         'date_time': dateTime,
+        if (imageUrls != null && imageUrls.isNotEmpty) 'image_urls': imageUrls,
       };
 
       developer.log(
@@ -889,30 +890,6 @@ class ApiService {
     }
   }
 
-  // Future<bool> updatebiography(
-  //     String userId, String biography, String token) async {
-  //   try {
-  //     developer.log('Updating biography for userId: $userId',
-  //         name: 'ApiService');
-  //     final response = await _client
-  //         .put(
-  //           Uri.parse('$_baseUrl/profile/$userId/biography'),
-  //           headers: {
-  //             'Content-Type': 'application/json',
-  //             'Authorization': 'Bearer $token',
-  //           },
-  //           body: jsonEncode({'biography': biography}),
-  //         )
-  //         .timeout(const Duration(seconds: 30));
-  //     await _handleResponse(response);
-  //     return true;
-  //   } catch (e, stackTrace) {
-  //     developer.log('Updatebiography error: $e',
-  //         name: 'ApiService', stackTrace: stackTrace);
-  //     return false;
-  //   }
-  // }
-
   Future<List<Map<String, dynamic>>> searchUsers(
     String query, {
     required String token,
@@ -934,7 +911,7 @@ class ApiService {
 
       final data = await _handleResponse(response);
       developer.log('Search results: $data', name: 'ApiService');
-      return (data['users'] as List<dynamic>?)?.cast<Map<String, dynamic>>() ??
+      return (data['users'] as List<dynamic>)?.cast<Map<String, dynamic>>() ??
           [];
     } catch (e, stackTrace) {
       developer.log('Search users error: $e',
@@ -954,7 +931,7 @@ class ApiService {
               'Authorization': 'Bearer $token',
               'Content-Type': 'application/json',
             },
-            body: jsonEncode({'user_id': userId}),
+            body: {'user_id': userId},
           )
           .timeout(const Duration(seconds: 10));
       developer.log(

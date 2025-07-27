@@ -176,7 +176,7 @@ class _HomeScreenState extends State<HomeScreen>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text(
-                  'Миссии',
+                  'challenge',
                   style: TextStyle(
                     fontSize: 24,
                     fontWeight: FontWeight.bold,
@@ -360,7 +360,7 @@ class _HomeScreenState extends State<HomeScreen>
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
-                  'Миссии',
+                  'Challenge',
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
@@ -476,13 +476,7 @@ class _HomeScreenState extends State<HomeScreen>
                                   color: Color(0xFF000000),
                                 ),
                               ),
-                              Text(
-                                timeago.format(post.createdAt),
-                                style: const TextStyle(
-                                  fontSize: 12,
-                                  color: Color(0xFF333333),
-                                ),
-                              ),
+                             
                             ],
                           ),
                         ),
