@@ -15,7 +15,8 @@ class AddScreen extends StatefulWidget {
   _AddScreenState createState() => _AddScreenState();
 }
 
-class _AddScreenState extends State<AddScreen> with SingleTickerProviderStateMixin {
+class _AddScreenState extends State<AddScreen>
+    with SingleTickerProviderStateMixin {
   final _formKey = GlobalKey<FormState>();
   final TextEditingController _descriptionController = TextEditingController();
   final TextEditingController _locationController = TextEditingController();
@@ -76,7 +77,8 @@ class _AddScreenState extends State<AddScreen> with SingleTickerProviderStateMix
         developer.log('Photo picked: ${pickedFile.path}', name: 'AddScreen');
       }
     } catch (e, stackTrace) {
-      developer.log('Pick photo error: $e', name: 'AddScreen', stackTrace: stackTrace);
+      developer.log('Pick photo error: $e',
+          name: 'AddScreen', stackTrace: stackTrace);
       setState(() {
         _error = 'Error picking photo: $e';
       });
@@ -87,8 +89,11 @@ class _AddScreenState extends State<AddScreen> with SingleTickerProviderStateMix
     if (!_formKey.currentState!.validate()) return;
 
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    if (!authProvider.isAuthenticated || authProvider.token == null || authProvider.userId == null) {
-      authProvider.handleAuthError(context, AuthenticationException('Not authenticated'));
+    if (!authProvider.isAuthenticated ||
+        authProvider.token == null ||
+        authProvider.userId == null) {
+      authProvider.handleAuthError(
+          context, AuthenticationException('Not authenticated'));
       return;
     }
 
@@ -104,7 +109,8 @@ class _AddScreenState extends State<AddScreen> with SingleTickerProviderStateMix
         developer.log('Photo uploaded: $photoUrl', name: 'AddScreen');
       }
 
-      if (_tabController.index == 1) { // Event
+      if (_tabController.index == 1) {
+        // Event
         await _apiService.createEvent(
           userId: authProvider.userId!,
           description: _descriptionController.text.trim(),
@@ -115,7 +121,8 @@ class _AddScreenState extends State<AddScreen> with SingleTickerProviderStateMix
           token: authProvider.token!,
         );
         developer.log('Event created', name: 'AddScreen');
-      } else { // Goal
+      } else {
+        // Goal
         await _apiService.createGoal(
           userId: authProvider.userId!,
           description: _descriptionController.text.trim(),
@@ -137,7 +144,8 @@ class _AddScreenState extends State<AddScreen> with SingleTickerProviderStateMix
         Navigator.pop(context);
       }
     } catch (e, stackTrace) {
-      developer.log('Submit error: $e', name: 'AddScreen', stackTrace: stackTrace);
+      developer.log('Submit error: $e',
+          name: 'AddScreen', stackTrace: stackTrace);
       setState(() {
         _error = e.toString();
       });
@@ -238,10 +246,9 @@ class _AddScreenState extends State<AddScreen> with SingleTickerProviderStateMix
                 child: TextFormField(
                   controller: _descriptionController,
                   decoration: const InputDecoration(labelText: 'Description'),
-                  validator: (value) =>
-                      value == null || value.trim().isEmpty
-                          ? 'Enter description'
-                          : null,
+                  validator: (value) => value == null || value.trim().isEmpty
+                      ? 'Enter description'
+                      : null,
                 ),
               ),
             ),
@@ -368,11 +375,11 @@ class _AddScreenState extends State<AddScreen> with SingleTickerProviderStateMix
                   height: 76,
                   child: TextFormField(
                     controller: _dateTimeController,
-                    decoration: const InputDecoration(labelText: 'Date and Time'),
-                    validator: (value) =>
-                        value == null || value.trim().isEmpty
-                            ? 'Enter date and time'
-                            : null,
+                    decoration:
+                        const InputDecoration(labelText: 'Date and Time'),
+                    validator: (value) => value == null || value.trim().isEmpty
+                        ? 'Enter date and time'
+                        : null,
                     onTap: () async {
                       final date = await showDatePicker(
                         context: context,
@@ -393,8 +400,7 @@ class _AddScreenState extends State<AddScreen> with SingleTickerProviderStateMix
                             time.hour,
                             time.minute,
                           );
-                          _dateTimeController.text =
-                              dateTime.toIso8601String();
+                          _dateTimeController.text = dateTime.toIso8601String();
                         }
                       }
                     },
@@ -444,7 +450,8 @@ class _AddScreenState extends State<AddScreen> with SingleTickerProviderStateMix
             labelColor: Colors.black,
             unselectedLabelColor: Colors.grey,
             indicatorColor: const Color(0xFFAFCBEA),
-            labelStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            labelStyle:
+                const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
             tabs: const [
               Tab(text: 'Goals'),
               Tab(text: 'Events'),
@@ -458,7 +465,7 @@ class _AddScreenState extends State<AddScreen> with SingleTickerProviderStateMix
               controller: _tabController,
               children: [
                 _buildFormContent(isEvent: false), // Goals
-                _buildFormContent(isEvent: true),  // Events
+                _buildFormContent(isEvent: true), // Events
               ],
             ),
       bottomNavigationBar: Navbar(

@@ -578,8 +578,8 @@ class ApiService {
   required String location,
   required String interest,
   required String dateTime,
-  List<String>? imageUrls,
   required String token,
+  List<String>? imageUrls,
 }) async {
   try {
     final body = {
@@ -916,8 +916,7 @@ class ApiService {
 
       final data = await _handleResponse(response);
       developer.log('Search results: $data', name: 'ApiService');
-      return (data['users'] as List<dynamic>)?.cast<Map<String, dynamic>>() ??
-          [];
+      return (data['users'] as List<dynamic>).cast<Map<String, dynamic>>();
     } catch (e, stackTrace) {
       developer.log('Search users error: $e',
           name: 'ApiService', stackTrace: stackTrace);
@@ -929,16 +928,14 @@ class ApiService {
     try {
       developer.log('Creating pre-order for userId: $userId',
           name: 'ApiService');
-      final response = await _client
-          .post(
-            Uri.parse('$_baseUrl/preorder'),
-            headers: {
-              'Authorization': 'Bearer $token',
-              'Content-Type': 'application/json',
-            },
-            body: {'user_id': userId},
-          )
-          .timeout(const Duration(seconds: 10));
+      final response = await _client.post(
+        Uri.parse('$_baseUrl/preorder'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+        body: {'user_id': userId},
+      ).timeout(const Duration(seconds: 10));
       developer.log(
           'Create pre-order response: ${response.statusCode}, ${response.body}',
           name: 'ApiService');

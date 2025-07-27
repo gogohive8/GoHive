@@ -104,60 +104,60 @@ class _ProfileScreenState extends State<ProfileScreen>
   }
 
   Future<void> _updateBiography() async {
-  final authProvider = Provider.of<AuthProvider>(context, listen: false);
-  final userId = authProvider.userId ?? '';
-  final token = authProvider.token ?? '';
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final userId = authProvider.userId ?? '';
+    final token = authProvider.token ?? '';
 
-  if (_biographyController.text.isEmpty || userId.isEmpty || token.isEmpty) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Biography or authentication details missing'),
-        backgroundColor: Colors.red,
-      ),
-    );
-    return;
-  }
-
-  try {
-    developer.log('Updating biography for userId=$userId', name: 'ProfileScreen');
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('biography_$userId', _biographyController.text);
-
-    await _apiService.updateProfile(
-      userId,
-      token,
-      {'bio': _biographyController.text},
-      '', // photoURL
-    );
-
-    if (mounted) {
-      setState(() {
-        _profile = {...?_profile, 'biography': _biographyController.text};
-      });
-      await authProvider.updateProfile(
-        authProvider.username ?? '',
-        _biographyController.text,
-        authProvider.email ?? '',
-        null, // newAvatar
-      );
+    if (_biographyController.text.isEmpty || userId.isEmpty || token.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Biography updated successfully'),
-          backgroundColor: Color(0xFFAFCBEA),
-        ),
-      );
-    }
-  } catch (e) {
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error updating biography: $e'),
+          content: Text('Biography or authentication details missing'),
           backgroundColor: Colors.red,
         ),
       );
+      return;
+    }
+
+    try {
+      developer.log('Updating biography for userId=$userId', name: 'ProfileScreen');
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('biography_$userId', _biographyController.text);
+
+      await _apiService.updateProfile(
+        userId,
+        token,
+        {'bio': _biographyController.text},
+        '', // photoURL
+      );
+
+      if (mounted) {
+        setState(() {
+          _profile = {...?_profile, 'biography': _biographyController.text};
+        });
+        await authProvider.updateProfile(
+          authProvider.username ?? '',
+          _biographyController.text,
+          authProvider.email ?? '',
+          null, // newAvatar
+        );
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Biography updated successfully'),
+            backgroundColor: Color(0xFFAFCBEA),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error updating biography: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
-}
 
   @override
   Widget build(BuildContext context) {
@@ -169,8 +169,6 @@ class _ProfileScreenState extends State<ProfileScreen>
       );
     }
 
-    final size = MediaQuery.of(context).size;
-
     return Scaffold(
       backgroundColor: const Color(0xFFF9F6F2),
       body: _isLoading
@@ -181,35 +179,27 @@ class _ProfileScreenState extends State<ProfileScreen>
             )
           : _profile == null
               ? const Center(child: Text('Failed to load profile'))
-              : CustomScrollView(
-                  controller: _scrollController,
-                  slivers: <Widget>[
-                    SliverAppBar(
-                      backgroundColor: const Color(0xFFF9F6F2),
-                      expandedHeight: size.height * 0.35,
-                      floating: false,
-                      pinned: true,
-                      flexibleSpace: FlexibleSpaceBar(
-                        background: _buildProfileHeader(authProvider, size),
+              : Column(
+                  children: [
+                    // Фиксированный заголовок профиля
+                    _buildProfileHeader(authProvider),
+                    // TabBar
+                    Container(
+                      color: const Color(0xFFF9F6F2),
+                      child: TabBar(
+                        controller: _tabController,
+                        tabs: const [
+                          Tab(text: 'Goals'),
+                          Tab(text: 'Events'),
+                        ],
+                        indicatorColor: const Color(0xFFAFCBEA),
+                        labelColor: const Color(0xFFAFCBEA),
+                        unselectedLabelColor: const Color(0xFF333333),
+                        labelStyle: const TextStyle(fontWeight: FontWeight.bold),
                       ),
                     ),
-                    SliverPersistentHeader(
-                      pinned: true,
-                      delegate: _SliverTabBarDelegate(
-                        TabBar(
-                          controller: _tabController,
-                          tabs: const [
-                            Tab(text: 'Goals'),
-                            Tab(text: 'Events'),
-                          ],
-                          indicatorColor: const Color(0xFFAFCBEA),
-                          labelColor: const Color(0xFFAFCBEA),
-                          unselectedLabelColor: const Color(0xFF333333),
-                          labelStyle: const TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                      ),
-                    ),
-                    SliverFillRemaining(
+                    // Контент табов
+                    Expanded(
                       child: TabBarView(
                         controller: _tabController,
                         children: [
@@ -230,12 +220,13 @@ class _ProfileScreenState extends State<ProfileScreen>
     );
   }
 
-  Widget _buildProfileHeader(AuthProvider authProvider, Size size) {
+  Widget _buildProfileHeader(AuthProvider authProvider) {
     return Container(
-      padding: EdgeInsets.all(size.width * 0.04),
+      padding: const EdgeInsets.fromLTRB(16, 40, 16, 16),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          SizedBox(height: size.height * 0.06),
+          // Профиль пользователя
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -255,7 +246,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                   ],
                 ),
                 child: CircleAvatar(
-                  radius: size.width * 0.12,
+                  radius: 40,
                   backgroundImage: _profile?['avatar'] != null &&
                           _profile!['avatar'].isNotEmpty
                       ? CachedNetworkImageProvider(_profile!['avatar'])
@@ -263,35 +254,35 @@ class _ProfileScreenState extends State<ProfileScreen>
                           as ImageProvider,
                 ),
               ),
-              SizedBox(width: size.width * 0.04),
+              const SizedBox(width: 16),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    SizedBox(height: size.width * 0.02),
+                    const SizedBox(height: 8),
                     Text(
                       authProvider.username ?? 'User',
-                      style: TextStyle(
-                        fontSize: size.width * 0.06,
+                      style: const TextStyle(
+                        fontSize: 20,
                         fontWeight: FontWeight.bold,
-                        color: const Color(0xFF1A1A1A),
+                        color: Color(0xFF1A1A1A),
                       ),
                     ),
-                    SizedBox(height: size.width * 0.01),
+                    const SizedBox(height: 4),
                     if (_profile?['country'] != null)
                       Text(
                         _profile!['country'],
-                        style: TextStyle(
-                          fontSize: size.width * 0.04,
-                          color: const Color(0xFF333333),
+                        style: const TextStyle(
+                          fontSize: 14,
+                          color: Color(0xFF333333),
                         ),
                       ),
-                    SizedBox(height: size.width * 0.02),
+                    const SizedBox(height: 4),
                     Text(
                       authProvider.email ?? 'user@email.com',
-                      style: TextStyle(
-                        fontSize: size.width * 0.035,
-                        color: const Color(0xFF666666),
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: Color(0xFF666666),
                       ),
                     ),
                   ],
@@ -313,32 +304,38 @@ class _ProfileScreenState extends State<ProfileScreen>
               ),
             ],
           ),
-          SizedBox(height: size.height * 0.02),
-          _buildStatsRow(size),
-          SizedBox(height: size.height * 0.02),
-          TextFormField(
-            controller: _biographyController,
-            decoration: InputDecoration(
-              filled: true,
-              fillColor: const Color.fromRGBO(249, 246, 242, 0.9),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide: const BorderSide(color: Color(0xFFAFCBEA)),
+          const SizedBox(height: 16),
+          // Статистика
+          _buildStatsRow(),
+          const SizedBox(height: 16),
+          // Биография
+          Container(
+            constraints: const BoxConstraints(maxHeight: 80),
+            child: TextFormField(
+              controller: _biographyController,
+              decoration: InputDecoration(
+                filled: true,
+                fillColor: const Color.fromRGBO(249, 246, 242, 0.9),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: const BorderSide(color: Color(0xFFAFCBEA)),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: const BorderSide(color: Color(0xFFAFCBEA)),
+                ),
+                suffixIcon: IconButton(
+                  icon: const Icon(Icons.edit, color: Color(0xFFAFCBEA)),
+                  onPressed: _updateBiography,
+                ),
+                hintText: 'Tell us about yourself...',
+                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide: const BorderSide(color: Color(0xFFAFCBEA)),
+              maxLines: 2,
+              style: const TextStyle(
+                fontSize: 12,
+                color: Color(0xFF1A1A1A),
               ),
-              suffixIcon: IconButton(
-                icon: const Icon(Icons.edit, color: Color(0xFFAFCBEA)),
-                onPressed: _updateBiography,
-              ),
-              hintText: 'Tell us about yourself...',
-            ),
-            maxLines: 3,
-            style: const TextStyle(
-              fontSize: 14,
-              color: Color(0xFF1A1A1A),
             ),
           ),
         ],
@@ -346,9 +343,9 @@ class _ProfileScreenState extends State<ProfileScreen>
     );
   }
 
-  Widget _buildStatsRow(Size size) {
+  Widget _buildStatsRow() {
     return Container(
-      padding: EdgeInsets.symmetric(vertical: size.height * 0.01),
+      padding: const EdgeInsets.symmetric(vertical: 8),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
@@ -514,30 +511,5 @@ class _ProfileScreenState extends State<ProfileScreen>
         },
       ),
     );
-  }
-}
-
-class _SliverTabBarDelegate extends SliverPersistentHeaderDelegate {
-  final TabBar _tabBar;
-
-  _SliverTabBarDelegate(this._tabBar);
-
-  @override
-  double get minExtent => _tabBar.preferredSize.height;
-  @override
-  double get maxExtent => _tabBar.preferredSize.height;
-
-  @override
-  Widget build(
-      BuildContext context, double shrinkOffset, bool overlapsContent) {
-    return Container(
-      color: const Color(0xFFF9F6F2),
-      child: _tabBar,
-    );
-  }
-
-  @override
-  bool shouldRebuild(_SliverTabBarDelegate oldDelegate) {
-    return false;
   }
 }
