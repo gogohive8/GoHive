@@ -54,3 +54,7 @@ flutter:
     - assets/images/messages_icon.png
     - assets/images/filter_icon.png
     - assets/images/default_avatar.png
+    - assets/images/tidy_challenge.png
+    - assets/images/moon_challenge.png
+    - assets/images/animal_challenge.png
+    - assets/images/dance_challenge.png

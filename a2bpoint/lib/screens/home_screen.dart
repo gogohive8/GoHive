@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:ionicons/ionicons.dart';
 import 'package:like_button/like_button.dart';
 import 'package:provider/provider.dart';
-import 'package:timeago/timeago.dart' as timeago;
 import 'package:video_player/video_player.dart';
 import '../models/post.dart';
 import '../services/api_services.dart';
@@ -159,68 +158,119 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   Widget _buildMissionsView() {
-    final size = MediaQuery.of(context).size;
-    final padding = size.width * 0.05;
-    final aspectRatio = 375 / 790;
-    final containerHeight = size.width / aspectRatio;
+  final size = MediaQuery.of(context).size;
+  final padding = size.width * 0.05;
+  final aspectRatio = 375 / 790;
+  final containerHeight = size.width / aspectRatio;
 
-    return Center(
-      child: SizedBox(
-        width: size.width * 0.9,
-        height: containerHeight * 0.9,
-        child: CustomPaint(
-          painter: MissionsBackgroundPainter(),
-          child: Padding(
-            padding: EdgeInsets.all(padding),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'challenge',
-                  style: TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF000000),
-                  ),
+  return Center(
+    child: SizedBox(
+      width: size.width * 0.9,
+      height: containerHeight * 0.9,
+      child: CustomPaint(
+        painter: MissionsBackgroundPainter(),
+        child: Padding(
+          padding: EdgeInsets.all(padding),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const SizedBox(height: 16),
+              Expanded(
+                child: ListView(
+                  children: [
+                    _buildChallengeCard(
+                      title: 'The "Tidy Up" Challenge',
+                      description: '7-day live challenge\nfor those who are tired',
+                      imageAsset: 'assets/images/tidy_challenge.png', // Добавьте изображение зеленого смузи
+                    ),
+                    _buildChallengeCard(
+                      title: 'The "Moon" Challenge',
+                      description: '7-day live challenge\nfor those who are tired',
+                      imageAsset: 'assets/images/moon_challenge.png', // Добавьте изображение луны
+                    ),
+                    _buildChallengeCard(
+                      title: 'The "Animal" Challenge',
+                      description: '7-day live challenge\nfor those who are tired',
+                      imageAsset: 'assets/images/animal_challenge.png', // Добавьте изображение льва
+                    ),
+                    _buildChallengeCard(
+                      title: 'The "Dance" Challenge',
+                      description: '7-day live challenge\nfor those who are tired',
+                      imageAsset: 'assets/images/dance_challenge.png', // Добавьте изображение танца
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 16),
-                Expanded(
-                  child: ListView(
-                    children: [
-                      Card(
-                        color: const Color(0xFFDDDDDD),
-                        elevation: 2,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        margin: const EdgeInsets.symmetric(vertical: 8),
-                        child: ListTile(
-                          title: const Text('Миссия 1: Пройти 10 км'),
-                          subtitle: const Text('Награда: 50 баллов'),
-                        ),
-                      ),
-                      Card(
-                        color: const Color(0xFFDDDDDD),
-                        elevation: 2,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        margin: const EdgeInsets.symmetric(vertical: 8),
-                        child: ListTile(
-                          title: const Text('Миссия 2: Прочитать книгу'),
-                          subtitle: const Text('Награда: 30 баллов'),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
+}
+
+Widget _buildChallengeCard({
+  required String title,
+  required String description,
+  required String imageAsset,
+}) {
+  return Container(
+    margin: const EdgeInsets.symmetric(vertical: 8),
+    padding: const EdgeInsets.all(16),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(12),
+      boxShadow: [
+        BoxShadow(
+          color: Colors.black.withOpacity(0.05),
+          blurRadius: 4,
+          offset: const Offset(0, 2),
+        ),
+      ],
+    ),
+    child: Row(
+      children: [
+        Expanded(
+          flex: 2,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF000000),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                description,
+                style: const TextStyle(
+                  fontSize: 14,
+                  color: Color(0xFF666666),
+                  height: 1.4,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(width: 16),
+        Container(
+          width: 80,
+          height: 80,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            image: DecorationImage(
+              image: AssetImage(imageAsset),
+              fit: BoxFit.cover,
+            ),
+          ),
+        ),
+      ],
+    ),
+  );
+}
 
   Future<bool> _onLikeButtonTapped(String postId, bool isLiked) async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);

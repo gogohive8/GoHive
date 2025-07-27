@@ -34,7 +34,8 @@ class Post {
           ? List<String>.from(json['image_urls'])
           : null,
       type: type,
-      numOfLikes: (json['numOfnumOfLikes'] as num?)?.toInt() ?? 0,
+      // ИСПРАВЛЕНО: убрана опечатка в названии поля
+      numOfLikes: (json['numOfLikes'] as num?)?.toInt() ?? 0,
       numComments: (json['numOfComments'] as num?)?.toInt() ?? 0,
       createdAt: DateTime.parse(
           json['created_at']?.toString() ?? DateTime.now().toIso8601String()),

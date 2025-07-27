@@ -573,51 +573,50 @@ class ApiService {
   }
 
   Future<void> createEvent({
-    required String userId,
-    required String description,
-    required String location,
-    required String interest,
-    required String dateTime,
-    List<String>? imageUrls,
-    required String token,
-    required String image_urls,
-  }) async {
-    try {
-      final body = {
-        'user_id': userId,
-        'description': description,
-        'location': location,
-        'interest': interest,
-        'date_time': dateTime,
-        if (imageUrls != null && imageUrls.isNotEmpty) 'image_urls': imageUrls,
-      };
+  required String userId,
+  required String description,
+  required String location,
+  required String interest,
+  required String dateTime,
+  List<String>? imageUrls,
+  required String token,
+}) async {
+  try {
+    final body = {
+      'user_id': userId,
+      'description': description,
+      'location': location,
+      'interest': interest,
+      'date_time': dateTime,
+      if (imageUrls != null && imageUrls.isNotEmpty) 'image_urls': imageUrls,
+    };
 
-      developer.log(
-          'Creating event for userId: $userId, body: ${jsonEncode(body)}',
-          name: 'ApiService');
+    developer.log(
+        'Creating event for userId: $userId, body: ${jsonEncode(body)}',
+        name: 'ApiService');
 
-      final response = await _client
-          .post(
-            Uri.parse('$_postsUrl/events/create'),
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': 'Bearer $token',
-            },
-            body: jsonEncode(body),
-          )
-          .timeout(const Duration(seconds: 30));
+    final response = await _client
+        .post(
+          Uri.parse('$_postsUrl/events/create'),
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer $token',
+          },
+          body: jsonEncode(body),
+        )
+        .timeout(const Duration(seconds: 30));
 
-      developer.log(
-          'CreateEvent response: ${response.statusCode}, ${response.body}',
-          name: 'ApiService');
+    developer.log(
+        'CreateEvent response: ${response.statusCode}, ${response.body}',
+        name: 'ApiService');
 
-      await _handleResponse(response);
-    } catch (e, stackTrace) {
-      developer.log('CreateEvent error: $e',
-          name: 'ApiService', stackTrace: stackTrace);
-      rethrow;
-    }
+    await _handleResponse(response);
+  } catch (e, stackTrace) {
+    developer.log('CreateEvent error: $e',
+        name: 'ApiService', stackTrace: stackTrace);
+    rethrow;
   }
+}
 
   Future<Map<String, String>> login(String email, String password) async {
     try {
