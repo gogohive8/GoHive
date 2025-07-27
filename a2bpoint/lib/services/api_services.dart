@@ -356,6 +356,7 @@ class ApiService {
                 'userID': json['userID']?.toString() ?? 'unknown',
                 'username': json['username']?.toString() ?? 'Unknown',
                 'likedCurrentGoal': json['likedCurrentGoal'] ?? [],
+                'image_urls': json['image_urls'] ?? [],
               }, type: 'goal'))
           .toList();
       developer.log('Parsed ${posts.length} goals', name: 'ApiService');
@@ -392,6 +393,7 @@ class ApiService {
                 'userID': json['userID']?.toString() ?? 'unknown',
                 'username': json['username']?.toString() ?? 'Unknown',
                 'likes': json['likes'] ?? [],
+                'image_urls': json['image_urls'] ?? [],
               }, type: 'event'))
           .toList();
       developer.log('Parsed ${posts.length} events', name: 'ApiService');
@@ -432,6 +434,7 @@ class ApiService {
                 'numOfComments': json['numOfComments'] ?? 0,
                 'id': json['id']?.toString() ?? '',
                 'likes': json['likes'] ?? [],
+                'photo_urls': json['photoURL'] ?? [],
               }, type: 'goal'))
           .toList();
       developer.log('Parsed ${posts.length} user goals', name: 'ApiService');
@@ -467,6 +470,8 @@ class ApiService {
                 'numOfComments': json['numOfComments'] ?? 0,
                 'id': json['id']?.toString() ?? '',
                 'likes': json['likes'] ?? [],
+                'date_time': json['date_time'] ?? [],
+                'image_urls': json['photoURL'] ?? [],
               }, type: 'event'))
           .toList();
       developer.log('Parsed ${posts.length} user events', name: 'ApiService');
@@ -575,6 +580,7 @@ class ApiService {
     required String dateTime,
     List<String>? imageUrls,
     required String token,
+    required String image_urls,
   }) async {
     try {
       final body = {

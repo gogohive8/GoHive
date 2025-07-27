@@ -335,7 +335,7 @@ app.get('/profile/:id', verifyToken, async (req, res) => {
     return res.status(200).json({
       id: user.id,
       username: user.username,
-      biographygraphy: profileInfo.biographygraphy,
+      biography: profileInfo.biography,
       numOfFollowers: profileInfo.numOfFollowers,
       numOfFollowing: profileInfo.numOfFollowing,
       profileImage: profileInfo.profileImage,
