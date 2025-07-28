@@ -131,7 +131,7 @@ app.post('/goals/create', verifyToken, async (req, res) => {
     if (image_urls){
     const { error: insertPhotoError } = await supabase
     .schema('posts')
-    .from('goalsPhoto')
+    .from('goalsPhotos')
     .insert({
       goalsId: goalInfo.id,
       photoURL: image_urls || '',
@@ -176,7 +176,7 @@ app.post('/events/create',verifyToken, async (req, res) => {
     if (image_urls){
     const { error: insertPhotoError } = await supabase
     .schema('posts')
-    .from('eventsPhoto')
+    .from('eventsPhotos')
     .insert({
       eventID: eventInfo.id,
       photoURL: image_urls || '',
