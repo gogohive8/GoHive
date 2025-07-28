@@ -75,79 +75,79 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
   }
 
   Future<bool> _onLikeButtonTapped(bool isLiked) async {
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    final userId = authProvider.userId ?? '';
-    final token = authProvider.token ?? '';
-    if (userId.isEmpty || token.isEmpty) {
-      authProvider.handleAuthError(context, AuthenticationException('Not authenticated'));
-      return isLiked;
-    }
-    try {
-      if (!isLiked) {
-        final result = await _apiService.likePost(widget.postId, userId, token);
-        if (mounted) {
-          setState(() {
-            _post = _post?.copyWith(numOfLikes: result['numOfLikes'] as int);
-          });
-        }
-      }
-      return !isLiked;
-    } catch (e) {
-      developer.log('Like post error: $e', name: 'PostDetailScreen');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to like post: $e')),
-      );
-      return isLiked;
-    }
+  final authProvider = Provider.of<AuthProvider>(context, listen: false);
+  final userId = authProvider.userId ?? '';
+  final token = authProvider.token ?? '';
+  if (userId.isEmpty || token.isEmpty) {
+    authProvider.handleAuthError(context, AuthenticationException('Not authenticated'));
+    return isLiked;
   }
+  try {
+    if (!isLiked) {
+      final result = await _apiService.likePost(widget.postId, userId, token);
+      if (mounted && _post != null) { // Добавлена проверка _post != null
+        setState(() {
+          _post = _post!.copyWith(numOfLikes: result['numOfLikes'] as int);
+        });
+      }
+    }
+    return !isLiked;
+  } catch (e) {
+    developer.log('Like post error: $e', name: 'PostDetailScreen');
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Failed to like post: $e')),
+    );
+    return isLiked;
+  }
+}
 
   void _addComment() async {
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    final userId = authProvider.userId ?? '';
-    final token = authProvider.token ?? '';
-    if (userId.isEmpty || token.isEmpty) {
-      authProvider.handleAuthError(context, AuthenticationException('Not authenticated'));
-      return;
+  final authProvider = Provider.of<AuthProvider>(context, listen: false);
+  final userId = authProvider.userId ?? '';
+  final token = authProvider.token ?? '';
+  if (userId.isEmpty || token.isEmpty) {
+    authProvider.handleAuthError(context, AuthenticationException('Not authenticated'));
+    return;
+  }
+  final commentText = _commentController.text.trim();
+  if (commentText.isEmpty) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Comment cannot be empty')),
+    );
+    return;
+  }
+  setState(() {
+    _isCommenting = true;
+  });
+  try {
+    final commentData = await _apiService.createComment(
+      widget.postId,
+      userId,
+      commentText,
+      widget.postType,
+      token,
+    );
+    final newComment = Comment.fromJson(commentData);
+    if (mounted && _post != null) {
+      setState(() {
+        _comments = [newComment, ..._comments];
+        _post = _post!.copyWith(numComments: _post!.numComments + 1);
+        _commentController.clear();
+        _isCommenting = false;
+      });
     }
-    final commentText = _commentController.text.trim();
-    if (commentText.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Comment cannot be empty')),
-      );
-      return;
-    }
-    setState(() {
-      _isCommenting = true;
-    });
-    try {
-      final commentData = await _apiService.createComment(
-        widget.postId,
-        userId,
-        commentText,
-        widget.postType,
-        token,
-      );
-      final newComment = Comment.fromJson(commentData);
-      if (mounted) {
-        setState(() {
-          _comments = [newComment, ..._comments];
-          _post = _post?.copyWith(numComments: _post!.numComments + 1);
-          _commentController.clear();
-          _isCommenting = false;
-        });
-      }
-    } catch (e) {
-      developer.log('Add comment error: $e', name: 'PostDetailScreen');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to comment: $e')),
-      );
-      if (mounted) {
-        setState(() {
-          _isCommenting = false;
-        });
-      }
+  } catch (e) {
+    developer.log('Add comment error: $e', name: 'PostDetailScreen');
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Failed to comment: $e')),
+    );
+    if (mounted) {
+      setState(() {
+        _isCommenting = false;
+      });
     }
   }
+}
 
   @override
   Widget build(BuildContext context) {
