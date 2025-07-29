@@ -139,7 +139,10 @@ class _AddScreenState extends State<AddScreen>
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Post created successfully')),
+          const SnackBar(
+            content: Text('Post created successfully'),
+            backgroundColor: Colors.green,
+          ),
         );
         Navigator.pop(context);
       }
@@ -166,6 +169,13 @@ class _AddScreenState extends State<AddScreen>
     }
   }
 
+  void _removeTask(int index) {
+    setState(() {
+      _tasks.removeAt(index);
+    });
+    developer.log('Task removed at index: $index', name: 'AddScreen');
+  }
+
   @override
   void dispose() {
     _descriptionController.dispose();
@@ -184,8 +194,7 @@ class _AddScreenState extends State<AddScreen>
     final screenHeight = MediaQuery.of(context).size.height;
     final padding = screenWidth * 0.0427; // ~16dp for 375dp width
     final maxWidth = screenWidth - 2 * padding;
-    final photoSize = screenWidth > 156 ? 156.0 : screenWidth * 0.416;
-
+    
     return SingleChildScrollView(
       padding: EdgeInsets.all(padding),
       child: Form(
@@ -200,22 +209,23 @@ class _AddScreenState extends State<AddScreen>
                 'Photo',
                 style: TextStyle(
                   fontFamily: 'Inter',
-                  fontSize: 14,
-                  fontWeight: FontWeight.normal,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
                   color: Color(0xFF333333),
                 ),
               ),
             ),
             Padding(
-              padding: const EdgeInsets.only(top: 28.0),
+              padding: const EdgeInsets.only(top: 12.0),
               child: GestureDetector(
                 onTap: _pickPhoto,
                 child: Container(
-                  width: photoSize,
-                  height: photoSize * 174 / 563,
+                  width: double.infinity,
+                  height: 200,
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(10.0),
+                    border: Border.all(color: Colors.grey[300]!),
                   ),
                   child: _photo != null
                       ? ClipRRect(
@@ -223,142 +233,195 @@ class _AddScreenState extends State<AddScreen>
                           child: Image.file(
                             _photo!,
                             fit: BoxFit.cover,
-                            width: photoSize,
-                            height: photoSize * 174 / 563,
+                            width: double.infinity,
+                            height: 200,
                           ),
                         )
                       : const Center(
-                          child: Icon(
-                            Icons.camera_alt,
-                            size: 50,
-                            color: Color(0xFF333333),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.camera_alt,
+                                size: 50,
+                                color: Color(0xFF666666),
+                              ),
+                              SizedBox(height: 8),
+                              Text(
+                                'Tap to add photo',
+                                style: TextStyle(
+                                  color: Color(0xFF666666),
+                                  fontSize: 14,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                 ),
               ),
             ),
+            
             // Description
             Padding(
               padding: const EdgeInsets.only(top: 20.0),
-              child: SizedBox(
-                width: maxWidth > 343 ? 343 : maxWidth,
-                height: 76,
-                child: TextFormField(
-                  controller: _descriptionController,
-                  decoration: const InputDecoration(labelText: 'Description'),
-                  validator: (value) => value == null || value.trim().isEmpty
-                      ? 'Enter description'
-                      : null,
+              child: TextFormField(
+                controller: _descriptionController,
+                decoration: InputDecoration(
+                  labelText: 'Description',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8.0),
+                  ),
                 ),
+                maxLines: 3,
+                validator: (value) => value == null || value.trim().isEmpty
+                    ? 'Enter description'
+                    : null,
               ),
             ),
+            
             // Location
             Padding(
               padding: const EdgeInsets.only(top: 20.0),
-              child: SizedBox(
-                width: maxWidth > 343 ? 343 : maxWidth,
-                height: 76,
-                child: TextFormField(
-                  controller: _locationController,
-                  decoration: const InputDecoration(labelText: 'Location'),
+              child: TextFormField(
+                controller: _locationController,
+                decoration: InputDecoration(
+                  labelText: 'Location',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8.0),
+                  ),
+                  prefixIcon: const Icon(Icons.location_on),
                 ),
               ),
             ),
+            
             // Category
             Padding(
               padding: const EdgeInsets.only(top: 20.0),
-              child: SizedBox(
-                width: maxWidth > 343 ? 343 : maxWidth,
-                height: 76,
-                child: DropdownButtonFormField<String>(
-                  value: _interestController.text.isEmpty
-                      ? null
-                      : _interestController.text,
-                  decoration: const InputDecoration(labelText: 'Category'),
-                  items: _categories
-                      .map((category) => DropdownMenuItem(
-                            value: category,
-                            child: Text(category),
-                          ))
-                      .toList(),
-                  onChanged: (value) {
-                    setState(() {
-                      _interestController.text = value ?? '';
-                    });
-                  },
-                  validator: (value) =>
-                      value == null ? 'Select a category' : null,
+              child: DropdownButtonFormField<String>(
+                value: _interestController.text.isEmpty
+                    ? null
+                    : _interestController.text,
+                decoration: InputDecoration(
+                  labelText: 'Category',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8.0),
+                  ),
+                  prefixIcon: const Icon(Icons.category),
                 ),
+                items: _categories
+                    .map((category) => DropdownMenuItem(
+                          value: category,
+                          child: Text(category),
+                        ))
+                    .toList(),
+                onChanged: (value) {
+                  setState(() {
+                    _interestController.text = value ?? '';
+                  });
+                },
+                validator: (value) =>
+                    value == null ? 'Select a category' : null,
               ),
             ),
+            
             // Goal-specific fields
             if (!isEvent) ...[
               // Point A
               Padding(
                 padding: const EdgeInsets.only(top: 20.0),
-                child: SizedBox(
-                  width: maxWidth > 343 ? 343 : maxWidth,
-                  height: 76,
-                  child: TextFormField(
-                    controller: _pointAController,
-                    decoration: const InputDecoration(labelText: 'Point A'),
+                child: TextFormField(
+                  controller: _pointAController,
+                  decoration: InputDecoration(
+                    labelText: 'Point A (Starting Point)',
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8.0),
+                    ),
+                    prefixIcon: const Icon(Icons.flag),
                   ),
                 ),
               ),
+              
               // Point B
               Padding(
                 padding: const EdgeInsets.only(top: 20.0),
-                child: SizedBox(
-                  width: maxWidth > 343 ? 343 : maxWidth,
-                  height: 76,
-                  child: TextFormField(
-                    controller: _pointBController,
-                    decoration: const InputDecoration(labelText: 'Point B'),
+                child: TextFormField(
+                  controller: _pointBController,
+                  decoration: InputDecoration(
+                    labelText: 'Point B (End Goal)',
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8.0),
+                    ),
+                    prefixIcon: const Icon(Icons.outlined_flag),
                   ),
                 ),
               ),
+              
               // Tasks
               Padding(
                 padding: const EdgeInsets.only(top: 20.0),
-                child: SizedBox(
-                  width: maxWidth > 343 ? 343 : maxWidth,
-                  height: 108,
-                  child: TextFormField(
-                    controller: _taskController,
-                    decoration: const InputDecoration(labelText: 'Tasks'),
-                    onFieldSubmitted: (_) => _addTask(),
-                  ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Tasks',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF333333),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextFormField(
+                            controller: _taskController,
+                            decoration: InputDecoration(
+                              hintText: 'Add a task',
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8.0),
+                              ),
+                              prefixIcon: const Icon(Icons.task_alt),
+                            ),
+                            onFieldSubmitted: (_) => _addTask(),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        ElevatedButton(
+                          onPressed: _addTask,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFFAFCBEA),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8.0),
+                            ),
+                          ),
+                          child: const Icon(Icons.add),
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
               ),
-              Padding(
-                padding: const EdgeInsets.only(top: 8.0),
-                child: ElevatedButton(
-                  onPressed: _addTask,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFAFCBEA),
-                  ),
-                  child: const Text('Add Task'),
-                ),
-              ),
+              
+              // Tasks List
               if (_tasks.isNotEmpty)
                 Padding(
-                  padding: const EdgeInsets.only(top: 8.0),
-                  child: SizedBox(
-                    width: maxWidth > 343 ? 343 : maxWidth,
+                  padding: const EdgeInsets.only(top: 12.0),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      border: Border.all(color: Colors.grey[300]!),
+                      borderRadius: BorderRadius.circular(8.0),
+                    ),
                     child: Column(
                       children: _tasks
                           .asMap()
                           .entries
                           .map((entry) => ListTile(
+                                leading: const Icon(Icons.task_alt, size: 20),
                                 title: Text(entry.value['title']),
                                 trailing: IconButton(
-                                  icon: const Icon(Icons.delete),
-                                  color: const Color(0xFF333333),
-                                  onPressed: () {
-                                    setState(() {
-                                      _tasks.removeAt(entry.key);
-                                    });
-                                  },
+                                  icon: const Icon(Icons.delete, color: Colors.red),
+                                  onPressed: () => _removeTask(entry.key),
                                 ),
                               ))
                           .toList(),
@@ -366,67 +429,109 @@ class _AddScreenState extends State<AddScreen>
                   ),
                 ),
             ],
+            
             // Event-specific field
             if (isEvent)
               Padding(
                 padding: const EdgeInsets.only(top: 20.0),
-                child: SizedBox(
-                  width: maxWidth > 343 ? 343 : maxWidth,
-                  height: 76,
-                  child: TextFormField(
-                    controller: _dateTimeController,
-                    decoration:
-                        const InputDecoration(labelText: 'Date and Time'),
-                    validator: (value) => value == null || value.trim().isEmpty
-                        ? 'Enter date and time'
-                        : null,
-                    onTap: () async {
-                      final date = await showDatePicker(
-                        context: context,
-                        initialDate: DateTime.now(),
-                        firstDate: DateTime(2000),
-                        lastDate: DateTime(2100),
-                      );
-                      if (date != null) {
-                        final time = await showTimePicker(
-                          context: context,
-                          initialTime: TimeOfDay.now(),
-                        );
-                        if (time != null) {
-                          final dateTime = DateTime(
-                            date.year,
-                            date.month,
-                            date.day,
-                            time.hour,
-                            time.minute,
-                          );
-                          _dateTimeController.text = dateTime.toIso8601String();
-                        }
-                      }
-                    },
-                    readOnly: true,
+                child: TextFormField(
+                  controller: _dateTimeController,
+                  decoration: InputDecoration(
+                    labelText: 'Date and Time',
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8.0),
+                    ),
+                    prefixIcon: const Icon(Icons.calendar_today),
                   ),
+                  validator: (value) => value == null || value.trim().isEmpty
+                      ? 'Enter date and time'
+                      : null,
+                  onTap: () async {
+                    final date = await showDatePicker(
+                      context: context,
+                      initialDate: DateTime.now(),
+                      firstDate: DateTime.now(),
+                      lastDate: DateTime(2100),
+                    );
+                    if (date != null) {
+                      final time = await showTimePicker(
+                        context: context,
+                        initialTime: TimeOfDay.now(),
+                      );
+                      if (time != null) {
+                        final dateTime = DateTime(
+                          date.year,
+                          date.month,
+                          date.day,
+                          time.hour,
+                          time.minute,
+                        );
+                        _dateTimeController.text = dateTime.toIso8601String();
+                      }
+                    }
+                  },
+                  readOnly: true,
                 ),
               ),
+            
+            // Error display
             if (_error != null)
               Padding(
                 padding: const EdgeInsets.only(top: 16.0),
-                child: Text(
-                  _error!,
-                  style: const TextStyle(color: Colors.red),
+                child: Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.red[50],
+                    borderRadius: BorderRadius.circular(8.0),
+                    border: Border.all(color: Colors.red[200]!),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.error, color: Colors.red),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          _error!,
+                          style: const TextStyle(color: Colors.red),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
+            
+            // Submit Button
             Padding(
-              padding: EdgeInsets.only(top: 20.0, bottom: screenHeight * 0.05),
+              padding: EdgeInsets.only(top: 32.0, bottom: screenHeight * 0.05),
               child: SizedBox(
-                width: maxWidth > 343 ? 343 : maxWidth,
+                width: double.infinity,
                 height: 48,
                 child: ElevatedButton(
-                  onPressed: _submit,
+                  onPressed: _isLoading ? null : _submit,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFFAFCBEA),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8.0),
+                    ),
+                    elevation: 2,
                   ),
-                  child: const Text('Create'),
+                  child: _isLoading
+                      ? const SizedBox(
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                          ),
+                        )
+                      : Text(
+                          isEvent ? 'Create Event' : 'Create Goal',
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
                 ),
               ),
             ),
@@ -460,7 +565,16 @@ class _AddScreenState extends State<AddScreen>
         ),
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
+          ? const Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  CircularProgressIndicator(),
+                  SizedBox(height: 16),
+                  Text('Creating post...'),
+                ],
+              ),
+            )
           : TabBarView(
               controller: _tabController,
               children: [

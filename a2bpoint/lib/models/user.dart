@@ -1,5 +1,3 @@
-import 'dart:developer' as developer;
-
 class User {
   final String id;
   final String username;
@@ -12,12 +10,29 @@ class User {
   });
 
   factory User.fromJson(Map<String, dynamic> json) {
-    developer.log('User.fromJson keys: ${json.keys.toList()}',
-        name: 'User.fromJson');
     return User(
-      id: json['userID']?.toString() ?? json['id']?.toString() ?? 'unknown',
-      username: json['username']?.toString() ?? 'Unknown',
-      profileImage: json['avatar']?.toString() ?? '',
+      id: json['id']?.toString() ?? 
+          json['userID']?.toString() ?? 
+          json['user_id']?.toString() ?? 
+          'unknown',
+      username: json['username']?.toString() ?? 'Unknown User',
+      profileImage: json['profileImage']?.toString() ?? 
+                   json['profile_image']?.toString() ?? 
+                   json['avatar']?.toString() ?? 
+                   '',
     );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'username': username,
+      'profileImage': profileImage,
+    };
+  }
+
+  @override
+  String toString() {
+    return 'User(id: $id, username: $username, profileImage: $profileImage)';
   }
 }
