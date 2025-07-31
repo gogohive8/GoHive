@@ -376,11 +376,11 @@ app.get('/goals/:id', verifyToken,  async (req, res) => {
         const {data: photo, error: photoFetchError } = await supabase
         .schema('posts')
         .from('goalsPhotos')
-        .select('photoUrl')
+        .select('photoURL')
         .eq('goalId', goal.id)
 
-        if (fetchError) {
-          console.error('Error with fetching photo url', fetchError.message);
+        if (photoFetchError) {
+          console.error('Error with fetching photo url', photoFetchError.message);
           return {
           userID: id,
           description: goal.goalInfo,
@@ -388,11 +388,14 @@ app.get('/goals/:id', verifyToken,  async (req, res) => {
           numOfLikes: goal.numOfLikes,
           numOfComments: goal.numOfComments,
           id: goal.id,
-          photoURL: '',
+          photoURL: [],
           }
         }
 
 
+                // Map photoURLs to an array
+        const photoURLs = photo ? photo.map(item => item.photoURL) : [];
+        
         return {
           userID: id,
           description: goal.goalInfo,
@@ -400,7 +403,7 @@ app.get('/goals/:id', verifyToken,  async (req, res) => {
           numOfLikes: goal.numOfLikes,
           numOfComments: goal.numOfComments,
           id: goal.id,
-          photoURL: photo?.photoURL || '',
+          photoURL: photoURLs,
         };
       }) 
     );
@@ -442,11 +445,11 @@ app.get('/events/:id', verifyToken, async (req, res) => {
         const {data: photo, error: photoFetchError } = await supabase
         .schema('posts')
         .from('eventsPhotos')
-        .select('photoUrl')
-        .eq('eventId', event.id)
+        .select('photoURL')
+        .eq('eventID', event.id)
 
-        if (fetchError) {
-          console.error('Error with fetching photo url', fetchError.message);
+        if (photoFetchError) {
+          console.error('Error with fetching photo url', photoFetchError.message);
           return {
           userID: id,
           description: event.description,
@@ -454,9 +457,14 @@ app.get('/events/:id', verifyToken, async (req, res) => {
           numOfLikes: event.numOfLikes,
           numOfComments: event.numOfComments,
           id: event.id,
-          photoURL: '',
+          photoURL: [],
           };
         }
+
+
+           // Map photoURLs to an array
+        const photoURLs = photo ? photo.map(item => item.photoURL) : [];
+        
 
 
         return {
@@ -466,7 +474,7 @@ app.get('/events/:id', verifyToken, async (req, res) => {
           numOfLikes: event.numOfLikes,
           numOfComments: event.numOfComments,
           id: event.id,
-          photoURL: photo?.photoURL || '',
+          photoURL: photoURLs,
         };
       }) 
     );
@@ -671,7 +679,7 @@ app.get('/posts/:post_id', verifyToken, async (req, res) => {
       username: username.username || '',
       description: post.goalInfo || '',
       created_at: post.created_at || '',
-      tasks: goalTasks.stepsInfo || [],
+      tasks: tasks,
       numOfLikes: post.numOfLikes || 0,
       numOfComments: post.numOfComments || 0,
       id: post_id || ''

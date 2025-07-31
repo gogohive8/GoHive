@@ -250,7 +250,7 @@ class ApiService {
       developer.log('Liking post: $postId', name: 'ApiService');
 
       final response = await http.post(
-        Uri.parse('$_baseUrl/like'),
+        Uri.parse('$_postsUrl/like'),
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $token',
@@ -286,7 +286,7 @@ class ApiService {
       developer.log('Joining event: $eventId', name: 'ApiService');
 
       final response = await http.post(
-        Uri.parse('$_baseUrl/joinEvent'),
+        Uri.parse('$_postsUrl/joinEvent'),
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $token',
@@ -372,13 +372,13 @@ class ApiService {
             imageUrls = [json['image_urls']];
           } else if (json['image_urls'] is List) {
             imageUrls = (json['image_urls'] as List)
-              .where((item) => item != null)
-              .map((item) => item.toString())
-              .toList();
-              developer.log('Processing image_urls: ${json['image_urls']} (type: ${json['image_urls'].runtimeType})', 
-    name: 'ApiService');
+                .where((item) => item != null)
+                .map((item) => item.toString())
+                .toList();
+            developer.log(
+                'Processing image_urls: ${json['image_urls']} (type: ${json['image_urls'].runtimeType})',
+                name: 'ApiService');
           }
-          
         }
 
         return Post.fromJson({
@@ -393,7 +393,7 @@ class ApiService {
           'userID': json['userID']?.toString() ?? 'unknown',
           'username': json['username']?.toString() ?? 'Unknown',
           'likedCurrentGoal': json['likedCurrentGoal'] ?? false,
-          'image_urls': imageUrls,
+          'image_urls': imageUrls, // ИСПРАВЛЕНО
         }, type: 'goal');
       }).toList();
 
