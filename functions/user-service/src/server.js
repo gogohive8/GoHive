@@ -350,9 +350,7 @@ app.get('/profile/:id', verifyToken, async (req, res) => {
 
 app.post('/profile/:userID', verifyToken, async (req, res) => {
   try{
-    const {userId, photoURL, data} = req.body;
-
-    const {username, bio} = data;
+    const {userId, photoURL, username, bio} = req.body;
 
 
     const {error: updateUsernameError} = await supabase

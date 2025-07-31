@@ -144,77 +144,101 @@ class ApiService {
     }
   }
 
-  Future<List<Comment>> getComments(String postId, String token, String postType) async {
+  Future<List<Comment>> getComments(
+      String post_id, String token, String post_type,
+      {int limit = 10, int offset = 0}) async {
     try {
-      developer.log('Fetching comments for post: $postId', name: 'ApiService');
-      
-      final response = await http.get(
-        Uri.parse('$_baseUrl/posts/$postId/comments?post_type=$postType'),
+      developer.log(
+          'Fetching comments for post_id: $post_id, limit: $limit, offset: $offset',
+          name: 'ApiService');
+      final response = await _client.get(
+        Uri.parse(
+            '$_postsUrl/posts/$post_id/comments?limit=$limit&offset=$offset&post_type=$post_type'),
         headers: {
-          'Content-Type': 'application/json',
           'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
         },
-      );
+      ).timeout(const Duration(seconds: 10));
 
-      developer.log('Get comments response: ${response.statusCode}', name: 'ApiService');
+      final data = await _handleResponse(response);
 
-      if (response.statusCode == 200) {
-        final dynamic data = jsonDecode(response.body);
-        List<dynamic> comments;
-        
-        // Обрабатываем разные форматы ответа от сервера
-        if (data is Map && data.containsKey('fetchComments')) {
-          comments = data['fetchComments'];
-        } else if (data is List) {
-          comments = data;
-        } else {
-          comments = [];
-        }
-        
-        return comments.map((json) => Comment.fromJson(json)).toList();
-      } else {
-        final errorData = jsonDecode(response.body);
-        throw Exception('Failed to get comments: ${errorData['error']}');
+      // ИСПРАВЛЕНО: правильная обработка ответа сервера
+      if (data.isEmpty || data['fetchComments'] == null) {
+        developer.log('No comments found for post_id: $post_id',
+            name: 'ApiService');
+        return [];
       }
+
+      // Берем массив комментариев из fetchComments
+      final commentsData = data['fetchComments'] as List<dynamic>;
+
+      final comments = commentsData
+          .map((json) => Comment.fromJson({
+                'id': json['id']?.toString() ?? '',
+                'post_id': post_id,
+                'userId': json['userID']?.toString() ?? 'unknown', // ИСПРАВЛЕНО
+                'username': json['username']?.toString() ?? 'Unknown',
+                'text': json['comment']?.toString() ??
+                    json['comments']?.toString() ??
+                    '', // ИСПРАВЛЕНО
+                'created_at': json['created_at']?.toString() ??
+                    DateTime.now().toIso8601String(),
+              }))
+          .toList();
+
+      developer.log(
+          'Parsed ${comments.length} comments: ${comments.map((c) => c.id)}',
+          name: 'ApiService');
+      return comments;
     } catch (e, stackTrace) {
-      developer.log('Error getting comments: $e', name: 'ApiService', stackTrace: stackTrace);
-      throw Exception('Failed to get comments: $e');
+      developer.log('Get comments error: $e',
+          name: 'ApiService', stackTrace: stackTrace);
+      rethrow;
     }
   }
 
-  // Replace the createComment method in your ApiService with this:
-Future<Map<String, dynamic>> createComment(String postId, String userId, String text, String postType, String token) async {
-  try {
-    developer.log('Creating comment for post: $postId', name: 'ApiService');
-    
-    final response = await http.post(
-      Uri.parse('$_baseUrl/posts/$postId/comments'),
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer $token',
-      },
-      body: jsonEncode({
-        'text': text,
+  Future<Map<String, dynamic>> createComment(String post_id, String userId,
+      String text, String post_type, String token) async {
+    try {
+      developer.log(
+          'Creating comment for post_id: $post_id, userId: $userId, text: $text',
+          name: 'ApiService');
+      final response = await _client
+          .post(
+            Uri.parse('$_postsUrl/posts/$post_id/comments'),
+            headers: {
+              'Authorization': 'Bearer $token',
+              'Content-Type': 'application/json',
+            },
+            body: jsonEncode({
+              'text': text,
+              'userId': userId,
+              'postId': post_id,
+              'post_type': post_type // ИСПРАВЛЕНО: правильное название поля
+            }),
+          )
+          .timeout(const Duration(seconds: 10));
+
+      final data = await _handleResponse(response);
+
+      // Возвращаем данные в правильном формате
+      final comment = {
+        'post_id': post_id,
         'userId': userId,
-        'postId': postId,
-        'post_type': postType,
-      }),
-    );
+        'text': text,
+        'id': DateTime.now().millisecondsSinceEpoch.toString(), // Временный ID
+        'username': 'Current User', // Можно получить из AuthProvider
+        'created_at': DateTime.now().toIso8601String(),
+      };
 
-    developer.log('Create comment response: ${response.statusCode}', name: 'ApiService');
-
-    if (response.statusCode == 200) {
-      final data = jsonDecode(response.body);
-      return data; // Return the comment data
-    } else {
-      final errorData = jsonDecode(response.body);
-      throw Exception('Failed to create comment: ${errorData['error']}');
+      developer.log('Comment created: $comment', name: 'ApiService');
+      return comment;
+    } catch (e, stackTrace) {
+      developer.log('Create comment error: $e',
+          name: 'ApiService', stackTrace: stackTrace);
+      rethrow;
     }
-  } catch (e, stackTrace) {
-    developer.log('Error creating comment: $e', name: 'ApiService', stackTrace: stackTrace);
-    throw Exception('Failed to create comment: $e');
   }
-}
 
   Future<Map<String, dynamic>> likePost(String postId, String userId, String token) async {
     try {
@@ -320,47 +344,50 @@ Future<Map<String, dynamic>> createComment(String postId, String userId, String 
 
   Future<List<Post>> getAllGoals(String token, String userId) async {
     try {
-      developer.log('Fetching all goals', name: 'ApiService');
-      
-      final response = await http.get(
-        Uri.parse('$_baseUrl/goals/all'),
+      developer.log('Fetching all goals for userId: $userId',
+          name: 'ApiService');
+      final response = await _client.get(
+        Uri.parse('$_postsUrl/goals/all'),
         headers: {
-          'Content-Type': 'application/json',
           'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
         },
-      );
+      ).timeout(const Duration(seconds: 10));
 
-      developer.log('Goals fetch response: ${response.statusCode}', name: 'ApiService');
+      final data = await _handleResponse(response);
+      final posts = (data as List<dynamic>).map((json) {
+        // ИСПРАВЛЕНО: правильная обработка image_urls
+        List<String>? imageUrls;
+        if (json['image_urls'] != null) {
+          if (json['image_urls'] is String && json['image_urls'].isNotEmpty) {
+            imageUrls = [json['image_urls']];
+          } else if (json['image_urls'] is List) {
+            imageUrls = List<String>.from(json['image_urls']);
+          }
+        }
 
-      if (response.statusCode == 200) {
-        final List<dynamic> data = jsonDecode(response.body);
-        developer.log('Received ${data.length} goals', name: 'ApiService');
-        
-        return data.map((json) {
-          // Убеждаемся, что все необходимые поля присутствуют
-          return Post.fromJson({
-            'id': json['id'],
-            'userID': json['userID'],
-            'username': json['username'],
-            'description': json['description'] ?? json['goalInfo'],
-            'category': json['category'],
-            'pointA': json['pointA'],
-            'pointB': json['pointB'],
-            'location': json['location'],
-            'numOfLikes': json['numOfLikes'],
-            'numOfComments': json['numOfComments'],
-            'created_at': json['created_at'],
-            'image_urls': json['image_urls'],
-            'tasks': json['tasks'],
-          }, type: 'goal');
-        }).toList();
-      } else {
-        final errorData = jsonDecode(response.body);
-        throw Exception('Failed to fetch goals: ${errorData['error']}');
-      }
+        return Post.fromJson({
+          ...json,
+          'type': 'goal',
+          'description': json['goalInfo']?.toString() ?? '',
+          'created_at': json['created_at']?.toString() ??
+              DateTime.now().toIso8601String(),
+          'numOfLikes': json['numOfLikes'] ?? 0,
+          'numOfComments': json['numOfComments'] ?? 0,
+          'id': json['id']?.toString() ?? '',
+          'userID': json['userID']?.toString() ?? 'unknown',
+          'username': json['username']?.toString() ?? 'Unknown',
+          'likedCurrentGoal': json['likedCurrentGoal'] ?? false,
+          'image_urls': imageUrls, // ИСПРАВЛЕНО
+        }, type: 'goal');
+      }).toList();
+
+      developer.log('Parsed ${posts.length} goals', name: 'ApiService');
+      return posts;
     } catch (e, stackTrace) {
-      developer.log('Error fetching goals: $e', name: 'ApiService', stackTrace: stackTrace);
-      throw Exception('Failed to fetch goals: $e');
+      developer.log('Get all goals error: $e',
+          name: 'ApiService', stackTrace: stackTrace);
+      rethrow;
     }
   }
 
@@ -571,37 +598,43 @@ Future<Map<String, dynamic>> createComment(String postId, String userId, String 
     required String location,
     required String interest,
     required String dateTime,
-    List<String>? imageUrls,
     required String token,
+    List<String>? imageUrls,
   }) async {
     try {
-      developer.log('Creating event with userId: $userId', name: 'ApiService');
-      
-      final response = await http.post(
-        Uri.parse('$_baseUrl/events/create'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
-        body: jsonEncode({
-          'user_id': userId,
-          'description': description,
-          'location': location,
-          'date_time': dateTime,
-          'image_urls': imageUrls,
-        }),
-      );
+      final body = {
+        'user_id': userId,
+        'description': description,
+        'location': location,
+        'interest': interest,
+        'date_time': dateTime,
+        if (imageUrls != null && imageUrls.isNotEmpty) 'image_urls': imageUrls,
+      };
 
-      developer.log('Event creation response: ${response.statusCode}', name: 'ApiService');
-      developer.log('Event creation response body: ${response.body}', name: 'ApiService');
+      developer.log(
+          'Creating event for userId: $userId, body: ${jsonEncode(body)}',
+          name: 'ApiService');
 
-      if (response.statusCode != 200) {
-        final errorData = jsonDecode(response.body);
-        throw Exception('Failed to create event: ${errorData['error']}');
-      }
+      final response = await _client
+          .post(
+            Uri.parse('$_postsUrl/events/create'),
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer $token',
+            },
+            body: jsonEncode(body),
+          )
+          .timeout(const Duration(seconds: 30));
+
+      developer.log(
+          'CreateEvent response: ${response.statusCode}, ${response.body}',
+          name: 'ApiService');
+
+      await _handleResponse(response);
     } catch (e, stackTrace) {
-      developer.log('Error creating event: $e', name: 'ApiService', stackTrace: stackTrace);
-      throw Exception('Failed to create event: $e');
+      developer.log('CreateEvent error: $e',
+          name: 'ApiService', stackTrace: stackTrace);
+      rethrow;
     }
   }
 
@@ -849,7 +882,7 @@ Future<Map<String, dynamic>> createComment(String postId, String userId, String 
         'biography': data['biography']?.toString() ?? '',
         'numOfFollowers': (data['numOfFollowers'] as num?)?.toInt() ?? 0,
         'following': (data['following'] as num?)?.toInt() ?? 0,
-        'avatar': data['avatar']?.toString() ?? '',
+        'avatar': data['profileImage']?.toString() ?? '',
         'age': (data['age'] as num?)?.toInt(),
       };
     } catch (e, stackTrace) {
@@ -859,36 +892,44 @@ Future<Map<String, dynamic>> createComment(String postId, String userId, String 
     }
   }
 
- Future<void> updateProfile(String userId, String token,
-    Map<String, dynamic> data, String photoURL) async {
-  try {
-    developer.log('Updating profile for userId: $userId, data: $data',
-        name: 'ApiService');
-    
-    // ИСПРАВЛЕНО: правильное формирование тела запроса
-    final requestBody = {
-      'userId': userId,
-      'photoURL': photoURL,
-      ...data, // Распаковываем данные из data в основной объект
-    };
+  Future<void> updateProfile(String userId, String token,
+      Map<String, dynamic> data, String photoURL) async {
+    try {
+      developer.log('Updating profile for userId: $userId, data: $data',
+          name: 'ApiService');
+      // Convert any Set in data to List to ensure JSON encodability
+      final encodableData = data.map((key, value) {
+        if (value is Set) {
+          return MapEntry(key, value.toList());
+        }
+        return MapEntry(key, value);
+      });
 
-    final response = await _client
-        .post(
-          Uri.parse('$_baseUrl/profile/$userId'),
-          headers: {
-            'Authorization': 'Bearer $token',
-            'Content-Type': 'application/json',
-          },
-          body: jsonEncode(requestBody), // Используем правильно сформированный объект
-        )
-        .timeout(const Duration(seconds: 10));
-    await _handleResponse(response);
-  } catch (e, stackTrace) {
-    developer.log('Update profile error: $e',
-        name: 'ApiService', stackTrace: stackTrace);
-    rethrow;
+      // ИСПРАВЛЕНО: правильное формирование тела запроса
+      final requestBody = {
+        'userId': userId,
+        'photoURL': photoURL,
+        'data': encodableData, // Распаковываем данные из data в основной объект
+      };
+
+      final response = await _client
+          .post(
+            Uri.parse('$_baseUrl/profile/$userId'),
+            headers: {
+              'Authorization': 'Bearer $token',
+              'Content-Type': 'application/json',
+            },
+            body: jsonEncode(
+                requestBody), // Используем правильно сформированный объект
+          )
+          .timeout(const Duration(seconds: 30));
+      await _handleResponse(response);
+    } catch (e, stackTrace) {
+      developer.log('Update profile error: $e',
+          name: 'ApiService', stackTrace: stackTrace);
+      rethrow;
+    }
   }
-}
 
   Future<List<Map<String, dynamic>>> searchUsers(
     String query, {
@@ -898,6 +939,7 @@ Future<Map<String, dynamic>> createComment(String postId, String userId, String 
     try {
       developer.log('Searching users: query: $query, userId: $userId',
           name: 'ApiService');
+
       final response = await _client
           .post(
             Uri.parse('$_baseUrl/search/users'),

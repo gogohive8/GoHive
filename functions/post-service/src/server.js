@@ -371,7 +371,7 @@ app.get('/goals/:id', verifyToken,  async (req, res) => {
 
 
     const userGoalsPhotos = await Promise.all(
-      usersGoals.map(async (goal) => {
+      goals.map(async (goal) => {
         const {data: photo, error: photoFetchError } = await supabase
         .schema('posts')
         .from('goalsPhotos')
@@ -380,8 +380,17 @@ app.get('/goals/:id', verifyToken,  async (req, res) => {
 
         if (fetchError) {
           console.error('Error with fetching photo url', fetchError.message);
-          res.status(400).json({error: photoFetchError.message});
+          return {
+          userID: id,
+          description: goal.goalInfo,
+          created_at: goal.created_at,
+          numOfLikes: goal.numOfLikes,
+          numOfComments: goal.numOfComments,
+          id: goal.id,
+          photoURL: '',
+          }
         }
+
 
         return {
           userID: id,
@@ -390,7 +399,7 @@ app.get('/goals/:id', verifyToken,  async (req, res) => {
           numOfLikes: goal.numOfLikes,
           numOfComments: goal.numOfComments,
           id: goal.id,
-          photoURL: photo.photoURL,
+          photoURL: photo?.photoURL || '',
         };
       }) 
     );
@@ -437,8 +446,17 @@ app.get('/events/:id', verifyToken, async (req, res) => {
 
         if (fetchError) {
           console.error('Error with fetching photo url', fetchError.message);
-          res.status(400).json({error: photoFetchError.message});
+          return {
+          userID: id,
+          description: event.description,
+          created_at: event.created_at,
+          numOfLikes: event.numOfLikes,
+          numOfComments: event.numOfComments,
+          id: event.id,
+          photoURL: '',
+          };
         }
+
 
         return {
           userID: id,
@@ -447,7 +465,7 @@ app.get('/events/:id', verifyToken, async (req, res) => {
           numOfLikes: event.numOfLikes,
           numOfComments: event.numOfComments,
           id: event.id,
-          photoURL: photo.photoURL,
+          photoURL: photo?.photoURL || '',
         };
       }) 
     );
