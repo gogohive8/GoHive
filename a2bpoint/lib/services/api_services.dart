@@ -371,8 +371,14 @@ class ApiService {
           if (json['image_urls'] is String && json['image_urls'].isNotEmpty) {
             imageUrls = [json['image_urls']];
           } else if (json['image_urls'] is List) {
-            imageUrls = List<String>.from(json['image_urls']);
+            imageUrls = (json['image_urls'] as List)
+              .where((item) => item != null)
+              .map((item) => item.toString())
+              .toList();
+              developer.log('Processing image_urls: ${json['image_urls']} (type: ${json['image_urls'].runtimeType})', 
+    name: 'ApiService');
           }
+          
         }
 
         return Post.fromJson({
@@ -387,7 +393,7 @@ class ApiService {
           'userID': json['userID']?.toString() ?? 'unknown',
           'username': json['username']?.toString() ?? 'Unknown',
           'likedCurrentGoal': json['likedCurrentGoal'] ?? false,
-          'image_urls': imageUrls, // ИСПРАВЛЕНО
+          'image_urls': imageUrls,
         }, type: 'goal');
       }).toList();
 

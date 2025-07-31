@@ -139,85 +139,112 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   Widget _buildMediaWidget(Post post) {
-    if (post.imageUrls == null || post.imageUrls!.isEmpty) {
-      return const SizedBox.shrink();
-    }
-    
-    final url = post.imageUrls![0];
-    developer.log('Loading media: $url', name: 'HomeScreen');
-    
-    final isVideo = url.toLowerCase().endsWith('.mp4') || 
-                   url.toLowerCase().endsWith('.mov') ||
-                   url.toLowerCase().endsWith('.avi');
-    
-    if (isVideo) {
-      if (!_videoControllers.containsKey(post.id)) {
-        _videoControllers[post.id] =
-            VideoPlayerController.networkUrl(Uri.parse(url))
-              ..initialize().then((_) {
-                if (mounted) setState(() {});
-              });
-      }
-      final controller = _videoControllers[post.id]!;
-      return controller.value.isInitialized
-          ? Stack(
-              alignment: Alignment.center,
-              children: [
-                AspectRatio(
-                  aspectRatio: controller.value.aspectRatio,
-                  child: VideoPlayer(controller),
-                ),
-                IconButton(
-                  icon: Icon(
-                    controller.value.isPlaying ? Icons.pause : Icons.play_arrow,
-                    color: Colors.white,
-                    size: 50,
-                  ),
-                  onPressed: () {
-                    setState(() {
-                      controller.value.isPlaying
-                          ? controller.pause()
-                          : controller.play();
-                    });
-                  },
-                ),
-              ],
-            )
-          : Container(
-              height: 200,
-              child: const Center(child: CircularProgressIndicator()),
-            );
-    }
-    
-    return CachedNetworkImage(
-      imageUrl: url,
+  if (post.imageUrls == null || post.imageUrls!.isEmpty) {
+    return const SizedBox.shrink();
+  }
+  
+  // ИСПРАВЛЕНО: очистка URL от квадратных скобок и лишних символов
+  String cleanUrl = post.imageUrls![0];
+  
+  // Убираем квадратные скобки если они есть
+  if (cleanUrl.startsWith('[') && cleanUrl.endsWith(']')) {
+    cleanUrl = cleanUrl.substring(1, cleanUrl.length - 1);
+  }
+  
+  // Убираем лишние пробелы
+  cleanUrl = cleanUrl.trim();
+  
+  // Дополнительная проверка на валидность URL
+  if (!cleanUrl.startsWith('http://') && !cleanUrl.startsWith('https://')) {
+    developer.log('Invalid URL format: $cleanUrl', name: 'HomeScreen');
+    return Container(
       height: 200,
-      width: double.infinity,
-      fit: BoxFit.cover,
-      placeholder: (context, url) => Container(
-        height: 200,
-        child: const Center(child: CircularProgressIndicator()),
+      color: Colors.grey[300],
+      child: const Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.broken_image, size: 50, color: Colors.grey),
+          SizedBox(height: 8),
+          Text('Invalid image URL', style: TextStyle(color: Colors.grey)),
+        ],
       ),
-      errorWidget: (context, url, error) {
-        developer.log('Image load error: $error for URL: $url', name: 'HomeScreen');
-        return Container(
-          height: 200,
-          color: Colors.grey[300],
-          child: const Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.broken_image, size: 50, color: Colors.grey),
-              SizedBox(height: 8),
-              Text('Image not available', style: TextStyle(color: Colors.grey)),
-            ],
-          ),
-        );
-      },
-      httpHeaders: const {
-        'User-Agent': 'Flutter App',
-      },
     );
   }
+  
+  developer.log('Loading cleaned media: $cleanUrl', name: 'HomeScreen');
+  
+  final isVideo = cleanUrl.toLowerCase().endsWith('.mp4') || 
+                 cleanUrl.toLowerCase().endsWith('.mov') ||
+                 cleanUrl.toLowerCase().endsWith('.avi');
+  
+  if (isVideo) {
+    if (!_videoControllers.containsKey(post.id)) {
+      _videoControllers[post.id] =
+          VideoPlayerController.networkUrl(Uri.parse(cleanUrl))
+            ..initialize().then((_) {
+              if (mounted) setState(() {});
+            });
+    }
+    final controller = _videoControllers[post.id]!;
+    return controller.value.isInitialized
+        ? Stack(
+            alignment: Alignment.center,
+            children: [
+              AspectRatio(
+                aspectRatio: controller.value.aspectRatio,
+                child: VideoPlayer(controller),
+              ),
+              IconButton(
+                icon: Icon(
+                  controller.value.isPlaying ? Icons.pause : Icons.play_arrow,
+                  color: Colors.white,
+                  size: 50,
+                ),
+                onPressed: () {
+                  setState(() {
+                    controller.value.isPlaying
+                        ? controller.pause()
+                        : controller.play();
+                  });
+                },
+              ),
+            ],
+          )
+        : Container(
+            height: 200,
+            child: const Center(child: CircularProgressIndicator()),
+          );
+  }
+  
+  return CachedNetworkImage(
+    imageUrl: cleanUrl, // Используем очищенный URL
+    height: 200,
+    width: double.infinity,
+    fit: BoxFit.cover,
+    placeholder: (context, url) => Container(
+      height: 200,
+      child: const Center(child: CircularProgressIndicator()),
+    ),
+    errorWidget: (context, url, error) {
+      developer.log('Image load error: $error for URL: $cleanUrl', name: 'HomeScreen');
+      return Container(
+        height: 200,
+        color: Colors.grey[300],
+        child: const Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.broken_image, size: 50, color: Colors.grey),
+            SizedBox(height: 8),
+            Text('Image not available', style: TextStyle(color: Colors.grey)),
+          ],
+        ),
+      );
+    },
+    httpHeaders: const {
+      'User-Agent': 'Flutter App',
+    },
+  );
+}
 
   Widget _buildMissionsView() {
     final size = MediaQuery.of(context).size;
