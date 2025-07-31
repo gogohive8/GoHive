@@ -45,17 +45,37 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
 
   void _fetchPostAndComments() async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    if (!authProvider.isAuthenticated || authProvider.token == null || authProvider.userId == null) {
-      authProvider.handleAuthError(context, AuthenticationException('Not authenticated'));
+    
+    if (!authProvider.isAuthenticated || 
+        authProvider.token == null || 
+        authProvider.userId == null) {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _error = 'Not authenticated';
+        });
+      }
       return;
     }
+    
     setState(() {
       _isLoading = true;
       _error = null;
     });
+    
     try {
+      developer.log('Fetching post ${widget.postId} and comments', name: 'PostDetailScreen');
+      
+      // Fetch post details
       final post = await _apiService.getPostById(widget.postId, authProvider.token!);
-      final comments = await _apiService.getComments(widget.postId, authProvider.token!, widget.postType);
+      
+      // Fetch comments
+      final comments = await _apiService.getComments(
+        widget.postId, 
+        authProvider.token!, 
+        widget.postType
+      );
+      
       if (mounted) {
         setState(() {
           _post = post;
@@ -75,79 +95,148 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
   }
 
   Future<bool> _onLikeButtonTapped(bool isLiked) async {
-  final authProvider = Provider.of<AuthProvider>(context, listen: false);
-  final userId = authProvider.userId ?? '';
-  final token = authProvider.token ?? '';
-  if (userId.isEmpty || token.isEmpty) {
-    authProvider.handleAuthError(context, AuthenticationException('Not authenticated'));
-    return isLiked;
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final userId = authProvider.userId ?? '';
+    final token = authProvider.token ?? '';
+    
+    if (userId.isEmpty || token.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please login to like posts')),
+        );
+      }
+      return isLiked;
+    }
+    
+    try {
+      if (!isLiked) {
+        final result = await _apiService.likePost(widget.postId, userId, token);
+        if (mounted && _post != null) {
+          setState(() {
+            _post = _post!.copyWith(
+              numOfLikes: result['numOfLikes'] as int? ?? _post!.numOfLikes + 1
+            );
+          });
+        }
+      }
+      return !isLiked;
+    } catch (e) {
+      developer.log('Like post error: $e', name: 'PostDetailScreen');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to like post: $e')),
+        );
+      }
+      return isLiked;
+    }
   }
-  try {
-    if (!isLiked) {
-      final result = await _apiService.likePost(widget.postId, userId, token);
-      if (mounted && _post != null) { // Добавлена проверка _post != null
+
+  void _addComment() async {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final userId = authProvider.userId ?? '';
+    final token = authProvider.token ?? '';
+    
+    if (userId.isEmpty || token.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please login to comment')),
+        );
+      }
+      return;
+    }
+    
+    final commentText = _commentController.text.trim();
+    if (commentText.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Comment cannot be empty')),
+      );
+      return;
+    }
+    
+    setState(() {
+      _isCommenting = true;
+    });
+    
+    try {
+      final commentData = await _apiService.createComment(
+        widget.postId,
+        userId,
+        commentText,
+        widget.postType,
+        token,
+      );
+      
+      final newComment = Comment.fromJson(commentData);
+      
+      if (mounted && _post != null) {
         setState(() {
-          _post = _post!.copyWith(numOfLikes: result['numOfLikes'] as int);
+          _comments = [newComment, ..._comments];
+          _post = _post!.copyWith(numComments: _post!.numComments + 1);
+          _commentController.clear();
+          _isCommenting = false;
+        });
+      }
+    } catch (e) {
+      developer.log('Add comment error: $e', name: 'PostDetailScreen');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to comment: $e')),
+        );
+        setState(() {
+          _isCommenting = false;
         });
       }
     }
-    return !isLiked;
-  } catch (e) {
-    developer.log('Like post error: $e', name: 'PostDetailScreen');
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Failed to like post: $e')),
-    );
-    return isLiked;
   }
-}
 
-  void _addComment() async {
-  final authProvider = Provider.of<AuthProvider>(context, listen: false);
-  final userId = authProvider.userId ?? '';
-  final token = authProvider.token ?? '';
-  if (userId.isEmpty || token.isEmpty) {
-    authProvider.handleAuthError(context, AuthenticationException('Not authenticated'));
-    return;
-  }
-  final commentText = _commentController.text.trim();
-  if (commentText.isEmpty) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Comment cannot be empty')),
-    );
-    return;
-  }
-  setState(() {
-    _isCommenting = true;
-  });
-  try {
-    final commentData = await _apiService.createComment(
-      widget.postId,
-      userId,
-      commentText,
-      widget.postType,
-      token,
-    );
-    final newComment = Comment.fromJson(commentData);
-    if (mounted && _post != null) {
-      setState(() {
-        _comments = [newComment, ..._comments];
-        _post = _post!.copyWith(numComments: _post!.numComments + 1);
-        _commentController.clear();
-        _isCommenting = false;
-      });
+  Widget _buildMediaWidget() {
+    if (_post?.imageUrls == null || _post!.imageUrls!.isEmpty) {
+      return const SizedBox.shrink();
     }
-  } catch (e) {
-    developer.log('Add comment error: $e', name: 'PostDetailScreen');
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Failed to comment: $e')),
+    
+    final url = _post!.imageUrls![0];
+    
+    return Container(
+      height: 300,
+      width: double.infinity,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: CachedNetworkImage(
+        imageUrl: url,
+        height: 300,
+        width: double.infinity,
+        fit: BoxFit.cover,
+        placeholder: (context, url) => Container(
+          height: 300,
+          width: double.infinity,
+          color: Colors.grey[200],
+          child: const Center(
+            child: CircularProgressIndicator(),
+          ),
+        ),
+        errorWidget: (context, url, error) {
+          developer.log('Error loading image: $error for URL: $url', name: 'PostDetailScreen');
+          return Container(
+            height: 300,
+            width: double.infinity,
+            color: Colors.grey[300],
+            child: const Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.error, size: 50, color: Colors.red),
+                SizedBox(height: 8),
+                Text('Failed to load image'),
+              ],
+            ),
+          );
+        },
+        httpHeaders: const {
+          'User-Agent': 'Flutter App',
+        },
+      ),
     );
-    if (mounted) {
-      setState(() {
-        _isCommenting = false;
-      });
-    }
   }
-}
 
   @override
   Widget build(BuildContext context) {
@@ -156,6 +245,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
         body: Center(child: CircularProgressIndicator()),
       );
     }
+    
     if (_error != null || _post == null) {
       return Scaffold(
         appBar: AppBar(
@@ -169,7 +259,18 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Text('Error: ${_error ?? 'Post not found'}'),
+              Icon(Icons.error_outline, size: 64, color: Colors.red[300]),
+              const SizedBox(height: 16),
+              Text(
+                'Error loading post',
+                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                _error ?? 'Post not found',
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: Colors.grey),
+              ),
               const SizedBox(height: 16),
               ElevatedButton(
                 onPressed: _fetchPostAndComments,
@@ -184,6 +285,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
         ),
       );
     }
+    
     return Scaffold(
       appBar: AppBar(
         title: Text('${_post!.user.username}\'s Post'),
@@ -202,6 +304,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // User info
                   Row(
                     children: [
                       CircleAvatar(
@@ -212,7 +315,9 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                         radius: 20,
                         child: _post!.user.profileImage.isEmpty
                             ? Text(
-                                _post!.user.username[0].toUpperCase(),
+                                _post!.user.username.isNotEmpty 
+                                    ? _post!.user.username[0].toUpperCase()
+                                    : 'U',
                                 style: const TextStyle(color: Colors.white),
                               )
                             : null,
@@ -222,7 +327,9 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            _post!.user.username,
+                            _post!.user.username.isNotEmpty 
+                                ? _post!.user.username 
+                                : 'Unknown User',
                             style: const TextStyle(
                               fontWeight: FontWeight.bold,
                               fontSize: 18,
@@ -241,50 +348,12 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                     ],
                   ),
                   const SizedBox(height: 12),
-                  if (_post!.imageUrls != null && _post!.imageUrls!.isNotEmpty)
-  Container(
-    height: 300,
-    width: double.infinity,
-    decoration: BoxDecoration(
-      borderRadius: BorderRadius.circular(8),
-    ),
-    child: CachedNetworkImage(
-      imageUrl: _post!.imageUrls![0],
-      height: 300,
-      width: double.infinity,
-      fit: BoxFit.cover,
-      placeholder: (context, url) => Container(
-        height: 300,
-        width: double.infinity,
-        color: Colors.grey[200],
-        child: const Center(
-          child: CircularProgressIndicator(),
-        ),
-      ),
-      errorWidget: (context, url, error) {
-        print('Error loading image: $error'); // Добавьте логирование
-        print('URL: $url'); // Логируем URL
-        return Container(
-          height: 300,
-          width: double.infinity,
-          color: Colors.grey[300],
-          child: const Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.error, size: 50, color: Colors.red),
-              SizedBox(height: 8),
-              Text('Failed to load image'),
-            ],
-          ),
-        );
-      },
-      // Добавьте заголовки для авторизации если нужно
-      httpHeaders: const {
-        'User-Agent': 'YourApp/1.0',
-      },
-    ),
-  ),
+                  
+                  // Post media
+                  _buildMediaWidget(),
                   const SizedBox(height: 12),
+                  
+                  // Post text
                   Text(
                     _post!.text ?? 'No description',
                     style: const TextStyle(
@@ -292,7 +361,11 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                       color: Color(0xFF1A1A1A),
                     ),
                   ),
-                  if (widget.postType == 'goal' && _post!.tasks != null && _post!.tasks!.isNotEmpty) ...[
+                  
+                  // Tasks (if goal)
+                  if (widget.postType == 'goal' && 
+                      _post!.tasks != null && 
+                      _post!.tasks!.isNotEmpty) ...[
                     const SizedBox(height: 12),
                     const Text(
                       'Tasks',
@@ -310,7 +383,10 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                           ),
                         )),
                   ],
+                  
                   const SizedBox(height: 12),
+                  
+                  // Like and comment counts
                   Row(
                     children: [
                       Text(
@@ -345,7 +421,10 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                         ),
                     ],
                   ),
+                  
                   const SizedBox(height: 16),
+                  
+                  // Comments section
                   const Text(
                     'Comments',
                     style: TextStyle(
@@ -354,8 +433,19 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                       color: Color(0xFF000000),
                     ),
                   ),
+                  
                   if (_comments.isEmpty)
-                    const Center(child: Text('No comments yet')),
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 16),
+                      child: Center(
+                        child: Text(
+                          'No comments yet',
+                          style: TextStyle(color: Colors.grey),
+                        ),
+                      ),
+                    ),
+                  
+                  // Comments list
                   ..._comments.map((comment) => Padding(
                         padding: const EdgeInsets.symmetric(vertical: 8.0),
                         child: Row(
@@ -365,7 +455,9 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                               backgroundColor: const Color(0xFF333333),
                               radius: 20,
                               child: Text(
-                                comment.username[0].toUpperCase(),
+                                comment.username.isNotEmpty 
+                                    ? comment.username[0].toUpperCase()
+                                    : 'U',
                                 style: const TextStyle(color: Colors.white),
                               ),
                             ),
@@ -375,7 +467,9 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    comment.username,
+                                    comment.username.isNotEmpty 
+                                        ? comment.username 
+                                        : 'Unknown User',
                                     style: const TextStyle(
                                       fontWeight: FontWeight.bold,
                                       color: Color(0xFF000000),
@@ -403,8 +497,20 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
               ),
             ),
           ),
-          Padding(
+          
+          // Comment input
+          Container(
             padding: const EdgeInsets.all(16.0),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.1),
+                  blurRadius: 4,
+                  offset: const Offset(0, -2),
+                ),
+              ],
+            ),
             child: Row(
               children: [
                 Expanded(
@@ -413,13 +519,22 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                     decoration: const InputDecoration(
                       labelText: 'Add a comment',
                       border: OutlineInputBorder(),
+                      contentPadding: EdgeInsets.symmetric(
+                        horizontal: 12, 
+                        vertical: 8
+                      ),
                     ),
                     maxLines: null,
+                    enabled: !_isCommenting,
                   ),
                 ),
                 const SizedBox(width: 8),
                 _isCommenting
-                    ? const CircularProgressIndicator()
+                    ? const SizedBox(
+                        width: 24,
+                        height: 24,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
                     : IconButton(
                         icon: const Icon(Icons.send),
                         onPressed: _addComment,

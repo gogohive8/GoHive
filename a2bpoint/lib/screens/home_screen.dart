@@ -47,17 +47,28 @@ class _HomeScreenState extends State<HomeScreen>
     _apiService.dispose();
     super.dispose();
   }
+  
 
-  void _checkAuthAndFetchPosts() {
+  void _checkAuthAndFetchPosts() async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    
     if (!authProvider.isInitialized) {
       developer.log('AuthProvider not initialized, waiting for initialization',
           name: 'HomeScreen');
-      authProvider.initialize().then((_) {
+      try {
+        await authProvider.initialize();
         if (mounted) {
           _fetchPosts(authProvider);
         }
-      });
+      } catch (e) {
+        developer.log('Auth initialization error: $e', name: 'HomeScreen');
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+            _error = 'Authentication failed: $e';
+          });
+        }
+      }
     } else {
       developer.log('AuthProvider initialized, fetching posts', name: 'HomeScreen');
       _fetchPosts(authProvider);
@@ -65,18 +76,34 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   void _fetchPosts(AuthProvider authProvider) async {
-    if (!authProvider.isAuthenticated || authProvider.userId == null || authProvider.token == null) {
+    if (!authProvider.isAuthenticated || 
+        authProvider.userId == null || 
+        authProvider.token == null) {
       developer.log('No token or userId, handling auth error', name: 'HomeScreen');
-      authProvider.handleAuthError(context, AuthenticationException('Not authenticated'));
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _error = 'Not authenticated';
+        });
+      }
       return;
     }
+
     setState(() {
       _isLoading = true;
       _error = null;
     });
+
     try {
+      developer.log('Fetching posts with token: ${authProvider.token!.substring(0, 20)}...', 
+          name: 'HomeScreen');
+      
       final goals = await _apiService.getAllGoals(authProvider.token!, authProvider.userId!);
       final events = await _apiService.getAllEvents(authProvider.token!, authProvider.userId!);
+      
+      developer.log('Fetched ${goals.length} goals and ${events.length} events', 
+          name: 'HomeScreen');
+      
       if (mounted) {
         setState(() {
           _goals = goals;
@@ -115,20 +142,31 @@ class _HomeScreenState extends State<HomeScreen>
     if (post.imageUrls == null || post.imageUrls!.isEmpty) {
       return const SizedBox.shrink();
     }
+    
     final url = post.imageUrls![0];
-    final isVideo = url.endsWith('.mp4') || url.endsWith('.mov');
+    developer.log('Loading media: $url', name: 'HomeScreen');
+    
+    final isVideo = url.toLowerCase().endsWith('.mp4') || 
+                   url.toLowerCase().endsWith('.mov') ||
+                   url.toLowerCase().endsWith('.avi');
+    
     if (isVideo) {
       if (!_videoControllers.containsKey(post.id)) {
         _videoControllers[post.id] =
             VideoPlayerController.networkUrl(Uri.parse(url))
-              ..initialize().then((_) => setState(() {}));
+              ..initialize().then((_) {
+                if (mounted) setState(() {});
+              });
       }
       final controller = _videoControllers[post.id]!;
       return controller.value.isInitialized
           ? Stack(
               alignment: Alignment.center,
               children: [
-                VideoPlayer(controller),
+                AspectRatio(
+                  aspectRatio: controller.value.aspectRatio,
+                  child: VideoPlayer(controller),
+                ),
                 IconButton(
                   icon: Icon(
                     controller.value.isPlaying ? Icons.pause : Icons.play_arrow,
@@ -145,142 +183,171 @@ class _HomeScreenState extends State<HomeScreen>
                 ),
               ],
             )
-          : const Center(child: CircularProgressIndicator());
+          : Container(
+              height: 200,
+              child: const Center(child: CircularProgressIndicator()),
+            );
     }
+    
     return CachedNetworkImage(
       imageUrl: url,
       height: 200,
       width: double.infinity,
       fit: BoxFit.cover,
-      placeholder: (context, url) => const Center(child: CircularProgressIndicator()),
-      errorWidget: (context, url, error) => const Icon(Icons.broken_image, size: 100),
+      placeholder: (context, url) => Container(
+        height: 200,
+        child: const Center(child: CircularProgressIndicator()),
+      ),
+      errorWidget: (context, url, error) {
+        developer.log('Image load error: $error for URL: $url', name: 'HomeScreen');
+        return Container(
+          height: 200,
+          color: Colors.grey[300],
+          child: const Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.broken_image, size: 50, color: Colors.grey),
+              SizedBox(height: 8),
+              Text('Image not available', style: TextStyle(color: Colors.grey)),
+            ],
+          ),
+        );
+      },
+      httpHeaders: const {
+        'User-Agent': 'Flutter App',
+      },
     );
   }
 
   Widget _buildMissionsView() {
-  final size = MediaQuery.of(context).size;
-  final padding = size.width * 0.05;
-  final aspectRatio = 375 / 790;
-  final containerHeight = size.width / aspectRatio;
+    final size = MediaQuery.of(context).size;
+    final padding = size.width * 0.05;
+    final aspectRatio = 375 / 790;
+    final containerHeight = size.width / aspectRatio;
 
-  return Center(
-    child: SizedBox(
-      width: size.width * 0.9,
-      height: containerHeight * 0.9,
-      child: CustomPaint(
-        painter: MissionsBackgroundPainter(),
-        child: Padding(
-          padding: EdgeInsets.all(padding),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const SizedBox(height: 16),
-              Expanded(
-                child: ListView(
-                  children: [
-                    _buildChallengeCard(
-                      title: 'The "Tidy Up" Challenge',
-                      description: '7-day live challenge\nfor those who are tired',
-                      imageAsset: 'assets/images/tidy_challenge.png', // Добавьте изображение зеленого смузи
-                    ),
-                    _buildChallengeCard(
-                      title: 'The "Moon" Challenge',
-                      description: '7-day live challenge\nfor those who are tired',
-                      imageAsset: 'assets/images/moon_challenge.png', // Добавьте изображение луны
-                    ),
-                    _buildChallengeCard(
-                      title: 'The "Animal" Challenge',
-                      description: '7-day live challenge\nfor those who are tired',
-                      imageAsset: 'assets/images/animal_challenge.png', // Добавьте изображение льва
-                    ),
-                    _buildChallengeCard(
-                      title: 'The "Dance" Challenge',
-                      description: '7-day live challenge\nfor those who are tired',
-                      imageAsset: 'assets/images/dance_challenge.png', // Добавьте изображение танца
-                    ),
-                  ],
+    return Center(
+      child: SizedBox(
+        width: size.width * 0.9,
+        height: containerHeight * 0.9,
+        child: CustomPaint(
+          painter: MissionsBackgroundPainter(),
+          child: Padding(
+            padding: EdgeInsets.all(padding),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const SizedBox(height: 16),
+                Expanded(
+                  child: ListView(
+                    children: [
+                      _buildChallengeCard(
+                        title: 'The "Tidy Up" Challenge',
+                        description: '7-day live challenge\nfor those who are tired',
+                        imageAsset: 'assets/images/tidy_challenge.png',
+                      ),
+                      _buildChallengeCard(
+                        title: 'The "Moon" Challenge',
+                        description: '7-day live challenge\nfor those who are tired',
+                        imageAsset: 'assets/images/moon_challenge.png',
+                      ),
+                      _buildChallengeCard(
+                        title: 'The "Animal" Challenge',
+                        description: '7-day live challenge\nfor those who are tired',
+                        imageAsset: 'assets/images/animal_challenge.png',
+                      ),
+                      _buildChallengeCard(
+                        title: 'The "Dance" Challenge',
+                        description: '7-day live challenge\nfor those who are tired',
+                        imageAsset: 'assets/images/dance_challenge.png',
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    ),
-  );
-}
-
-Widget _buildChallengeCard({
-  required String title,
-  required String description,
-  required String imageAsset,
-}) {
-  return Container(
-    margin: const EdgeInsets.symmetric(vertical: 8),
-    padding: const EdgeInsets.all(16),
-    decoration: BoxDecoration(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(12),
-      boxShadow: [
-        BoxShadow(
-          color: Colors.black.withOpacity(0.05),
-          blurRadius: 4,
-          offset: const Offset(0, 2),
-        ),
-      ],
-    ),
-    child: Row(
-      children: [
-        Expanded(
-          flex: 2,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF000000),
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                description,
-                style: const TextStyle(
-                  fontSize: 14,
-                  color: Color(0xFF666666),
-                  height: 1.4,
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(width: 16),
-        Container(
-          width: 80,
-          height: 80,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
-            image: DecorationImage(
-              image: AssetImage(imageAsset),
-              fit: BoxFit.cover,
+              ],
             ),
           ),
         ),
-      ],
-    ),
-  );
-}
+      ),
+    );
+  }
+
+  Widget _buildChallengeCard({
+    required String title,
+    required String description,
+    required String imageAsset,
+  }) {
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 8),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            flex: 2,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF000000),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  description,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    color: Color(0xFF666666),
+                    height: 1.4,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 16),
+          Container(
+            width: 80,
+            height: 80,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+              image: DecorationImage(
+                image: AssetImage(imageAsset),
+                fit: BoxFit.cover,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
   Future<bool> _onLikeButtonTapped(String postId, bool isLiked) async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final userId = authProvider.userId ?? '';
     final token = authProvider.token ?? '';
+    
     if (userId.isEmpty || token.isEmpty) {
-      authProvider.handleAuthError(
-          context, AuthenticationException('Not authenticated'));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please login to like posts')),
+        );
+      }
       return isLiked;
     }
+    
     try {
       if (!isLiked) {
         await _apiService.likePost(postId, userId, token);
@@ -305,9 +372,11 @@ Widget _buildChallengeCard({
       return !isLiked;
     } catch (e) {
       developer.log('Like post error: $e', name: 'HomeScreen');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to like post: $e')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to like post: $e')),
+        );
+      }
       return isLiked;
     }
   }
@@ -317,33 +386,43 @@ Widget _buildChallengeCard({
     if (!authProvider.isAuthenticated ||
         authProvider.token == null ||
         authProvider.userId == null) {
-      authProvider.handleAuthError(
-          context, AuthenticationException('Not authenticated'));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please login to join events')),
+        );
+      }
       return;
     }
+    
     try {
       developer.log('Joining event: eventId=$eventId', name: 'HomeScreen');
       await _apiService.joinEvent(
           eventId, authProvider.userId!, authProvider.token!);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Joined $eventText')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Joined $eventText')),
+        );
+      }
     } catch (e) {
       developer.log('Join event error: $e', name: 'HomeScreen');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to join event: $e')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to join event: $e')),
+        );
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final authProvider = Provider.of<AuthProvider>(context);
+    
     if (!authProvider.isInitialized) {
       return const Scaffold(
         body: Center(child: CircularProgressIndicator()),
       );
     }
+    
     return Scaffold(
       backgroundColor: const Color(0xFFF9F6F2),
       appBar: AppBar(
@@ -449,12 +528,24 @@ Widget _buildChallengeCard({
     if (_isLoading) {
       return const Center(child: CircularProgressIndicator());
     }
+    
     if (_error != null) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Text('Error loading $type: $_error'),
+            Icon(Icons.error_outline, size: 64, color: Colors.red[300]),
+            const SizedBox(height: 16),
+            Text(
+              'Error loading $type',
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              _error!,
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: Colors.grey),
+            ),
             const SizedBox(height: 16),
             ElevatedButton(
               onPressed: () => _fetchPosts(Provider.of<AuthProvider>(context, listen: false)),
@@ -468,9 +559,28 @@ Widget _buildChallengeCard({
         ),
       );
     }
+    
     if (posts.isEmpty) {
-      return Center(child: Text('No $type to display'));
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.inbox, size: 64, color: Colors.grey[400]),
+            const SizedBox(height: 16),
+            Text(
+              'No $type to display',
+              style: TextStyle(fontSize: 18, color: Colors.grey[600]),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Be the first to create a ${type.toLowerCase()}!',
+              style: TextStyle(color: Colors.grey[500]),
+            ),
+          ],
+        ),
+      );
     }
+    
     return RefreshIndicator(
       onRefresh: () async => _fetchPosts(Provider.of<AuthProvider>(context, listen: false)),
       child: ListView.builder(
@@ -509,7 +619,9 @@ Widget _buildChallengeCard({
                           radius: 20,
                           child: post.user.profileImage.isEmpty
                               ? Text(
-                                  post.user.username[0].toUpperCase(),
+                                  post.user.username.isNotEmpty 
+                                      ? post.user.username[0].toUpperCase()
+                                      : 'U',
                                   style: const TextStyle(color: Colors.white),
                                 )
                               : null,
@@ -520,13 +632,14 @@ Widget _buildChallengeCard({
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                post.user.username,
+                                post.user.username.isNotEmpty 
+                                    ? post.user.username 
+                                    : 'Unknown User',
                                 style: const TextStyle(
                                   fontWeight: FontWeight.bold,
                                   color: Color(0xFF000000),
                                 ),
                               ),
-                             
                             ],
                           ),
                         ),

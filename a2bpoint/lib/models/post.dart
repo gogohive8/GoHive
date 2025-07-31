@@ -1,3 +1,5 @@
+import 'package:GoHive/models/user.dart';
+
 class Post {
   final String id;
   final User user;
@@ -22,27 +24,81 @@ class Post {
   });
 
   factory Post.fromJson(Map<String, dynamic> json, {required String type}) {
+    // Безопасное извлечение данных с проверками на null
+    final userId = json['userID']?.toString() ?? 
+                  json['user_id']?.toString() ?? 
+                  'unknown';
+    
+    final username = json['username']?.toString() ?? 'Unknown User';
+    
+    final profileImage = json['avatar']?.toString() ?? 
+                        json['profile_image']?.toString() ?? 
+                        '';
+
+    // Обработка массива изображений
+    List<String>? imageUrls;
+    if (json['image_urls'] != null) {
+      if (json['image_urls'] is List) {
+        imageUrls = List<String>.from(json['image_urls'].map((url) => url.toString()));
+      } else if (json['image_urls'] is String) {
+        imageUrls = [json['image_urls'].toString()];
+      }
+    } else if (json['photoURL'] != null) {
+      if (json['photoURL'] is List) {
+        imageUrls = List<String>.from(json['photoURL'].map((url) => url.toString()));
+      } else if (json['photoURL'] is String) {
+        imageUrls = [json['photoURL'].toString()];
+      }
+    }
+
+    // Обработка текста поста
+    final text = json['description']?.toString() ?? 
+                json['goalInfo']?.toString() ?? 
+                json['text']?.toString();
+
+    // Обработка даты создания
+    DateTime createdAt;
+    try {
+      final createdAtStr = json['created_at']?.toString() ?? 
+                          json['createdAt']?.toString() ?? 
+                          DateTime.now().toIso8601String();
+      createdAt = DateTime.parse(createdAtStr);
+    } catch (e) {
+      createdAt = DateTime.now();
+    }
+
+    // Обработка задач для целей
+    List<Map<String, dynamic>>? tasks;
+    if (json['tasks'] != null && json['tasks'] is List) {
+      tasks = List<Map<String, dynamic>>.from(json['tasks']);
+    }
+
     return Post(
       id: json['id']?.toString() ?? '',
       user: User(
-        id: json['userID']?.toString() ?? 'unknown',
-        username: json['username']?.toString() ?? 'Unknown',
-        profileImage: json['avatar']?.toString() ?? '',
+        id: userId,
+        username: username,
+        profileImage: profileImage,
       ),
-      text: json['description']?.toString(),
-      imageUrls: json['image_urls'] != null
-          ? List<String>.from(json['image_urls'])
-          : null,
+      text: text,
+      imageUrls: imageUrls,
       type: type,
-      // ИСПРАВЛЕНО: убрана опечатка в названии поля
-      numOfLikes: (json['numOfLikes'] as num?)?.toInt() ?? 0,
-      numComments: (json['numOfComments'] as num?)?.toInt() ?? 0,
-      createdAt: DateTime.parse(
-          json['created_at']?.toString() ?? DateTime.now().toIso8601String()),
-      tasks: json['tasks'] != null
-          ? List<Map<String, dynamic>>.from(json['tasks'])
-          : null,
+      numOfLikes: _safeParseInt(json['numOfLikes']),
+      numComments: _safeParseInt(json['numOfComments']),
+      createdAt: createdAt,
+      tasks: tasks,
     );
+  }
+
+  // Вспомогательная функция для безопасного парсинга чисел
+  static int _safeParseInt(dynamic value) {
+    if (value == null) return 0;
+    if (value is int) return value;
+    if (value is double) return value.toInt();
+    if (value is String) {
+      return int.tryParse(value) ?? 0;
+    }
+    return 0;
   }
 
   Post copyWith({
@@ -68,16 +124,9 @@ class Post {
       tasks: tasks ?? this.tasks,
     );
   }
-}
 
-class User {
-  final String id;
-  final String username;
-  final String profileImage;
-
-  User({
-    required this.id,
-    required this.username,
-    required this.profileImage,
-  });
+  @override
+  String toString() {
+    return 'Post(id: $id, user: $user, text: $text, type: $type, likes: $numOfLikes, comments: $numComments)';
+  }
 }
