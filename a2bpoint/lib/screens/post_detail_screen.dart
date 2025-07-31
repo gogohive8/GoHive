@@ -7,7 +7,6 @@ import 'package:timeago/timeago.dart' as timeago;
 import '../models/post.dart';
 import '../models/comment.dart';
 import '../services/api_services.dart';
-import '../services/exceptions.dart';
 import '../providers/auth_provider.dart';
 import 'dart:developer' as developer;
 
@@ -362,7 +361,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                     ),
                   ),
                   
-                  // Tasks (if goal)
+                  // Tasks (if goal) - ИСПРАВЛЕНО
                   if (widget.postType == 'goal' && 
                       _post!.tasks != null && 
                       _post!.tasks!.isNotEmpty) ...[
@@ -376,12 +375,27 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                       ),
                     ),
                     ..._post!.tasks!.map((task) => Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 4),
-                          child: Text(
-                            task['title']?.toString() ?? 'No title',
-                            style: const TextStyle(color: Color(0xFF333333)),
+                      padding: const EdgeInsets.symmetric(vertical: 4),
+                      child: Row(
+                        children: [
+                          Icon(
+                            task.completed ? Icons.check_circle : Icons.radio_button_unchecked,
+                            size: 16,
+                            color: task.completed ? Colors.green : Colors.grey,
                           ),
-                        )),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              task.title,
+                              style: TextStyle(
+                                color: const Color(0xFF333333),
+                                decoration: task.completed ? TextDecoration.lineThrough : null,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    )),
                   ],
                   
                   const SizedBox(height: 12),
@@ -505,7 +519,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
               color: Colors.white,
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.1),
+                  color: Colors.black.withValues(alpha: 0.1), // ИСПРАВЛЕНО: использование withValues
                   blurRadius: 4,
                   offset: const Offset(0, -2),
                 ),

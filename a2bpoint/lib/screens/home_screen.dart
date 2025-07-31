@@ -665,13 +665,24 @@ class _HomeScreenState extends State<HomeScreen>
                           color: Color(0xFF000000),
                         ),
                       ),
-                      ...post.tasks!.map((task) => Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 4),
-                            child: Text(
-                              task['title']?.toString() ?? 'No title',
-                              style: const TextStyle(color: Color(0xFF333333)),
-                            ),
-                          )),
+                ...post.tasks!.map((task) => Container(
+                  margin: const EdgeInsets.only(bottom: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF9F6F2),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    task.title, // Changed from task['title']?.toString() ?? 'Untitled task'
+                    style: const TextStyle(
+                      color: Color(0xFF333333),
+                      fontSize: 12,
+                    ),
+                  ),
+                )),
                     ],
                     const SizedBox(height: 12),
                     Row(

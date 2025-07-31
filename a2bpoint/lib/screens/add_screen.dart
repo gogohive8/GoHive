@@ -7,7 +7,7 @@ import '../services/api_services.dart';
 import '../providers/auth_provider.dart';
 import '../services/exceptions.dart';
 import 'navbar.dart';
-
+import '../models/tasks.dart';
 class AddScreen extends StatefulWidget {
   const AddScreen({super.key});
 
@@ -162,7 +162,7 @@ class _AddScreenState extends State<AddScreen>
   void _addTask() {
     if (_taskController.text.isNotEmpty) {
       setState(() {
-        _tasks.add({'title': _taskController.text.trim(), 'completed': false});
+        _tasks.add(Task(title: _taskController.text.trim(), completed: false).toJson());
         _taskController.clear();
       });
       developer.log('Task added: ${_tasks.last}', name: 'AddScreen');

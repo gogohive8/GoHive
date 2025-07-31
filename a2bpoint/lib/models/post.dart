@@ -1,4 +1,5 @@
 import 'package:GoHive/models/user.dart';
+import 'package:GoHive/models/tasks.dart';
 
 class Post {
   final String id;
@@ -9,7 +10,7 @@ class Post {
   final int numOfLikes;
   final int numComments;
   final DateTime createdAt;
-  final List<Map<String, dynamic>>? tasks;
+  final List<Task>? tasks; // ИЗМЕНЕНО: теперь List<Task>
 
   Post({
     required this.id,
@@ -67,10 +68,12 @@ class Post {
       createdAt = DateTime.now();
     }
 
-    // Обработка задач для целей
-    List<Map<String, dynamic>>? tasks;
+    // ИЗМЕНЕНО: Обработка задач с использованием модели Task
+    List<Task>? tasks;
     if (json['tasks'] != null && json['tasks'] is List) {
-      tasks = List<Map<String, dynamic>>.from(json['tasks']);
+      tasks = (json['tasks'] as List)
+          .map((taskJson) => Task.fromJson(taskJson))
+          .toList();
     }
 
     return Post(
@@ -110,7 +113,7 @@ class Post {
     int? numOfLikes,
     int? numComments,
     DateTime? createdAt,
-    List<Map<String, dynamic>>? tasks,
+    List<Task>? tasks, // ИЗМЕНЕНО: теперь List<Task>
   }) {
     return Post(
       id: id ?? this.id,

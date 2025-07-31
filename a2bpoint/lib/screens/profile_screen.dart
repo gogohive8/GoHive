@@ -9,6 +9,7 @@ import '../models/post.dart';
 import '../services/exceptions.dart';
 import 'navbar.dart';
 import 'profile_edit_screen.dart';
+import '../models/tasks.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -486,23 +487,23 @@ class _ProfileScreenState extends State<ProfileScreen>
                     ),
                     const SizedBox(height: 8),
                     ...post.tasks!.map((task) => Container(
-                          margin: const EdgeInsets.only(bottom: 4),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 6,
+                        margin: const EdgeInsets.only(bottom: 4),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF9F6F2),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          task.title, // Changed from task['title']?.toString() ?? 'Untitled task'
+                          style: const TextStyle(
+                            color: Color(0xFF333333),
+                            fontSize: 12,
                           ),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFF9F6F2),
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Text(
-                            task['title']?.toString() ?? 'Untitled task',
-                            style: const TextStyle(
-                              color: Color(0xFF333333),
-                              fontSize: 12,
-                            ),
-                          ),
-                        )),
+                        ),
+                      )),
                   ],
                 ],
               ),
