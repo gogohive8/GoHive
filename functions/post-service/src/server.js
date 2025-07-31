@@ -133,8 +133,8 @@ app.post('/goals/create', verifyToken, async (req, res) => {
     .schema('posts')
     .from('goalsPhotos')
     .insert({
-      goalsId: goalInfo.id,
-      photoURL: image_urls || '',
+      goalId: goalInfo.id,
+      photoURL: image_urls || [],
     });
 
     if ( insertPhotoError ) {
@@ -224,7 +224,7 @@ app.get('/goals/all', verifyToken, async (req, res) => {
 
         if (fetchUserError) {
           console.error(`Error fetching username for userID ${goal.userID}:`, fetchUserError.message);
-          return { ...goal, username: null }; // Fallback to null if user not found
+          return { ...goal, username: "" }; // Fallback to null if user not found
         }
         
         var likedCurrentGoal = false;
@@ -238,14 +238,9 @@ app.get('/goals/all', verifyToken, async (req, res) => {
         .single()
 
         if (fetchLikeError) {
-          console.error('Error og fetch like', fetchLikeError);
-          return { ...goal, likedCurrentGoal: false};
-        }
-
-        if (!likedGoal || likedGoal.length === 0) {
-          likedCurrentGoal = false;
-        } else {
-          likedCurrentGoal = true
+          console.error(`Error fetching like for goal ${goal.id}:`, fetchLikeError.message);
+        } else if (likedGoal) {
+          likedCurrentGoal = true;
         }
 
 
@@ -257,20 +252,23 @@ app.get('/goals/all', verifyToken, async (req, res) => {
 
         if (fetchUrlError) {
           console.error('Error of fetch urls', fetchUrlError);
-          return {...goal, image_urls: ""}
+          return {...goal, image_urls: []}
         }
+
+        // Map photoURLs to an array
+        const photoURLs = imageURL ? imageURL.map(item => item.photoURL) : [];
 
         // Replace userID with username
         return {
           id: goal.id,
-          username: user ? user.username : null,
+          username: user.username,
           userID: goal.userID,
           goalInfo: goal.goalInfo,
           numOfLikes: goal.numOfLikes,
           numOfComments: goal.numOfComments,
           likedCurrentGoal: likedCurrentGoal,
           created_at: goal.created_at,
-          image_urls: imageURL.photoURL,
+          image_urls: photoURLs,
         };
       })
     );
@@ -320,8 +318,11 @@ app.get('/events/all', verifyToken, async (req, res) => {
 
         if (fetchUrlError) {
           console.error('Error of fetch urls', fetchUrlError);
-          return {...goal, image_urls: ""}
+          return {...goal, image_urls: []}
         }
+
+        // Map photoURLs to an array
+        const photoURLs = imageURL ? imageURL.map(item => item.photoURL) : [];
 
 
         // Replace userID with username
@@ -331,7 +332,7 @@ app.get('/events/all', verifyToken, async (req, res) => {
           description: event.description,
           numOfLikes: event.numOfLikes,
           numOfComments: event.numOfComments,
-          image_urls: imageURL.photoURL,
+          image_urls: photoURLs,
         };
       })
     );
@@ -599,6 +600,88 @@ app.post('/upload', upload.array('files', 10), async (req, res) => {
     return res.status(500).json({ error: 'Internal server error' });
   }
 });
+
+
+app.get('/posts/:post_id', verifyToken, async (req, res) => {
+  try{
+    const {post_id} = req.params;
+
+    const {data: post, error: fetchGoalError} = await supabase
+    .schema('posts')
+    .from('goals')
+    .select('*')
+    .eq('id', post_id)
+    .single()
+    
+    if (fetchGoalError) {
+      console.error('Error of fetch goal', fetchGoalError);
+      return res.status(400).json({error: fetchGoalError});
+    }
+
+    const {data: goalTasks, error: fetchStepsError} = await supabase
+    .schema('posts')
+    .from('steps')
+    .select('*')
+    .eq('goalID', post_id)
+    .single()
+
+    if (fetchStepsError) {
+      console.error('Error of fetch steps', fetchStepsError);
+    }
+
+    const {data: goalsPhotos, error: fetchPhotosError} = await supabase
+    .schema('posts')
+    .from('goalsPhotos')
+    .select('photoURL')
+    .eq('goalId', post_id)
+
+    if (fetchPhotosError) {
+      console.error('Error of fetch photos', fetchPhotosError);
+    }
+
+    const {data: username, error: fetchUsernameError} = await supabase
+    .schema('public')
+    .from('users')
+    .select('username')
+    .eq('id', post.userID)
+    .single()
+
+    if(fetchUsernameError){
+      console.error('Error of fetch username', fetchUsernameError);
+    }
+
+    // Parse tasks if stored as a JSON string or array of strings
+    let tasks = [];
+    if (goalTasks.stepsInfo) {
+      try {
+        if (typeof post.tasks === 'string') {
+          tasks = JSON.parse(post.tasks);
+        } else if (Array.isArray(post.tasks)) {
+          tasks = post.tasks.map(task => typeof task === 'string' ? JSON.parse(task) : task);
+        }
+      } catch (parseError) {
+        console.error(`Error parsing tasks for post ${postId}:`, parseError.message);
+        tasks = [];
+      }
+    }
+
+    return res.status(200).json({
+      type: 'goal',
+      userID: post.userID || '',
+      username: username.username || '',
+      description: post.goalInfo || '',
+      created_at: post.created_at || '',
+      tasks: goalTasks.stepsInfo || [],
+      numOfLikes: post.numOfLikes || 0,
+      numOfComments: post.numOfComments || 0,
+      id: post_id || ''
+    })
+  } catch (fetchPostError){
+    console.error('Fetch post error', fetchPostError)
+    return res.status(400).json({error: fetchPostError})
+  }
+})
+
 
 app.post('/posts/:post_id/comments', verifyToken, async (req, res) => {
   try{
