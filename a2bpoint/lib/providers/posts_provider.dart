@@ -2,10 +2,14 @@ import 'package:flutter/material.dart';
 import '../models/post.dart';
 import '../models/comment.dart';
 import '../services/api_services.dart';
+import '../services/post_service.dart';
+import '../services/comment_service.dart';
 import 'dart:developer' as developer;
 
 class PostsProvider with ChangeNotifier {
   final ApiService _apiService = ApiService();
+  final PostService _postService = PostService();
+  final CommentService _commentService = CommentService();
   List<Post> _posts = [];
   List<Comment> _comments = [];
   bool _isLoading = false;
@@ -33,8 +37,8 @@ class PostsProvider with ChangeNotifier {
       developer.log('Fetching posts with token, isEvent=$isEvent',
           name: 'PostsProvider');
       final posts = isEvent
-          ? await _apiService.getAllEvents(token, '')
-          : await _apiService.getAllGoals(token, '');
+          ? await _postService.getAllEvents(token, '')
+          : await _postService.getAllGoals(token, '');
       _posts = posts;
       developer.log('Fetched ${posts.length} posts', name: 'PostsProvider');
     } catch (e, stackTrace) {
@@ -47,16 +51,19 @@ class PostsProvider with ChangeNotifier {
     }
   }
 
-  Future<void> fetchComments(String postId, String token, String postType) async {
+  Future<void> fetchComments(
+      String postId, String token, String postType) async {
     try {
       _isLoading = true;
       _error = null;
       notifyListeners();
 
-      developer.log('Fetching comments for post_id: $postId, post_type: $postType',
+      developer.log(
+          'Fetching comments for post_id: $postId, post_type: $postType',
           name: 'PostsProvider');
-      _comments = await _apiService.getComments(postId, token, postType);
-      developer.log('Fetched ${_comments.length} comments', name: 'PostsProvider');
+      _comments = await _commentService.getComments(postId, token, postType);
+      developer.log('Fetched ${_comments.length} comments',
+          name: 'PostsProvider');
     } catch (e, stackTrace) {
       developer.log('Error fetching comments: $e',
           name: 'PostsProvider', stackTrace: stackTrace);
@@ -75,7 +82,7 @@ class PostsProvider with ChangeNotifier {
           name: 'PostsProvider');
       final index = _posts.indexWhere((post) => post.id == postId);
       if (index != -1) {
-        final result = await _apiService.likePost(postId, userId, token);
+        final result = await _postService.likePost(postId, userId, token);
         _posts[index] = _posts[index].copyWith(
           numOfLikes: result['numOfLikes'] ?? currentNumOfLikes,
         );
@@ -93,12 +100,13 @@ class PostsProvider with ChangeNotifier {
     }
   }
 
-  Future<void> addComment(
-      String postId, String userId, String text, String postType, String token) async {
+  Future<void> addComment(String postId, String userId, String text,
+      String postType, String token) async {
     try {
       developer.log('Adding comment to post_id: $postId',
           name: 'PostsProvider');
-      await _apiService.createComment(postId, userId, text, postType, token);
+      await _commentService.createComment(
+          postId, userId, text, postType, token);
       final index = _posts.indexWhere((post) => post.id == postId);
       if (index != -1) {
         _posts[index] = _posts[index].copyWith(
@@ -121,7 +129,7 @@ class PostsProvider with ChangeNotifier {
   Future<void> joinEvent(String eventId, String userId, String token) async {
     try {
       developer.log('Joining event: eventId=$eventId', name: 'PostsProvider');
-      await _apiService.joinEvent(eventId, userId, token);
+      await _postService.joinEvent(eventId, userId, token);
       developer.log('Joined event: eventId=$eventId', name: 'PostsProvider');
       notifyListeners();
     } catch (e, stackTrace) {

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:io';
 import '../services/api_services.dart';
+import '../services/post_service.dart';
 
 class AuthProvider with ChangeNotifier {
   String? _token;
@@ -133,9 +134,11 @@ class AuthProvider with ChangeNotifier {
     }
   }
 
-  Future<void> updateProfile(String username, String bio, String email, File? newAvatar) async {
+  Future<void> updateProfile(
+      String username, String bio, String email, File? newAvatar) async {
     try {
-      developer.log('Updating profile: username=$username, bio=$bio, email=$email, newAvatar=${newAvatar?.path}',
+      developer.log(
+          'Updating profile: username=$username, bio=$bio, email=$email, newAvatar=${newAvatar?.path}',
           name: 'AuthProvider');
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('username', username);
@@ -143,7 +146,7 @@ class AuthProvider with ChangeNotifier {
       await prefs.setString('email', email);
       String? photoURL;
       if (newAvatar != null) {
-        photoURL = await ApiService().uploadMedia(newAvatar, _token ?? '');
+        photoURL = await PostService().uploadMedia(newAvatar, _token ?? '');
         await prefs.setString('avatarUrl_${_userId ?? ''}', photoURL);
         _avatarUrl = photoURL;
       }

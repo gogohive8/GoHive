@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
-import '../services/api_services.dart';
+import '../services/ai_service.dart';
 import 'dart:developer' as developer;
 import 'navbar.dart';
 
@@ -23,7 +23,7 @@ class AIMentorScreenState extends State<AIMentorScreen> {
     if (message.isEmpty) return;
 
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    final apiService = ApiService();
+    final aiService = AIService();
 
     setState(() {
       _messages.add({
@@ -39,10 +39,10 @@ class AIMentorScreenState extends State<AIMentorScreen> {
       String response;
       if (_requestType == 'goal') {
         response =
-            await apiService.generateGoal(message, authProvider.token ?? '');
+            await aiService.generateGoal(message, authProvider.token ?? '');
       } else {
         response =
-            await apiService.generateEvent(message, authProvider.token ?? '');
+            await aiService.generateEvent(message, authProvider.token ?? '');
       }
 
       setState(() {

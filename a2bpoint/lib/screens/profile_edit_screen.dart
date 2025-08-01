@@ -5,6 +5,7 @@ import 'package:loading_overlay/loading_overlay.dart';
 import 'package:image_picker/image_picker.dart';
 import '../providers/auth_provider.dart';
 import '../services/api_services.dart';
+import '../services/post_service.dart';
 import '../screens/navbar.dart';
 
 class ProfileEditScreen extends StatefulWidget {
@@ -21,6 +22,7 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
   bool _isLoading = false;
   File? _newAvatar;
   final ApiService _apiService = ApiService();
+  final PostService _postService = PostService();
 
   @override
   void initState() {
@@ -64,7 +66,7 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
     try {
       String? photoURL;
       if (_newAvatar != null) {
-        photoURL = await _apiService.uploadMedia(_newAvatar!, auth.token!);
+        photoURL = await _postService.uploadMedia(_newAvatar!, auth.token!);
       }
 
       final data = {

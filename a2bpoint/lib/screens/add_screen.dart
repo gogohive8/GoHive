@@ -4,10 +4,12 @@ import 'package:provider/provider.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:developer' as developer;
 import '../services/api_services.dart';
+import '../services/post_service.dart';
 import '../providers/auth_provider.dart';
 import '../services/exceptions.dart';
 import 'navbar.dart';
 import '../models/tasks.dart';
+
 class AddScreen extends StatefulWidget {
   const AddScreen({super.key});
 
@@ -31,6 +33,7 @@ class _AddScreenState extends State<AddScreen>
   bool _isLoading = false;
   late TabController _tabController;
   final ApiService _apiService = ApiService();
+  final PostService _postService = PostService();
 
   // List of categories
   final List<String> _categories = [
@@ -105,13 +108,13 @@ class _AddScreenState extends State<AddScreen>
     try {
       String? photoUrl;
       if (_photo != null) {
-        photoUrl = await _apiService.uploadMedia(_photo!, authProvider.token!);
+        photoUrl = await _postService.uploadMedia(_photo!, authProvider.token!);
         developer.log('Photo uploaded: $photoUrl', name: 'AddScreen');
       }
 
       if (_tabController.index == 1) {
         // Event
-        await _apiService.createEvent(
+        await _postService.createEvent(
           userId: authProvider.userId!,
           description: _descriptionController.text.trim(),
           location: _locationController.text.trim(),
@@ -123,7 +126,7 @@ class _AddScreenState extends State<AddScreen>
         developer.log('Event created', name: 'AddScreen');
       } else {
         // Goal
-        await _apiService.createGoal(
+        await _postService.createGoal(
           userId: authProvider.userId!,
           description: _descriptionController.text.trim(),
           location: _locationController.text.trim(),
@@ -162,7 +165,8 @@ class _AddScreenState extends State<AddScreen>
   void _addTask() {
     if (_taskController.text.isNotEmpty) {
       setState(() {
-        _tasks.add(Task(title: _taskController.text.trim(), completed: false).toJson());
+        _tasks.add(Task(title: _taskController.text.trim(), completed: false)
+            .toJson());
         _taskController.clear();
       });
       developer.log('Task added: ${_tasks.last}', name: 'AddScreen');
@@ -194,7 +198,7 @@ class _AddScreenState extends State<AddScreen>
     final screenHeight = MediaQuery.of(context).size.height;
     final padding = screenWidth * 0.0427; // ~16dp for 375dp width
     final maxWidth = screenWidth - 2 * padding;
-    
+
     return SingleChildScrollView(
       padding: EdgeInsets.all(padding),
       child: Form(
@@ -260,7 +264,7 @@ class _AddScreenState extends State<AddScreen>
                 ),
               ),
             ),
-            
+
             // Description
             Padding(
               padding: const EdgeInsets.only(top: 20.0),
@@ -278,7 +282,7 @@ class _AddScreenState extends State<AddScreen>
                     : null,
               ),
             ),
-            
+
             // Location
             Padding(
               padding: const EdgeInsets.only(top: 20.0),
@@ -293,7 +297,7 @@ class _AddScreenState extends State<AddScreen>
                 ),
               ),
             ),
-            
+
             // Category
             Padding(
               padding: const EdgeInsets.only(top: 20.0),
@@ -323,7 +327,7 @@ class _AddScreenState extends State<AddScreen>
                     value == null ? 'Select a category' : null,
               ),
             ),
-            
+
             // Goal-specific fields
             if (!isEvent) ...[
               // Point A
@@ -340,7 +344,7 @@ class _AddScreenState extends State<AddScreen>
                   ),
                 ),
               ),
-              
+
               // Point B
               Padding(
                 padding: const EdgeInsets.only(top: 20.0),
@@ -355,7 +359,7 @@ class _AddScreenState extends State<AddScreen>
                   ),
                 ),
               ),
-              
+
               // Tasks
               Padding(
                 padding: const EdgeInsets.only(top: 20.0),
@@ -402,7 +406,7 @@ class _AddScreenState extends State<AddScreen>
                   ],
                 ),
               ),
-              
+
               // Tasks List
               if (_tasks.isNotEmpty)
                 Padding(
@@ -420,7 +424,8 @@ class _AddScreenState extends State<AddScreen>
                                 leading: const Icon(Icons.task_alt, size: 20),
                                 title: Text(entry.value['title']),
                                 trailing: IconButton(
-                                  icon: const Icon(Icons.delete, color: Colors.red),
+                                  icon: const Icon(Icons.delete,
+                                      color: Colors.red),
                                   onPressed: () => _removeTask(entry.key),
                                 ),
                               ))
@@ -429,7 +434,7 @@ class _AddScreenState extends State<AddScreen>
                   ),
                 ),
             ],
-            
+
             // Event-specific field
             if (isEvent)
               Padding(
@@ -473,7 +478,7 @@ class _AddScreenState extends State<AddScreen>
                   readOnly: true,
                 ),
               ),
-            
+
             // Error display
             if (_error != null)
               Padding(
@@ -499,7 +504,7 @@ class _AddScreenState extends State<AddScreen>
                   ),
                 ),
               ),
-            
+
             // Submit Button
             Padding(
               padding: EdgeInsets.only(top: 32.0, bottom: screenHeight * 0.05),
@@ -521,7 +526,8 @@ class _AddScreenState extends State<AddScreen>
                           width: 20,
                           child: CircularProgressIndicator(
                             strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                            valueColor:
+                                AlwaysStoppedAnimation<Color>(Colors.white),
                           ),
                         )
                       : Text(

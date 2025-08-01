@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../providers/auth_provider.dart';
 import '../services/api_services.dart';
+import '../services/post_service.dart';
 import '../models/post.dart';
 import '../services/exceptions.dart';
 import 'navbar.dart';
@@ -21,6 +22,7 @@ class ProfileScreen extends StatefulWidget {
 class _ProfileScreenState extends State<ProfileScreen>
     with SingleTickerProviderStateMixin {
   final ApiService _apiService = ApiService();
+  final PostService _postService = PostService();
   Map<String, dynamic>? _profile;
   List<Post> _goals = [];
   List<Post> _events = [];
@@ -68,14 +70,15 @@ class _ProfileScreenState extends State<ProfileScreen>
     }
 
     try {
-      developer.log('Loading profile for userId=$userId', name: 'ProfileScreen');
+      developer.log('Loading profile for userId=$userId',
+          name: 'ProfileScreen');
 
       final prefs = await SharedPreferences.getInstance();
       final savedBiography = prefs.getString('biography_$userId') ?? '';
 
       final profile = await _apiService.getProfile(userId, token);
-      final goals = await _apiService.getGoals(userId, token);
-      final events = await _apiService.getEvents(userId, token);
+      final goals = await _postService.getGoals(userId, token);
+      final events = await _postService.getEvents(userId, token);
 
       if (mounted) {
         setState(() {
@@ -120,7 +123,8 @@ class _ProfileScreenState extends State<ProfileScreen>
     }
 
     try {
-      developer.log('Updating biography for userId=$userId', name: 'ProfileScreen');
+      developer.log('Updating biography for userId=$userId',
+          name: 'ProfileScreen');
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('biography_$userId', _biographyController.text);
 
@@ -196,7 +200,8 @@ class _ProfileScreenState extends State<ProfileScreen>
                         indicatorColor: const Color(0xFFAFCBEA),
                         labelColor: const Color(0xFFAFCBEA),
                         unselectedLabelColor: const Color(0xFF333333),
-                        labelStyle: const TextStyle(fontWeight: FontWeight.bold),
+                        labelStyle:
+                            const TextStyle(fontWeight: FontWeight.bold),
                       ),
                     ),
                     // Контент табов
@@ -330,7 +335,8 @@ class _ProfileScreenState extends State<ProfileScreen>
                   onPressed: _updateBiography,
                 ),
                 hintText: 'Tell us about yourself...',
-                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               ),
               maxLines: 2,
               style: const TextStyle(
@@ -487,23 +493,23 @@ class _ProfileScreenState extends State<ProfileScreen>
                     ),
                     const SizedBox(height: 8),
                     ...post.tasks!.map((task) => Container(
-                        margin: const EdgeInsets.only(bottom: 4),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 6,
-                        ),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFF9F6F2),
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: Text(
-                          task.title, // Changed from task['title']?.toString() ?? 'Untitled task'
-                          style: const TextStyle(
-                            color: Color(0xFF333333),
-                            fontSize: 12,
+                          margin: const EdgeInsets.only(bottom: 4),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 6,
                           ),
-                        ),
-                      )),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF9F6F2),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            task.title, // Changed from task['title']?.toString() ?? 'Untitled task'
+                            style: const TextStyle(
+                              color: Color(0xFF333333),
+                              fontSize: 12,
+                            ),
+                          ),
+                        )),
                   ],
                 ],
               ),

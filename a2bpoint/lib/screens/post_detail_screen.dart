@@ -1,3 +1,4 @@
+import 'package:GoHive/services/post_service.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:ionicons/ionicons.dart';
@@ -7,6 +8,8 @@ import 'package:timeago/timeago.dart' as timeago;
 import '../models/post.dart';
 import '../models/comment.dart';
 import '../services/api_services.dart';
+import '../services/post_service.dart';
+import '../services/comment_service.dart';
 import '../providers/auth_provider.dart';
 import 'dart:developer' as developer;
 
@@ -14,7 +17,9 @@ class PostDetailScreen extends StatefulWidget {
   final String postId;
   final String postType;
 
-  const PostDetailScreen({Key? key, required this.postId, required this.postType}) : super(key: key);
+  const PostDetailScreen(
+      {Key? key, required this.postId, required this.postType})
+      : super(key: key);
 
   @override
   _PostDetailScreenState createState() => _PostDetailScreenState();
@@ -28,6 +33,8 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
   bool _isCommenting = false;
   String? _error;
   final ApiService _apiService = ApiService();
+  final PostService _postService = PostService();
+  final CommentService _commentService = CommentService();
 
   @override
   void initState() {
@@ -44,9 +51,9 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
 
   void _fetchPostAndComments() async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    
-    if (!authProvider.isAuthenticated || 
-        authProvider.token == null || 
+
+    if (!authProvider.isAuthenticated ||
+        authProvider.token == null ||
         authProvider.userId == null) {
       if (mounted) {
         setState(() {
@@ -56,25 +63,24 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
       }
       return;
     }
-    
+
     setState(() {
       _isLoading = true;
       _error = null;
     });
-    
+
     try {
-      developer.log('Fetching post ${widget.postId} and comments', name: 'PostDetailScreen');
-      
+      developer.log('Fetching post ${widget.postId} and comments',
+          name: 'PostDetailScreen');
+
       // Fetch post details
-      final post = await _apiService.getPostById(widget.postId, authProvider.token!);
-      
+      final post =
+          await _postService.getPostById(widget.postId, authProvider.token!);
+
       // Fetch comments
-      final comments = await _apiService.getComments(
-        widget.postId, 
-        authProvider.token!, 
-        widget.postType
-      );
-      
+      final comments = await _commentService.getComments(
+          widget.postId, authProvider.token!, widget.postType);
+
       if (mounted) {
         setState(() {
           _post = post;
@@ -97,7 +103,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final userId = authProvider.userId ?? '';
     final token = authProvider.token ?? '';
-    
+
     if (userId.isEmpty || token.isEmpty) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -106,15 +112,16 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
       }
       return isLiked;
     }
-    
+
     try {
       if (!isLiked) {
-        final result = await _apiService.likePost(widget.postId, userId, token);
+        final result =
+            await _postService.likePost(widget.postId, userId, token);
         if (mounted && _post != null) {
           setState(() {
             _post = _post!.copyWith(
-              numOfLikes: result['numOfLikes'] as int? ?? _post!.numOfLikes + 1
-            );
+                numOfLikes:
+                    result['numOfLikes'] as int? ?? _post!.numOfLikes + 1);
           });
         }
       }
@@ -134,7 +141,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final userId = authProvider.userId ?? '';
     final token = authProvider.token ?? '';
-    
+
     if (userId.isEmpty || token.isEmpty) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -143,7 +150,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
       }
       return;
     }
-    
+
     final commentText = _commentController.text.trim();
     if (commentText.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -151,22 +158,22 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
       );
       return;
     }
-    
+
     setState(() {
       _isCommenting = true;
     });
-    
+
     try {
-      final commentData = await _apiService.createComment(
+      final commentData = await _commentService.createComment(
         widget.postId,
         userId,
         commentText,
         widget.postType,
         token,
       );
-      
+
       final newComment = Comment.fromJson(commentData);
-      
+
       if (mounted && _post != null) {
         setState(() {
           _comments = [newComment, ..._comments];
@@ -192,9 +199,9 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
     if (_post?.imageUrls == null || _post!.imageUrls!.isEmpty) {
       return const SizedBox.shrink();
     }
-    
+
     final url = _post!.imageUrls![0];
-    
+
     return Container(
       height: 300,
       width: double.infinity,
@@ -215,7 +222,8 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
           ),
         ),
         errorWidget: (context, url, error) {
-          developer.log('Error loading image: $error for URL: $url', name: 'PostDetailScreen');
+          developer.log('Error loading image: $error for URL: $url',
+              name: 'PostDetailScreen');
           return Container(
             height: 300,
             width: double.infinity,
@@ -244,7 +252,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
         body: Center(child: CircularProgressIndicator()),
       );
     }
-    
+
     if (_error != null || _post == null) {
       return Scaffold(
         appBar: AppBar(
@@ -262,7 +270,8 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
               const SizedBox(height: 16),
               Text(
                 'Error loading post',
-                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                style:
+                    const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 8),
               Text(
@@ -284,7 +293,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
         ),
       );
     }
-    
+
     return Scaffold(
       appBar: AppBar(
         title: Text('${_post!.user.username}\'s Post'),
@@ -314,7 +323,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                         radius: 20,
                         child: _post!.user.profileImage.isEmpty
                             ? Text(
-                                _post!.user.username.isNotEmpty 
+                                _post!.user.username.isNotEmpty
                                     ? _post!.user.username[0].toUpperCase()
                                     : 'U',
                                 style: const TextStyle(color: Colors.white),
@@ -326,8 +335,8 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            _post!.user.username.isNotEmpty 
-                                ? _post!.user.username 
+                            _post!.user.username.isNotEmpty
+                                ? _post!.user.username
                                 : 'Unknown User',
                             style: const TextStyle(
                               fontWeight: FontWeight.bold,
@@ -347,11 +356,11 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                     ],
                   ),
                   const SizedBox(height: 12),
-                  
+
                   // Post media
                   _buildMediaWidget(),
                   const SizedBox(height: 12),
-                  
+
                   // Post text
                   Text(
                     _post!.text ?? 'No description',
@@ -360,10 +369,10 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                       color: Color(0xFF1A1A1A),
                     ),
                   ),
-                  
+
                   // Tasks (if goal) - ИСПРАВЛЕНО
-                  if (widget.postType == 'goal' && 
-                      _post!.tasks != null && 
+                  if (widget.postType == 'goal' &&
+                      _post!.tasks != null &&
                       _post!.tasks!.isNotEmpty) ...[
                     const SizedBox(height: 12),
                     const Text(
@@ -375,31 +384,36 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                       ),
                     ),
                     ..._post!.tasks!.map((task) => Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 4),
-                      child: Row(
-                        children: [
-                          Icon(
-                            task.completed ? Icons.check_circle : Icons.radio_button_unchecked,
-                            size: 16,
-                            color: task.completed ? Colors.green : Colors.grey,
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              task.title,
-                              style: TextStyle(
-                                color: const Color(0xFF333333),
-                                decoration: task.completed ? TextDecoration.lineThrough : null,
+                          padding: const EdgeInsets.symmetric(vertical: 4),
+                          child: Row(
+                            children: [
+                              Icon(
+                                task.completed
+                                    ? Icons.check_circle
+                                    : Icons.radio_button_unchecked,
+                                size: 16,
+                                color:
+                                    task.completed ? Colors.green : Colors.grey,
                               ),
-                            ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  task.title,
+                                  style: TextStyle(
+                                    color: const Color(0xFF333333),
+                                    decoration: task.completed
+                                        ? TextDecoration.lineThrough
+                                        : null,
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
-                        ],
-                      ),
-                    )),
+                        )),
                   ],
-                  
+
                   const SizedBox(height: 12),
-                  
+
                   // Like and comment counts
                   Row(
                     children: [
@@ -428,16 +442,18 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                           likeBuilder: (isLiked) {
                             return Icon(
                               isLiked ? Ionicons.heart : Ionicons.heart_outline,
-                              color: isLiked ? Colors.red : const Color(0xFF333333),
+                              color: isLiked
+                                  ? Colors.red
+                                  : const Color(0xFF333333),
                               size: 25,
                             );
                           },
                         ),
                     ],
                   ),
-                  
+
                   const SizedBox(height: 16),
-                  
+
                   // Comments section
                   const Text(
                     'Comments',
@@ -447,7 +463,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                       color: Color(0xFF000000),
                     ),
                   ),
-                  
+
                   if (_comments.isEmpty)
                     const Padding(
                       padding: EdgeInsets.symmetric(vertical: 16),
@@ -458,7 +474,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                         ),
                       ),
                     ),
-                  
+
                   // Comments list
                   ..._comments.map((comment) => Padding(
                         padding: const EdgeInsets.symmetric(vertical: 8.0),
@@ -469,7 +485,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                               backgroundColor: const Color(0xFF333333),
                               radius: 20,
                               child: Text(
-                                comment.username.isNotEmpty 
+                                comment.username.isNotEmpty
                                     ? comment.username[0].toUpperCase()
                                     : 'U',
                                 style: const TextStyle(color: Colors.white),
@@ -481,8 +497,8 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    comment.username.isNotEmpty 
-                                        ? comment.username 
+                                    comment.username.isNotEmpty
+                                        ? comment.username
                                         : 'Unknown User',
                                     style: const TextStyle(
                                       fontWeight: FontWeight.bold,
@@ -499,7 +515,8 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                                   const SizedBox(height: 4),
                                   Text(
                                     comment.text,
-                                    style: const TextStyle(color: Color(0xFF1A1A1A)),
+                                    style: const TextStyle(
+                                        color: Color(0xFF1A1A1A)),
                                   ),
                                 ],
                               ),
@@ -511,7 +528,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
               ),
             ),
           ),
-          
+
           // Comment input
           Container(
             padding: const EdgeInsets.all(16.0),
@@ -519,7 +536,8 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
               color: Colors.white,
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.1), // ИСПРАВЛЕНО: использование withValues
+                  color: Colors.black.withValues(
+                      alpha: 0.1), // ИСПРАВЛЕНО: использование withValues
                   blurRadius: 4,
                   offset: const Offset(0, -2),
                 ),
@@ -533,10 +551,8 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                     decoration: const InputDecoration(
                       labelText: 'Add a comment',
                       border: OutlineInputBorder(),
-                      contentPadding: EdgeInsets.symmetric(
-                        horizontal: 12, 
-                        vertical: 8
-                      ),
+                      contentPadding:
+                          EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     ),
                     maxLines: null,
                     enabled: !_isCommenting,

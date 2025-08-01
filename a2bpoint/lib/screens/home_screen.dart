@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import 'package:video_player/video_player.dart';
 import '../models/post.dart';
 import '../services/api_services.dart';
+import '../services/post_service.dart';
 import '../services/exceptions.dart';
 import '../providers/auth_provider.dart';
 import '../screens/post_detail_screen.dart';
@@ -24,6 +25,7 @@ class _HomeScreenState extends State<HomeScreen>
   int _selectedIndex = 0;
   int _selectedTabIndex = 0;
   final ApiService _apiService = ApiService();
+  final PostService _postService = PostService();
   late TabController _tabController;
   final Map<String, VideoPlayerController> _videoControllers = {};
   List<Post> _goals = [];
@@ -47,11 +49,10 @@ class _HomeScreenState extends State<HomeScreen>
     _apiService.dispose();
     super.dispose();
   }
-  
 
   void _checkAuthAndFetchPosts() async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    
+
     if (!authProvider.isInitialized) {
       developer.log('AuthProvider not initialized, waiting for initialization',
           name: 'HomeScreen');
@@ -70,16 +71,18 @@ class _HomeScreenState extends State<HomeScreen>
         }
       }
     } else {
-      developer.log('AuthProvider initialized, fetching posts', name: 'HomeScreen');
+      developer.log('AuthProvider initialized, fetching posts',
+          name: 'HomeScreen');
       _fetchPosts(authProvider);
     }
   }
 
   void _fetchPosts(AuthProvider authProvider) async {
-    if (!authProvider.isAuthenticated || 
-        authProvider.userId == null || 
+    if (!authProvider.isAuthenticated ||
+        authProvider.userId == null ||
         authProvider.token == null) {
-      developer.log('No token or userId, handling auth error', name: 'HomeScreen');
+      developer.log('No token or userId, handling auth error',
+          name: 'HomeScreen');
       if (mounted) {
         setState(() {
           _isLoading = false;
@@ -95,15 +98,18 @@ class _HomeScreenState extends State<HomeScreen>
     });
 
     try {
-      developer.log('Fetching posts with token: ${authProvider.token!.substring(0, 20)}...', 
+      developer.log(
+          'Fetching posts with token: ${authProvider.token!.substring(0, 20)}...',
           name: 'HomeScreen');
-      
-      final goals = await _apiService.getAllGoals(authProvider.token!, authProvider.userId!);
-      final events = await _apiService.getAllEvents(authProvider.token!, authProvider.userId!);
-      
-      developer.log('Fetched ${goals.length} goals and ${events.length} events', 
+
+      final goals = await _postService.getAllGoals(
+          authProvider.token!, authProvider.userId!);
+      final events = await _postService.getAllEvents(
+          authProvider.token!, authProvider.userId!);
+
+      developer.log('Fetched ${goals.length} goals and ${events.length} events',
           name: 'HomeScreen');
-      
+
       if (mounted) {
         setState(() {
           _goals = goals;
@@ -139,94 +145,24 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   Widget _buildMediaWidget(Post post) {
-  if (post.imageUrls == null || post.imageUrls!.isEmpty) {
-    return const SizedBox.shrink();
-  }
-  
-  // ИСПРАВЛЕНО: очистка URL от квадратных скобок и лишних символов
-  String cleanUrl = post.imageUrls![0];
-  
-  // Убираем квадратные скобки если они есть
-  if (cleanUrl.startsWith('[') && cleanUrl.endsWith(']')) {
-    cleanUrl = cleanUrl.substring(1, cleanUrl.length - 1);
-  }
-  
-  // Убираем лишние пробелы
-  cleanUrl = cleanUrl.trim();
-  
-  // Дополнительная проверка на валидность URL
-  if (!cleanUrl.startsWith('http://') && !cleanUrl.startsWith('https://')) {
-    developer.log('Invalid URL format: $cleanUrl', name: 'HomeScreen');
-    return Container(
-      height: 200,
-      color: Colors.grey[300],
-      child: const Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.broken_image, size: 50, color: Colors.grey),
-          SizedBox(height: 8),
-          Text('Invalid image URL', style: TextStyle(color: Colors.grey)),
-        ],
-      ),
-    );
-  }
-  
-  developer.log('Loading cleaned media: $cleanUrl', name: 'HomeScreen');
-  
-  final isVideo = cleanUrl.toLowerCase().endsWith('.mp4') || 
-                 cleanUrl.toLowerCase().endsWith('.mov') ||
-                 cleanUrl.toLowerCase().endsWith('.avi');
-  
-  if (isVideo) {
-    if (!_videoControllers.containsKey(post.id)) {
-      _videoControllers[post.id] =
-          VideoPlayerController.networkUrl(Uri.parse(cleanUrl))
-            ..initialize().then((_) {
-              if (mounted) setState(() {});
-            });
+    if (post.imageUrls == null || post.imageUrls!.isEmpty) {
+      return const SizedBox.shrink();
     }
-    final controller = _videoControllers[post.id]!;
-    return controller.value.isInitialized
-        ? Stack(
-            alignment: Alignment.center,
-            children: [
-              AspectRatio(
-                aspectRatio: controller.value.aspectRatio,
-                child: VideoPlayer(controller),
-              ),
-              IconButton(
-                icon: Icon(
-                  controller.value.isPlaying ? Icons.pause : Icons.play_arrow,
-                  color: Colors.white,
-                  size: 50,
-                ),
-                onPressed: () {
-                  setState(() {
-                    controller.value.isPlaying
-                        ? controller.pause()
-                        : controller.play();
-                  });
-                },
-              ),
-            ],
-          )
-        : Container(
-            height: 200,
-            child: const Center(child: CircularProgressIndicator()),
-          );
-  }
-  
-  return CachedNetworkImage(
-    imageUrl: cleanUrl, // Используем очищенный URL
-    height: 200,
-    width: double.infinity,
-    fit: BoxFit.cover,
-    placeholder: (context, url) => Container(
-      height: 200,
-      child: const Center(child: CircularProgressIndicator()),
-    ),
-    errorWidget: (context, url, error) {
-      developer.log('Image load error: $error for URL: $cleanUrl', name: 'HomeScreen');
+
+    // ИСПРАВЛЕНО: очистка URL от квадратных скобок и лишних символов
+    String cleanUrl = post.imageUrls![0];
+
+    // Убираем квадратные скобки если они есть
+    if (cleanUrl.startsWith('[') && cleanUrl.endsWith(']')) {
+      cleanUrl = cleanUrl.substring(1, cleanUrl.length - 1);
+    }
+
+    // Убираем лишние пробелы
+    cleanUrl = cleanUrl.trim();
+
+    // Дополнительная проверка на валидность URL
+    if (!cleanUrl.startsWith('http://') && !cleanUrl.startsWith('https://')) {
+      developer.log('Invalid URL format: $cleanUrl', name: 'HomeScreen');
       return Container(
         height: 200,
         color: Colors.grey[300],
@@ -235,16 +171,87 @@ class _HomeScreenState extends State<HomeScreen>
           children: [
             Icon(Icons.broken_image, size: 50, color: Colors.grey),
             SizedBox(height: 8),
-            Text('Image not available', style: TextStyle(color: Colors.grey)),
+            Text('Invalid image URL', style: TextStyle(color: Colors.grey)),
           ],
         ),
       );
-    },
-    httpHeaders: const {
-      'User-Agent': 'Flutter App',
-    },
-  );
-}
+    }
+
+    developer.log('Loading cleaned media: $cleanUrl', name: 'HomeScreen');
+
+    final isVideo = cleanUrl.toLowerCase().endsWith('.mp4') ||
+        cleanUrl.toLowerCase().endsWith('.mov') ||
+        cleanUrl.toLowerCase().endsWith('.avi');
+
+    if (isVideo) {
+      if (!_videoControllers.containsKey(post.id)) {
+        _videoControllers[post.id] =
+            VideoPlayerController.networkUrl(Uri.parse(cleanUrl))
+              ..initialize().then((_) {
+                if (mounted) setState(() {});
+              });
+      }
+      final controller = _videoControllers[post.id]!;
+      return controller.value.isInitialized
+          ? Stack(
+              alignment: Alignment.center,
+              children: [
+                AspectRatio(
+                  aspectRatio: controller.value.aspectRatio,
+                  child: VideoPlayer(controller),
+                ),
+                IconButton(
+                  icon: Icon(
+                    controller.value.isPlaying ? Icons.pause : Icons.play_arrow,
+                    color: Colors.white,
+                    size: 50,
+                  ),
+                  onPressed: () {
+                    setState(() {
+                      controller.value.isPlaying
+                          ? controller.pause()
+                          : controller.play();
+                    });
+                  },
+                ),
+              ],
+            )
+          : Container(
+              height: 200,
+              child: const Center(child: CircularProgressIndicator()),
+            );
+    }
+
+    return CachedNetworkImage(
+      imageUrl: cleanUrl, // Используем очищенный URL
+      height: 200,
+      width: double.infinity,
+      fit: BoxFit.cover,
+      placeholder: (context, url) => Container(
+        height: 200,
+        child: const Center(child: CircularProgressIndicator()),
+      ),
+      errorWidget: (context, url, error) {
+        developer.log('Image load error: $error for URL: $cleanUrl',
+            name: 'HomeScreen');
+        return Container(
+          height: 200,
+          color: Colors.grey[300],
+          child: const Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.broken_image, size: 50, color: Colors.grey),
+              SizedBox(height: 8),
+              Text('Image not available', style: TextStyle(color: Colors.grey)),
+            ],
+          ),
+        );
+      },
+      httpHeaders: const {
+        'User-Agent': 'Flutter App',
+      },
+    );
+  }
 
   Widget _buildMissionsView() {
     final size = MediaQuery.of(context).size;
@@ -269,22 +276,26 @@ class _HomeScreenState extends State<HomeScreen>
                     children: [
                       _buildChallengeCard(
                         title: 'The "Tidy Up" Challenge',
-                        description: '7-day live challenge\nfor those who are tired',
+                        description:
+                            '7-day live challenge\nfor those who are tired',
                         imageAsset: 'assets/images/tidy_challenge.png',
                       ),
                       _buildChallengeCard(
                         title: 'The "Moon" Challenge',
-                        description: '7-day live challenge\nfor those who are tired',
+                        description:
+                            '7-day live challenge\nfor those who are tired',
                         imageAsset: 'assets/images/moon_challenge.png',
                       ),
                       _buildChallengeCard(
                         title: 'The "Animal" Challenge',
-                        description: '7-day live challenge\nfor those who are tired',
+                        description:
+                            '7-day live challenge\nfor those who are tired',
                         imageAsset: 'assets/images/animal_challenge.png',
                       ),
                       _buildChallengeCard(
                         title: 'The "Dance" Challenge',
-                        description: '7-day live challenge\nfor those who are tired',
+                        description:
+                            '7-day live challenge\nfor those who are tired',
                         imageAsset: 'assets/images/dance_challenge.png',
                       ),
                     ],
@@ -365,7 +376,7 @@ class _HomeScreenState extends State<HomeScreen>
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final userId = authProvider.userId ?? '';
     final token = authProvider.token ?? '';
-    
+
     if (userId.isEmpty || token.isEmpty) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -374,10 +385,10 @@ class _HomeScreenState extends State<HomeScreen>
       }
       return isLiked;
     }
-    
+
     try {
       if (!isLiked) {
-        await _apiService.likePost(postId, userId, token);
+        await _postService.likePost(postId, userId, token);
         setState(() {
           if (_selectedTabIndex == 0) {
             _goals = _goals.map((post) {
@@ -420,10 +431,10 @@ class _HomeScreenState extends State<HomeScreen>
       }
       return;
     }
-    
+
     try {
       developer.log('Joining event: eventId=$eventId', name: 'HomeScreen');
-      await _apiService.joinEvent(
+      await _postService.joinEvent(
           eventId, authProvider.userId!, authProvider.token!);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -443,13 +454,13 @@ class _HomeScreenState extends State<HomeScreen>
   @override
   Widget build(BuildContext context) {
     final authProvider = Provider.of<AuthProvider>(context);
-    
+
     if (!authProvider.isInitialized) {
       return const Scaffold(
         body: Center(child: CircularProgressIndicator()),
       );
     }
-    
+
     return Scaffold(
       backgroundColor: const Color(0xFFF9F6F2),
       appBar: AppBar(
@@ -462,7 +473,8 @@ class _HomeScreenState extends State<HomeScreen>
             GestureDetector(
               onTap: () => _tabController.animateTo(0),
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
                   color: _selectedTabIndex == 0
                       ? const Color.fromRGBO(175, 203, 234, 0.1)
@@ -485,7 +497,8 @@ class _HomeScreenState extends State<HomeScreen>
             GestureDetector(
               onTap: () => _tabController.animateTo(1),
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
                   color: _selectedTabIndex == 1
                       ? const Color.fromRGBO(175, 203, 234, 0.1)
@@ -508,7 +521,8 @@ class _HomeScreenState extends State<HomeScreen>
             GestureDetector(
               onTap: () => _tabController.animateTo(2),
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
                   color: _selectedTabIndex == 2
                       ? const Color.fromRGBO(175, 203, 234, 0.1)
@@ -555,7 +569,7 @@ class _HomeScreenState extends State<HomeScreen>
     if (_isLoading) {
       return const Center(child: CircularProgressIndicator());
     }
-    
+
     if (_error != null) {
       return Center(
         child: Column(
@@ -575,7 +589,8 @@ class _HomeScreenState extends State<HomeScreen>
             ),
             const SizedBox(height: 16),
             ElevatedButton(
-              onPressed: () => _fetchPosts(Provider.of<AuthProvider>(context, listen: false)),
+              onPressed: () => _fetchPosts(
+                  Provider.of<AuthProvider>(context, listen: false)),
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFFAFCBEA),
                 foregroundColor: const Color(0xFF000000),
@@ -586,7 +601,7 @@ class _HomeScreenState extends State<HomeScreen>
         ),
       );
     }
-    
+
     if (posts.isEmpty) {
       return Center(
         child: Column(
@@ -607,9 +622,10 @@ class _HomeScreenState extends State<HomeScreen>
         ),
       );
     }
-    
+
     return RefreshIndicator(
-      onRefresh: () async => _fetchPosts(Provider.of<AuthProvider>(context, listen: false)),
+      onRefresh: () async =>
+          _fetchPosts(Provider.of<AuthProvider>(context, listen: false)),
       child: ListView.builder(
         padding: const EdgeInsets.all(16),
         itemCount: posts.length,
@@ -627,7 +643,8 @@ class _HomeScreenState extends State<HomeScreen>
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (context) => PostDetailScreen(postId: post.id, postType: type),
+                    builder: (context) =>
+                        PostDetailScreen(postId: post.id, postType: type),
                   ),
                 );
               },
@@ -646,7 +663,7 @@ class _HomeScreenState extends State<HomeScreen>
                           radius: 20,
                           child: post.user.profileImage.isEmpty
                               ? Text(
-                                  post.user.username.isNotEmpty 
+                                  post.user.username.isNotEmpty
                                       ? post.user.username[0].toUpperCase()
                                       : 'U',
                                   style: const TextStyle(color: Colors.white),
@@ -659,8 +676,8 @@ class _HomeScreenState extends State<HomeScreen>
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                post.user.username.isNotEmpty 
-                                    ? post.user.username 
+                                post.user.username.isNotEmpty
+                                    ? post.user.username
                                     : 'Unknown User',
                                 style: const TextStyle(
                                   fontWeight: FontWeight.bold,
@@ -682,7 +699,9 @@ class _HomeScreenState extends State<HomeScreen>
                         color: Color(0xFF1A1A1A),
                       ),
                     ),
-                    if (type == 'goal' && post.tasks != null && post.tasks!.isNotEmpty) ...[
+                    if (type == 'goal' &&
+                        post.tasks != null &&
+                        post.tasks!.isNotEmpty) ...[
                       const SizedBox(height: 12),
                       const Text(
                         'Tasks',
@@ -692,24 +711,24 @@ class _HomeScreenState extends State<HomeScreen>
                           color: Color(0xFF000000),
                         ),
                       ),
-                ...post.tasks!.map((task) => Container(
-                  margin: const EdgeInsets.only(bottom: 4),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF9F6F2),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Text(
-                    task.title, // Changed from task['title']?.toString() ?? 'Untitled task'
-                    style: const TextStyle(
-                      color: Color(0xFF333333),
-                      fontSize: 12,
-                    ),
-                  ),
-                )),
+                      ...post.tasks!.map((task) => Container(
+                            margin: const EdgeInsets.only(bottom: 4),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 6,
+                            ),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF9F6F2),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              task.title, // Changed from task['title']?.toString() ?? 'Untitled task'
+                              style: const TextStyle(
+                                color: Color(0xFF333333),
+                                fontSize: 12,
+                              ),
+                            ),
+                          )),
                     ],
                     const SizedBox(height: 12),
                     Row(
@@ -730,10 +749,12 @@ class _HomeScreenState extends State<HomeScreen>
                         ),
                         if (type == 'goal')
                           LikeButton(
-                            onTap: (isLiked) => _onLikeButtonTapped(post.id, isLiked),
+                            onTap: (isLiked) =>
+                                _onLikeButtonTapped(post.id, isLiked),
                             size: 25,
                             circleColor: const CircleColor(
-                                start: Color(0xffFFC0CB), end: Color(0xffff0000)),
+                                start: Color(0xffFFC0CB),
+                                end: Color(0xffff0000)),
                             bubblesColor: const BubblesColor(
                               dotPrimaryColor: Color(0xffFFA500),
                               dotSecondaryColor: Color(0xffd8392b),
@@ -742,15 +763,20 @@ class _HomeScreenState extends State<HomeScreen>
                             ),
                             likeBuilder: (isLiked) {
                               return Icon(
-                                isLiked ? Ionicons.heart : Ionicons.heart_outline,
-                                color: isLiked ? Colors.red : const Color(0xFF333333),
+                                isLiked
+                                    ? Ionicons.heart
+                                    : Ionicons.heart_outline,
+                                color: isLiked
+                                    ? Colors.red
+                                    : const Color(0xFF333333),
                                 size: 25,
                               );
                             },
                           )
                         else
                           ElevatedButton(
-                            onPressed: () => _joinEvent(post.id, post.text ?? ''),
+                            onPressed: () =>
+                                _joinEvent(post.id, post.text ?? ''),
                             style: ElevatedButton.styleFrom(
                               backgroundColor: const Color(0xFFAFCBEA),
                               foregroundColor: const Color(0xFF000000),
