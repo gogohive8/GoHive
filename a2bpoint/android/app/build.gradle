@@ -15,11 +15,25 @@ android {
         versionName "1.0"
         multiDexEnabled true
     }
+
+    signingConfigs {
+        release {
+            storeFile file("keystore.jks")
+            storePassword "qwerty123qazwsx)"
+            keyAlias "key"
+            keyPassword "qwerty123qazwsx)"
+        }
+    }
     buildTypes {
+        release {
+            signingConfig signingConfigs.release
+            minifyEnabled false  // Optional: Enables code shrinking
+            shrinkResources false  // Optional: Enables resource shrinking
+        }
         debug {
             signingConfig signingConfigs.debug
         }
-    }
+}
 }
 
 kotlin{
