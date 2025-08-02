@@ -244,21 +244,97 @@ class _HomeScreenState extends State<HomeScreen>
                         title: 'The "Tidy Up" Challenge',
                         description: '7-day live challenge\nfor those who are tired',
                         imageAsset: 'assets/images/tidy_challenge.png',
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => ChallengeDetailScreen(
+                                title: 'Tidy Up Challenge',
+                                tasks: [
+                                  ['Clean your desk', 'Organize the shelf'],
+                                  ['Dust the surfaces', 'Fold your clothes'],
+                                  ['Declutter your phone'],
+                                  ['Tidy up drawers', 'Throw away unnecessary items'],
+                                  ['Dust the surfaces', 'Fold your clothes'],
+                                  ['Declutter your phone'],
+                                  ['Tidy up drawers', 'Throw away unnecessary items'],
+                                ],
+                              ),
+                            ),
+                          );
+                        },
                       ),
                       _buildChallengeCard(
                         title: 'The "Moon" Challenge',
                         description: '7-day live challenge\nfor those who are tired',
                         imageAsset: 'assets/images/moon_challenge.png',
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => ChallengeDetailScreen(
+                                title: 'Tidy Up Challenge',
+                                tasks: [
+                                  ['Clean your desk', 'Organize the shelf'],
+                                  ['Dust the surfaces', 'Fold your clothes'],
+                                  ['Declutter your phone'],
+                                  ['Tidy up drawers', 'Throw away unnecessary items'],
+                                  ['Dust the surfaces', 'Fold your clothes'],
+                                  ['Declutter your phone'],
+                                  ['Tidy up drawers', 'Throw away unnecessary items'],
+                                ],
+                              ),
+                            ),
+                          );
+                        },
                       ),
                       _buildChallengeCard(
                         title: 'The "Animal" Challenge',
                         description: '7-day live challenge\nfor those who are tired',
                         imageAsset: 'assets/images/animal_challenge.png',
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => ChallengeDetailScreen(
+                                title: 'Tidy Up Challenge',
+                                tasks: [
+                                  ['Clean your desk', 'Organize the shelf'],
+                                  ['Dust the surfaces', 'Fold your clothes'],
+                                  ['Declutter your phone'],
+                                  ['Tidy up drawers', 'Throw away unnecessary items'],
+                                  ['Dust the surfaces', 'Fold your clothes'],
+                                  ['Declutter your phone'],
+                                  ['Tidy up drawers', 'Throw away unnecessary items'],
+                                ],
+                              ),
+                            ),
+                          );
+                        },
                       ),
                       _buildChallengeCard(
                         title: 'The "Dance" Challenge',
                         description: '7-day live challenge\nfor those who are tired',
                         imageAsset: 'assets/images/dance_challenge.png',
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => ChallengeDetailScreen(
+                                title: 'Tidy Up Challenge',
+                                tasks: [
+                                  ['Clean your desk', 'Organize the shelf'],
+                                  ['Dust the surfaces', 'Fold your clothes'],
+                                  ['Declutter your phone'],
+                                  ['Tidy up drawers', 'Throw away unnecessary items'],
+                                  ['Dust the surfaces', 'Fold your clothes'],
+                                  ['Declutter your phone'],
+                                  ['Tidy up drawers', 'Throw away unnecessary items'],
+                                ],
+                              ),
+                            ),
+                          );
+                        },
                       ),
                     ],
                   ),
@@ -275,64 +351,53 @@ class _HomeScreenState extends State<HomeScreen>
     required String title,
     required String description,
     required String imageAsset,
+    required VoidCallback onTap,
   }) {
-    return Container(
-      margin: const EdgeInsets.symmetric(vertical: 8),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            flex: 2,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF000000),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  description,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    color: Color(0xFF666666),
-                    height: 1.4,
-                  ),
-                ),
-              ],
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        margin: const EdgeInsets.symmetric(vertical: 8),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 4,
+              offset: const Offset(0, 2),
             ),
-          ),
-          const SizedBox(width: 16),
-          Container(
-            width: 80,
-            height: 80,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(12),
-              image: DecorationImage(
-                image: AssetImage(imageAsset),
-                fit: BoxFit.cover,
+          ],
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              flex: 2,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 8),
+                  Text(description, style: const TextStyle(fontSize: 14, color: Color(0xFF666666))),
+                ],
               ),
             ),
-          ),
-        ],
+            const SizedBox(width: 16),
+            Container(
+              width: 80,
+              height: 80,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(12),
+                image: DecorationImage(image: AssetImage(imageAsset), fit: BoxFit.cover),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
+
+
 
   Future<bool> _onLikeButtonTapped(String postId, bool isLiked) async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
@@ -761,3 +826,167 @@ class MissionsBackgroundPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
+
+class ChallengeDetailScreen extends StatefulWidget {
+  final String title;
+  final List<List<String>> tasks;
+
+  const ChallengeDetailScreen({
+    super.key,
+    required this.title,
+    required this.tasks,
+  });
+
+  @override
+  State<ChallengeDetailScreen> createState() => _ChallengeDetailScreenState();
+}
+
+class _ChallengeDetailScreenState extends State<ChallengeDetailScreen> {
+  int? selectedDay;
+
+  @override
+  Widget build(BuildContext context) {
+    const backgroundColor = Color(0xFFF2F1EC);
+    final screenWidth = MediaQuery.of(context).size.width;
+    final crossAxisSpacing = 12.0;
+    final buttonWidth = (screenWidth - 16 * 2 - crossAxisSpacing * 2) / 3;
+
+    return Scaffold(
+      backgroundColor: backgroundColor,
+      appBar: AppBar(
+        title: Text(widget.title),
+        backgroundColor: backgroundColor,
+        elevation: 0,
+        foregroundColor: const Color(0xFF1D1B20),
+      ),
+
+      body: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Wrap(
+          spacing: crossAxisSpacing,
+          runSpacing: 12,
+          children: List.generate(widget.tasks.length, (index) {
+            return SizedBox(
+              width: buttonWidth,
+              child: ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 20),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  backgroundColor: const Color(0xFFFDFDFD),
+                ),
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => TaskDetailScreen(
+                        dayNumber: index + 1,
+                        tasks: widget.tasks[index], // теперь это List<String>
+                      ),
+                    ),
+                  );
+                },
+                child: Text(
+                  'Day ${index + 1}',
+                  style: const TextStyle(
+                    color: Color(0xFF1D1B20),
+                    fontSize: 16,
+                  ),
+                ),
+              ),
+            );
+          }),
+        ),
+      ),
+    );
+  }
+}
+
+class TaskDetailScreen extends StatelessWidget {
+  final int dayNumber;
+  final List<String> tasks;
+
+  const TaskDetailScreen({
+    Key? key,
+    required this.dayNumber,
+    required this.tasks,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    const backgroundColor = Color(0xFFF2F1EC);
+    final screenWidth = MediaQuery.of(context).size.width;
+    final containerWidth = screenWidth * 0.9; // 90% ширины экрана
+
+    return Scaffold(
+      backgroundColor: backgroundColor,
+      appBar: AppBar(
+        title: Text('Day $dayNumber'),
+        backgroundColor: backgroundColor,
+        elevation: 0,
+        foregroundColor: const Color(0xFF1D1B20),
+      ),
+      body: Align(
+        alignment: Alignment.topCenter,
+        child: Padding(
+          padding: const EdgeInsets.only(top: 24),
+          child: Container(
+          width: containerWidth,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: const [
+              BoxShadow(
+                color: Colors.black12,
+                blurRadius: 6,
+                offset: Offset(0, 3),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                'Tasks for the dayG',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF1D1B20),
+                ),
+              ),
+              const SizedBox(height: 10),
+              ...tasks.map(
+                    (task) => Padding(
+                  padding: const EdgeInsets.only(bottom: 6),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text("• ",
+                          style: TextStyle(
+                              fontSize: 16, color: Color(0xFF1D1B20))),
+                      Expanded(
+                        child: Text(
+                          task,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            color: Color(0xFF1D1B20),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      )
+      ),
+    );
+  }
+}
+
+
