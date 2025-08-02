@@ -89,78 +89,102 @@ class _AddScreenState extends State<AddScreen>
   }
 
   Future<void> _submit() async {
-    if (!_formKey.currentState!.validate()) return;
+  if (!_formKey.currentState!.validate()) return;
 
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    if (!authProvider.isAuthenticated ||
-        authProvider.token == null ||
-        authProvider.userId == null) {
-      authProvider.handleAuthError(
-          context, AuthenticationException('Not authenticated'));
-      return;
+  final authProvider = Provider.of<AuthProvider>(context, listen: false);
+  if (!authProvider.isAuthenticated ||
+      authProvider.token == null ||
+      authProvider.userId == null) {
+    authProvider.handleAuthError(
+        context, AuthenticationException('Not authenticated'));
+    return;
+  }
+
+  setState(() {
+    _isLoading = true;
+    _error = null;
+  });
+
+  try {
+    String? photoUrl;
+    if (_photo != null) {
+      photoUrl = await _postService.uploadMedia(_photo!, authProvider.token!);
+      developer.log('Photo uploaded: $photoUrl', name: 'AddScreen');
     }
 
-    setState(() {
-      _isLoading = true;
-      _error = null;
-    });
+    if (_tabController.index == 1) {
+      // Event
+      await _postService.createEvent(
+        userId: authProvider.userId!,
+        description: _descriptionController.text.trim(),
+        location: _locationController.text.trim(),
+        interest: _interestController.text.trim(),
+        dateTime: _dateTimeController.text.trim(),
+        imageUrls: photoUrl != null ? [photoUrl] : null,
+        token: authProvider.token!,
+      );
+      developer.log('Event created', name: 'AddScreen');
+    } else {
+      // Goal
+      await _postService.createGoal(
+        userId: authProvider.userId!,
+        description: _descriptionController.text.trim(),
+        location: _locationController.text.trim(),
+        interest: _interestController.text.trim(),
+        pointA: _pointAController.text.trim(),
+        pointB: _pointBController.text.trim(),
+        tasks: _tasks,
+        imageUrls: photoUrl != null ? [photoUrl] : null,
+        token: authProvider.token!,
+      );
+      developer.log('Goal created', name: 'AddScreen');
+    }
 
-    try {
-      String? photoUrl;
-      if (_photo != null) {
-        photoUrl = await _postService.uploadMedia(_photo!, authProvider.token!);
-        developer.log('Photo uploaded: $photoUrl', name: 'AddScreen');
-      }
-
-      if (_tabController.index == 1) {
-        // Event
-        await _postService.createEvent(
-          userId: authProvider.userId!,
-          description: _descriptionController.text.trim(),
-          location: _locationController.text.trim(),
-          interest: _interestController.text.trim(),
-          dateTime: _dateTimeController.text.trim(),
-          imageUrls: photoUrl != null ? [photoUrl] : null,
-          token: authProvider.token!,
-        );
-        developer.log('Event created', name: 'AddScreen');
-      } else {
-        // Goal
-        await _postService.createGoal(
-          userId: authProvider.userId!,
-          description: _descriptionController.text.trim(),
-          location: _locationController.text.trim(),
-          interest: _interestController.text.trim(),
-          pointA: _pointAController.text.trim(),
-          pointB: _pointBController.text.trim(),
-          tasks: _tasks,
-          imageUrls: photoUrl != null ? [photoUrl] : null,
-          token: authProvider.token!,
-        );
-        developer.log('Goal created', name: 'AddScreen');
-      }
-
+    // Показываем snackbar перед навигацией
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Post created successfully'),
+          backgroundColor: Colors.green,
+          duration: Duration(seconds: 2),
+        ),
+      );
+      
+      // Небольшая задержка для показа snackbar
+      await Future.delayed(const Duration(milliseconds: 500));
+      
+      // Более безопасная навигация
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Post created successfully'),
-            backgroundColor: Colors.green,
-          ),
+        // Вариант 1: Возврат на главную страницу
+        Navigator.of(context).pushNamedAndRemoveUntil(
+          '/home', 
+          (route) => false,
         );
-        Navigator.pop(context);
+        
+        // Вариант 2: Или просто pop с проверкой canPop
+        // if (Navigator.of(context).canPop()) {
+        //   Navigator.of(context).pop();
+        // } else {
+        //   Navigator.of(context).pushReplacementNamed('/home');
+        // }
       }
-    } catch (e, stackTrace) {
-      developer.log('Submit error: $e',
-          name: 'AddScreen', stackTrace: stackTrace);
+    }
+  } catch (e, stackTrace) {
+    developer.log('Submit error: $e',
+        name: 'AddScreen', stackTrace: stackTrace);
+    if (mounted) {
       setState(() {
         _error = e.toString();
       });
-    } finally {
+    }
+  } finally {
+    if (mounted) {
       setState(() {
         _isLoading = false;
       });
     }
   }
+}
 
   void _addTask() {
     if (_taskController.text.isNotEmpty) {
