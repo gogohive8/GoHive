@@ -68,7 +68,6 @@ class Post {
       createdAt = DateTime.now();
     }
 
-    // ИЗМЕНЕНО: Обработка задач с использованием модели Task
     List<Task>? tasks;
     if (json['tasks'] != null && json['tasks'] is List) {
       tasks = (json['tasks'] as List)
