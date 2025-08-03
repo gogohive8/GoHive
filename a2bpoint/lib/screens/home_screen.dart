@@ -248,16 +248,39 @@ class _HomeScreenState extends State<HomeScreen>
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (context) => ChallengeDetailScreen(
-                                title: 'Tidy Up Challenge',
+                              builder: (_) => ChallengeFullScreen(
+                                title: 'The "Tidy Up" Challenge',
+                                subtitle: 'Start cleaning up and stay organized!',
                                 tasks: [
-                                  ['Clean your desk', 'Organize the shelf'],
-                                  ['Dust the surfaces', 'Fold your clothes'],
-                                  ['Declutter your phone'],
-                                  ['Tidy up drawers', 'Throw away unnecessary items'],
-                                  ['Dust the surfaces', 'Fold your clothes'],
-                                  ['Declutter your phone'],
-                                  ['Tidy up drawers', 'Throw away unnecessary items'],
+                                  [
+                                    TaskItem(title: 'Clean your desk', description: 'Make space to think.'),
+                                    TaskItem(title: 'Organize the shelf', description: 'Books, boxes, everything.'),
+                                    TaskItem(title: 'Clean your desk', description: 'Make space to think.'),
+                                    TaskItem(title: 'Organize the shelf', description: 'Books, boxes, everything.'),
+                                    TaskItem(title: 'Clean your desk', description: 'Make space to think.'),
+                                    TaskItem(title: 'Organize the shelf', description: 'Books, boxes, everything.'),
+                                  ],
+                                  [
+                                    TaskItem(title: 'Fold your clothes', description: 'Sort and put them away.'),
+                                  ],
+                                  [
+                                    TaskItem(title: 'Clean your desk', description: 'Make space to think.'),
+                                    TaskItem(title: 'Organize the shelf', description: 'Books, boxes, everything.'),
+                                  ],
+                                  [
+                                    TaskItem(title: 'Fold your clothes', description: 'Sort and put them away.'),
+                                  ],
+                                  [
+                                    TaskItem(title: 'Clean your desk', description: 'Make space to think.'),
+                                    TaskItem(title: 'Organize the shelf', description: 'Books, boxes, everything.'),
+                                  ],
+                                  [
+                                    TaskItem(title: 'Fold your clothes', description: 'Sort and put them away.'),
+                                  ],
+                                  [
+                                    TaskItem(title: 'Clean your desk', description: 'Make space to think.'),
+                                    TaskItem(title: 'Organize the shelf', description: 'Books, boxes, everything.'),
+                                  ]
                                 ],
                               ),
                             ),
@@ -272,16 +295,35 @@ class _HomeScreenState extends State<HomeScreen>
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (context) => ChallengeDetailScreen(
-                                title: 'Tidy Up Challenge',
+                              builder: (_) => ChallengeFullScreen(
+                                title: 'The "Moon" Challenge',
+                                subtitle: 'Start cleaning up and stay organized!',
                                 tasks: [
-                                  ['Clean your desk', 'Organize the shelf'],
-                                  ['Dust the surfaces', 'Fold your clothes'],
-                                  ['Declutter your phone'],
-                                  ['Tidy up drawers', 'Throw away unnecessary items'],
-                                  ['Dust the surfaces', 'Fold your clothes'],
-                                  ['Declutter your phone'],
-                                  ['Tidy up drawers', 'Throw away unnecessary items'],
+                                  [
+                                    TaskItem(title: 'Clean your desk', description: 'Make space to think.'),
+                                    TaskItem(title: 'Organize the shelf', description: 'Books, boxes, everything.'),
+                                  ],
+                                  [
+                                    TaskItem(title: 'Fold your clothes', description: 'Sort and put them away.'),
+                                  ],
+                                  [
+                                    TaskItem(title: 'Clean your desk', description: 'Make space to think.'),
+                                    TaskItem(title: 'Organize the shelf', description: 'Books, boxes, everything.'),
+                                  ],
+                                  [
+                                    TaskItem(title: 'Fold your clothes', description: 'Sort and put them away.'),
+                                  ],
+                                  [
+                                    TaskItem(title: 'Clean your desk', description: 'Make space to think.'),
+                                    TaskItem(title: 'Organize the shelf', description: 'Books, boxes, everything.'),
+                                  ],
+                                  [
+                                    TaskItem(title: 'Fold your clothes', description: 'Sort and put them away.'),
+                                  ],
+                                  [
+                                    TaskItem(title: 'Clean your desk', description: 'Make space to think.'),
+                                    TaskItem(title: 'Organize the shelf', description: 'Books, boxes, everything.'),
+                                  ]
                                 ],
                               ),
                             ),
@@ -296,16 +338,35 @@ class _HomeScreenState extends State<HomeScreen>
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (context) => ChallengeDetailScreen(
-                                title: 'Tidy Up Challenge',
+                              builder: (_) => ChallengeFullScreen(
+                                title: 'The "Animal" Challenge',
+                                subtitle: 'Start cleaning up and stay organized!',
                                 tasks: [
-                                  ['Clean your desk', 'Organize the shelf'],
-                                  ['Dust the surfaces', 'Fold your clothes'],
-                                  ['Declutter your phone'],
-                                  ['Tidy up drawers', 'Throw away unnecessary items'],
-                                  ['Dust the surfaces', 'Fold your clothes'],
-                                  ['Declutter your phone'],
-                                  ['Tidy up drawers', 'Throw away unnecessary items'],
+                                  [
+                                    TaskItem(title: 'Clean your desk', description: 'Make space to think.'),
+                                    TaskItem(title: 'Organize the shelf', description: 'Books, boxes, everything.'),
+                                  ],
+                                  [
+                                    TaskItem(title: 'Fold your clothes', description: 'Sort and put them away.'),
+                                  ],
+                                  [
+                                    TaskItem(title: 'Clean your desk', description: 'Make space to think.'),
+                                    TaskItem(title: 'Organize the shelf', description: 'Books, boxes, everything.'),
+                                  ],
+                                  [
+                                    TaskItem(title: 'Fold your clothes', description: 'Sort and put them away.'),
+                                  ],
+                                  [
+                                    TaskItem(title: 'Clean your desk', description: 'Make space to think.'),
+                                    TaskItem(title: 'Organize the shelf', description: 'Books, boxes, everything.'),
+                                  ],
+                                  [
+                                    TaskItem(title: 'Fold your clothes', description: 'Sort and put them away.'),
+                                  ],
+                                  [
+                                    TaskItem(title: 'Clean your desk', description: 'Make space to think.'),
+                                    TaskItem(title: 'Organize the shelf', description: 'Books, boxes, everything.'),
+                                  ]
                                 ],
                               ),
                             ),
@@ -320,16 +381,35 @@ class _HomeScreenState extends State<HomeScreen>
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (context) => ChallengeDetailScreen(
-                                title: 'Tidy Up Challenge',
+                              builder: (_) => ChallengeFullScreen(
+                                title: 'The "Dance" Challenge',
+                                subtitle: 'Start cleaning up and stay organized!',
                                 tasks: [
-                                  ['Clean your desk', 'Organize the shelf'],
-                                  ['Dust the surfaces', 'Fold your clothes'],
-                                  ['Declutter your phone'],
-                                  ['Tidy up drawers', 'Throw away unnecessary items'],
-                                  ['Dust the surfaces', 'Fold your clothes'],
-                                  ['Declutter your phone'],
-                                  ['Tidy up drawers', 'Throw away unnecessary items'],
+                                  [
+                                    TaskItem(title: 'Clean your desk', description: 'Make space to think.'),
+                                    TaskItem(title: 'Organize the shelf', description: 'Books, boxes, everything.'),
+                                  ],
+                                  [
+                                    TaskItem(title: 'Fold your clothes', description: 'Sort and put them away.'),
+                                  ],
+                                  [
+                                    TaskItem(title: 'Clean your desk', description: 'Make space to think.'),
+                                    TaskItem(title: 'Organize the shelf', description: 'Books, boxes, everything.'),
+                                  ],
+                                  [
+                                    TaskItem(title: 'Fold your clothes', description: 'Sort and put them away.'),
+                                  ],
+                                  [
+                                    TaskItem(title: 'Clean your desk', description: 'Make space to think.'),
+                                    TaskItem(title: 'Organize the shelf', description: 'Books, boxes, everything.'),
+                                  ],
+                                  [
+                                    TaskItem(title: 'Fold your clothes', description: 'Sort and put them away.'),
+                                  ],
+                                  [
+                                    TaskItem(title: 'Clean your desk', description: 'Make space to think.'),
+                                    TaskItem(title: 'Organize the shelf', description: 'Books, boxes, everything.'),
+                                  ]
                                 ],
                               ),
                             ),
@@ -827,166 +907,257 @@ class MissionsBackgroundPainter extends CustomPainter {
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
-class ChallengeDetailScreen extends StatefulWidget {
+class ChallengeFullScreen extends StatelessWidget {
   final String title;
-  final List<List<String>> tasks;
+  final String subtitle;
+  final List<List<TaskItem>> tasks;
 
-  const ChallengeDetailScreen({
-    super.key,
-    required this.title,
-    required this.tasks,
-  });
-
-  @override
-  State<ChallengeDetailScreen> createState() => _ChallengeDetailScreenState();
-}
-
-class _ChallengeDetailScreenState extends State<ChallengeDetailScreen> {
-  int? selectedDay;
-
-  @override
-  Widget build(BuildContext context) {
-    const backgroundColor = Color(0xFFF2F1EC);
-    final screenWidth = MediaQuery.of(context).size.width;
-    final crossAxisSpacing = 12.0;
-    final buttonWidth = (screenWidth - 16 * 2 - crossAxisSpacing * 2) / 3;
-
-    return Scaffold(
-      backgroundColor: backgroundColor,
-      appBar: AppBar(
-        title: Text(widget.title),
-        backgroundColor: backgroundColor,
-        elevation: 0,
-        foregroundColor: const Color(0xFF1D1B20),
-      ),
-
-      body: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Wrap(
-          spacing: crossAxisSpacing,
-          runSpacing: 12,
-          children: List.generate(widget.tasks.length, (index) {
-            return SizedBox(
-              width: buttonWidth,
-              child: ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 20),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  backgroundColor: const Color(0xFFFDFDFD),
-                ),
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => TaskDetailScreen(
-                        dayNumber: index + 1,
-                        tasks: widget.tasks[index], // теперь это List<String>
-                      ),
-                    ),
-                  );
-                },
-                child: Text(
-                  'Day ${index + 1}',
-                  style: const TextStyle(
-                    color: Color(0xFF1D1B20),
-                    fontSize: 16,
-                  ),
-                ),
-              ),
-            );
-          }),
-        ),
-      ),
-    );
-  }
-}
-
-class TaskDetailScreen extends StatelessWidget {
-  final int dayNumber;
-  final List<String> tasks;
-
-  const TaskDetailScreen({
+  const ChallengeFullScreen({
     Key? key,
-    required this.dayNumber,
+    required this.title,
+    required this.subtitle,
     required this.tasks,
   }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
-    const backgroundColor = Color(0xFFF2F1EC);
-    final screenWidth = MediaQuery.of(context).size.width;
-    final containerWidth = screenWidth * 0.9; // 90% ширины экрана
+    final size = MediaQuery.of(context).size;
 
-    return Scaffold(
-      backgroundColor: backgroundColor,
-      appBar: AppBar(
-        title: Text('Day $dayNumber'),
-        backgroundColor: backgroundColor,
-        elevation: 0,
-        foregroundColor: const Color(0xFF1D1B20),
-      ),
-      body: Align(
-        alignment: Alignment.topCenter,
-        child: Padding(
-          padding: const EdgeInsets.only(top: 24),
-          child: Container(
-          width: containerWidth,
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            boxShadow: const [
-              BoxShadow(
-                color: Colors.black12,
-                blurRadius: 6,
-                offset: Offset(0, 3),
-              ),
-            ],
-          ),
+    final horizontalMargin = size.width * 0.04; // ~4% от ширины экрана
+    final verticalMargin = size.height * 0.015;
+
+    return DefaultTabController(
+      length: tasks.length,
+      child: Scaffold(
+        backgroundColor: const Color(0xFFF2F1EC),
+        body: SafeArea(
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
             children: [
-              const Text(
-                'Tasks for the dayG',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                  color: Color(0xFF1D1B20),
+              // Верхняя панель
+              Container(
+                width: double.infinity,
+                padding: EdgeInsets.only(
+                  top: size.height * 0.015,
+                  left: size.width * 0.04,
+                  right: size.width * 0.04,
+                  bottom: size.height * 0.014,
+                ),
+                decoration: BoxDecoration(
+                  color: Color(0xFFFFFFFF),
+                  borderRadius: BorderRadius.circular(60),
+                ),
+                child: Stack(
+                  children: [
+                    Positioned(
+                      top: 0,
+                      right: 20,
+                      child: Image.asset(
+                        'assets/challenge_title.png',
+                        width: 160,
+                        height: size.height * 0.21,
+                        fit: BoxFit.contain,
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.only(top: 0.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const BackButton(color: Color(0xFF222220)),
+                          const SizedBox(height: 8),
+                          Padding(
+                            padding: const EdgeInsets.only(right: 100.0),
+                            child: Text(
+                              title,
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontFamily: 'Inter',
+                                color: const Color(0xFF222220),
+                                fontSize: size.width * 0.075,
+                              ),
+                              softWrap: true,
+                              overflow: TextOverflow.visible,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          Container(
+                            margin: EdgeInsets.symmetric(
+                              horizontal: horizontalMargin,
+                              vertical: verticalMargin,
+                            ),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF0EFEA),
+                              borderRadius: BorderRadius.circular(40),
+                            ),
+                            padding: EdgeInsets.symmetric(
+                              horizontal: size.width * 0.03,
+                              vertical: size.height * 0.0001,
+                            ),
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(40), // обязательно такой же
+                              child: TabBar(
+                                dividerColor: Colors.transparent,
+                                isScrollable: true,
+                                indicator: BoxDecoration(
+                                  color: const Color(0xFFFDFDFD),
+                                  borderRadius: BorderRadius.circular(24),
+                                ),
+                                indicatorColor: Colors.transparent,
+                                indicatorSize: TabBarIndicatorSize.tab,
+                                physics: const ClampingScrollPhysics(),
+                                labelPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
+                                labelColor: const Color(0xFF222220),
+                                unselectedLabelColor: const Color(0xFF676767),
+                                labelStyle: const TextStyle(fontWeight: FontWeight.bold),
+                                tabs: List.generate(
+                                  tasks.length,
+                                      (index) => Tab(text: 'Day ${index + 1}'),
+                                ),
+                              ),
+                            ),
+                          ),
+
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(height: 10),
-              ...tasks.map(
-                    (task) => Padding(
-                  padding: const EdgeInsets.only(bottom: 6),
-                  child: Row(
+
+              Padding(
+                padding: const EdgeInsets.only(left: 26.0, top: 16.0, right: 55, bottom: 5),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Text("• ",
-                          style: TextStyle(
-                              fontSize: 16, color: Color(0xFF1D1B20))),
-                      Expanded(
-                        child: Text(
-                          task,
-                          style: const TextStyle(
-                            fontSize: 16,
-                            color: Color(0xFF1D1B20),
-                          ),
+                      Text(
+                        'The challenge begins',
+                        style: const TextStyle(
+                          fontFamily: 'TT Norms Pro Trial',
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                          color: const Color(0xFF222220),
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Start completing tasks and checking them off. You\'ll do great!',
+                        style: const TextStyle(
+                          fontFamily: 'TT Norms Pro Trial',
+                          fontSize: 19,
+                          color: const Color(0xFF222220),
                         ),
                       ),
                     ],
                   ),
                 ),
               ),
+
+              // 🔽 Контент задач
+              Expanded(
+                child: TabBarView(
+                  children: List.generate(
+                    tasks.length,
+                        (dayIndex) => Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: ListView.builder(
+                        itemCount: tasks[dayIndex].length,
+                        itemBuilder: (context, taskIndex) {
+                          final task = tasks[dayIndex][taskIndex];
+                          return _buildTaskCard(task, size);
+                        },
+                      ),
+                    ),
+                  ),
+                ),
+              ),
             ],
           ),
         ),
-      )
       ),
     );
   }
+
+  Widget _buildTaskCard(TaskItem task, Size size) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Column(
+            children: [
+              Container(
+                width: 24,
+                height: 20,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(color: const Color(0xFFBDBBB9), width: 6),
+                  color: task.isCompleted ? Colors.blue : Colors.white,
+                ),
+                child: task.isCompleted
+                    ? const Icon(Icons.check, color: Colors.black, size: 16)
+                    : null,
+              ),
+              Container(
+                width: 2,
+                height: 70,
+                color: const Color(0xFFBDBBB9),
+              ),
+            ],
+          ),
+          const SizedBox(width: 12),
+          // Основной контейнер с задачей
+          Expanded(
+            child: Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: const [
+                  BoxShadow(
+                    color: Colors.black12,
+                    blurRadius: 4,
+                    offset: Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    task.title,
+                    style: TextStyle(
+                      fontSize: size.width * 0.045,
+                      fontWeight: FontWeight.w600,
+                      color: const Color(0xFF1D1B20),
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    task.description,
+                    style: TextStyle(
+                      fontSize: size.width * 0.04,
+                      color: const Color(0xFF222220),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
 }
 
+class TaskItem {
+  final String title;
+  final String description;
+  final bool isCompleted;
+
+  TaskItem({required this.title, required this.description, this.isCompleted = false});
+}
 
