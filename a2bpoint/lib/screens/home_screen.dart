@@ -7,7 +7,6 @@ import 'package:video_player/video_player.dart';
 import '../models/post.dart';
 import '../services/api_services.dart';
 import '../services/post_service.dart';
-import '../services/exceptions.dart';
 import '../providers/auth_provider.dart';
 import '../screens/post_detail_screen.dart';
 import 'navbar.dart';
@@ -28,29 +27,56 @@ class _HomeScreenState extends State<HomeScreen>
   final PostService _postService = PostService();
   late TabController _tabController;
   final Map<String, VideoPlayerController> _videoControllers = {};
+  
+  // Основные списки данных
   List<Post> _goals = [];
   List<Post> _events = [];
   bool _isLoading = true;
   String? _error;
+  
+  // Переменные для пагинации
+  static const int _postsPerPage = 20;
+  int _goalsOffset = 0;
+  int _eventsOffset = 0;
+  bool _goalsHasMore = true;
+  bool _eventsHasMore = true;
+  bool _isLoadingMoreGoals = false;
+  bool _isLoadingMoreEvents = false;
+  
+  // Флаги для ленивой загрузки вкладок
+  bool _goalsLoaded = false;
+  bool _eventsLoaded = false;
+  
+  // Контроллеры для скролла
+  final ScrollController _goalsScrollController = ScrollController();
+  final ScrollController _eventsScrollController = ScrollController();
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
     _tabController.addListener(_handleTabSelection);
-    _checkAuthAndFetchPosts();
+    
+    // Настройка слушателей скролла для пагинации
+    _goalsScrollController.addListener(_onGoalsScroll);
+    _eventsScrollController.addListener(_onEventsScroll);
+    
+    // Загружаем только Goals при старте (первая вкладка)
+    _checkAuthAndLoadInitialTab();
   }
 
   @override
   void dispose() {
     _tabController.removeListener(_handleTabSelection);
+    _goalsScrollController.dispose();
+    _eventsScrollController.dispose();
     _videoControllers.forEach((_, controller) => controller.dispose());
     _tabController.dispose();
     _apiService.dispose();
     super.dispose();
   }
 
-  void _checkAuthAndFetchPosts() async {
+  void _checkAuthAndLoadInitialTab() async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
 
     if (!authProvider.isInitialized) {
@@ -59,7 +85,7 @@ class _HomeScreenState extends State<HomeScreen>
       try {
         await authProvider.initialize();
         if (mounted) {
-          _fetchPosts(authProvider);
+          _loadTabData(0); // Загружаем первую вкладку (Goals)
         }
       } catch (e) {
         developer.log('Auth initialization error: $e', name: 'HomeScreen');
@@ -71,60 +97,9 @@ class _HomeScreenState extends State<HomeScreen>
         }
       }
     } else {
-      developer.log('AuthProvider initialized, fetching posts',
+      developer.log('AuthProvider initialized, loading initial tab',
           name: 'HomeScreen');
-      _fetchPosts(authProvider);
-    }
-  }
-
-  void _fetchPosts(AuthProvider authProvider) async {
-    if (!authProvider.isAuthenticated ||
-        authProvider.userId == null ||
-        authProvider.token == null) {
-      developer.log('No token or userId, handling auth error',
-          name: 'HomeScreen');
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-          _error = 'Not authenticated';
-        });
-      }
-      return;
-    }
-
-    setState(() {
-      _isLoading = true;
-      _error = null;
-    });
-
-    try {
-      developer.log(
-          'Fetching posts with token: ${authProvider.token!.substring(0, 20)}...',
-          name: 'HomeScreen');
-
-      final goals = await _postService.getAllGoals(
-          authProvider.token!, authProvider.userId!);
-      final events = await _postService.getAllEvents(
-          authProvider.token!, authProvider.userId!);
-
-      developer.log('Fetched ${goals.length} goals and ${events.length} events',
-          name: 'HomeScreen');
-
-      if (mounted) {
-        setState(() {
-          _goals = goals;
-          _events = events;
-          _isLoading = false;
-        });
-      }
-    } catch (e) {
-      developer.log('Fetch posts error: $e', name: 'HomeScreen');
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-          _error = e.toString();
-        });
-      }
+      _loadTabData(0); // Загружаем первую вкладку (Goals)
     }
   }
 
@@ -133,6 +108,180 @@ class _HomeScreenState extends State<HomeScreen>
       setState(() {
         _selectedTabIndex = _tabController.index;
       });
+      
+      // Ленивая загрузка при переключении вкладок
+      _loadTabData(_selectedTabIndex);
+    }
+  }
+
+  void _loadTabData(int tabIndex) async {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    
+    if (!authProvider.isAuthenticated ||
+        authProvider.userId == null ||
+        authProvider.token == null) {
+      setState(() {
+        _isLoading = false;
+        _error = 'Not authenticated';
+      });
+      return;
+    }
+
+    switch (tabIndex) {
+      case 0: // Goals
+        if (!_goalsLoaded) {
+          _fetchGoals(authProvider, isInitial: true);
+        }
+        break;
+      case 1: // Events
+        if (!_eventsLoaded) {
+          _fetchEvents(authProvider, isInitial: true);
+        }
+        break;
+      case 2: // Challenge/Missions
+        // Ничего не загружаем, это статический контент
+        break;
+    }
+  }
+
+  void _fetchGoals(AuthProvider authProvider, {bool isInitial = false}) async {
+    if (_isLoadingMoreGoals || (!_goalsHasMore && !isInitial)) return;
+
+    setState(() {
+      if (isInitial) {
+        _isLoading = true;
+        _error = null;
+        _goalsOffset = 0;
+        _goalsHasMore = true;
+        _goals.clear();
+      } else {
+        _isLoadingMoreGoals = true;
+      }
+    });
+
+    try {
+      developer.log('Fetching goals offset ${_goalsOffset}', name: 'HomeScreen');
+      
+      final goals = await _postService.getGoalsPaginated(
+        authProvider.token!, 
+        authProvider.userId!,
+        offset: _goalsOffset,
+        limit: _postsPerPage,
+      );
+
+      if (mounted) {
+        setState(() {
+          if (isInitial) {
+            _goals = goals;
+            _goalsLoaded = true;
+            _isLoading = false;
+          } else {
+            _goals.addAll(goals);
+            _isLoadingMoreGoals = false;
+          }
+          
+          _goalsHasMore = goals.length == _postsPerPage;
+          _goalsOffset += goals.length;
+        });
+      }
+    } catch (e) {
+      developer.log('Fetch goals error: $e', name: 'HomeScreen');
+      if (mounted) {
+        setState(() {
+          if (isInitial) {
+            _isLoading = false;
+          } else {
+            _isLoadingMoreGoals = false;
+          }
+          _error = e.toString();
+        });
+      }
+    }
+  }
+
+  void _fetchEvents(AuthProvider authProvider, {bool isInitial = false}) async {
+    if (_isLoadingMoreEvents || (!_eventsHasMore && !isInitial)) return;
+
+    setState(() {
+      if (isInitial) {
+        _isLoading = true;
+        _error = null;
+        _eventsOffset = 0;
+        _eventsHasMore = true;
+        _events.clear();
+      } else {
+        _isLoadingMoreEvents = true;
+      }
+    });
+
+    try {
+      developer.log('Fetching events offset ${_eventsOffset}', name: 'HomeScreen');
+      
+      final events = await _postService.getEventsPaginated(
+        authProvider.token!, 
+        authProvider.userId!,
+        offset: _eventsOffset,
+        limit: _postsPerPage,
+      );
+
+      if (mounted) {
+        setState(() {
+          if (isInitial) {
+            _events = events;
+            _eventsLoaded = true;
+            _isLoading = false;
+          } else {
+            _events.addAll(events);
+            _isLoadingMoreEvents = false;
+          }
+          
+          _eventsHasMore = events.length == _postsPerPage;
+          _eventsOffset += events.length;
+        });
+      }
+    } catch (e) {
+      developer.log('Fetch events error: $e', name: 'HomeScreen');
+      if (mounted) {
+        setState(() {
+          if (isInitial) {
+            _isLoading = false;
+          } else {
+            _isLoadingMoreEvents = false;
+          }
+          _error = e.toString();
+        });
+      }
+    }
+  }
+
+  void _onGoalsScroll() {
+    if (_goalsScrollController.position.pixels >=
+        _goalsScrollController.position.maxScrollExtent - 200) {
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      _fetchGoals(authProvider);
+    }
+  }
+
+  void _onEventsScroll() {
+    if (_eventsScrollController.position.pixels >=
+        _eventsScrollController.position.maxScrollExtent - 200) {
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      _fetchEvents(authProvider);
+    }
+  }
+
+  Future<void> _refreshCurrentTab() async {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    
+    switch (_selectedTabIndex) {
+      case 0:
+        _goalsLoaded = false;
+        _fetchGoals(authProvider, isInitial: true);
+        break;
+      case 1:
+        _eventsLoaded = false;
+        _fetchEvents(authProvider, isInitial: true);
+        break;
     }
   }
 
@@ -149,18 +298,12 @@ class _HomeScreenState extends State<HomeScreen>
       return const SizedBox.shrink();
     }
 
-    // ИСПРАВЛЕНО: очистка URL от квадратных скобок и лишних символов
     String cleanUrl = post.imageUrls![0];
-
-    // Убираем квадратные скобки если они есть
     if (cleanUrl.startsWith('[') && cleanUrl.endsWith(']')) {
       cleanUrl = cleanUrl.substring(1, cleanUrl.length - 1);
     }
-
-    // Убираем лишние пробелы
     cleanUrl = cleanUrl.trim();
 
-    // Дополнительная проверка на валидность URL
     if (!cleanUrl.startsWith('http://') && !cleanUrl.startsWith('https://')) {
       developer.log('Invalid URL format: $cleanUrl', name: 'HomeScreen');
       return Container(
@@ -223,7 +366,7 @@ class _HomeScreenState extends State<HomeScreen>
     }
 
     return CachedNetworkImage(
-      imageUrl: cleanUrl, // Используем очищенный URL
+      imageUrl: cleanUrl,
       height: 200,
       width: double.infinity,
       fit: BoxFit.cover,
@@ -289,20 +432,6 @@ class _HomeScreenState extends State<HomeScreen>
                                     'Start cleaning up and stay organized!',
                                 tasks: [
                                   [
-                                    TaskItem(
-                                        title: 'Clean your desk',
-                                        description: 'Make space to think.'),
-                                    TaskItem(
-                                        title: 'Organize the shelf',
-                                        description:
-                                            'Books, boxes, everything.'),
-                                    TaskItem(
-                                        title: 'Clean your desk',
-                                        description: 'Make space to think.'),
-                                    TaskItem(
-                                        title: 'Organize the shelf',
-                                        description:
-                                            'Books, boxes, everything.'),
                                     TaskItem(
                                         title: 'Clean your desk',
                                         description: 'Make space to think.'),
@@ -832,11 +961,21 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   Widget _buildPostsView({required String type, required List<Post> posts}) {
-    if (_isLoading) {
+    final bool isGoals = type == 'goal';
+    final ScrollController scrollController = isGoals ? _goalsScrollController : _eventsScrollController;
+    final bool isLoadingMore = isGoals ? _isLoadingMoreGoals : _isLoadingMoreEvents;
+    final bool hasMore = isGoals ? _goalsHasMore : _eventsHasMore;
+    final bool isTabLoaded = isGoals ? _goalsLoaded : _eventsLoaded;
+
+    if (!isTabLoaded && posts.isEmpty) {
       return const Center(child: CircularProgressIndicator());
     }
 
-    if (_error != null) {
+    if (_isLoading && posts.isEmpty) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (_error != null && posts.isEmpty) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -855,8 +994,7 @@ class _HomeScreenState extends State<HomeScreen>
             ),
             const SizedBox(height: 16),
             ElevatedButton(
-              onPressed: () => _fetchPosts(
-                  Provider.of<AuthProvider>(context, listen: false)),
+              onPressed: _refreshCurrentTab,
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFFAFCBEA),
                 foregroundColor: const Color(0xFF000000),
@@ -868,7 +1006,7 @@ class _HomeScreenState extends State<HomeScreen>
       );
     }
 
-    if (posts.isEmpty) {
+    if (posts.isEmpty && isTabLoaded) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -890,12 +1028,21 @@ class _HomeScreenState extends State<HomeScreen>
     }
 
     return RefreshIndicator(
-      onRefresh: () async =>
-          _fetchPosts(Provider.of<AuthProvider>(context, listen: false)),
+      onRefresh: _refreshCurrentTab,
       child: ListView.builder(
+        controller: scrollController,
         padding: const EdgeInsets.all(16),
-        itemCount: posts.length,
+        itemCount: posts.length + (isLoadingMore ? 1 : 0),
         itemBuilder: (context, index) {
+          if (index == posts.length) {
+            return hasMore 
+              ? const Padding(
+                  padding: EdgeInsets.all(16.0),
+                  child: Center(child: CircularProgressIndicator()),
+                )
+              : const SizedBox.shrink();
+          }
+
           final post = posts[index];
           return Card(
             color: const Color(0xFFDDDDDD),
@@ -988,7 +1135,7 @@ class _HomeScreenState extends State<HomeScreen>
                               borderRadius: BorderRadius.circular(6),
                             ),
                             child: Text(
-                              task.title, // Changed from task['title']?.toString() ?? 'Untitled task'
+                              task.title,
                               style: const TextStyle(
                                 color: Color(0xFF333333),
                                 fontSize: 12,
@@ -1108,7 +1255,7 @@ class ChallengeFullScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
 
-    final horizontalMargin = size.width * 0.04; // ~4% от ширины экрана
+    final horizontalMargin = size.width * 0.04;
     final verticalMargin = size.height * 0.015;
 
     return DefaultTabController(
@@ -1118,7 +1265,6 @@ class ChallengeFullScreen extends StatelessWidget {
         body: SafeArea(
           child: Column(
             children: [
-              // Верхняя панель
               Container(
                 width: double.infinity,
                 padding: EdgeInsets.only(
@@ -1179,8 +1325,7 @@ class ChallengeFullScreen extends StatelessWidget {
                               vertical: size.height * 0.0001,
                             ),
                             child: ClipRRect(
-                              borderRadius: BorderRadius.circular(
-                                  40), // обязательно такой же
+                              borderRadius: BorderRadius.circular(40),
                               child: TabBar(
                                 dividerColor: Colors.transparent,
                                 isScrollable: true,
@@ -1243,7 +1388,6 @@ class ChallengeFullScreen extends StatelessWidget {
                 ),
               ),
 
-              // 🔽 Контент задач
               Expanded(
                 child: TabBarView(
                   children: List.generate(
@@ -1296,7 +1440,6 @@ class ChallengeFullScreen extends StatelessWidget {
             ],
           ),
           const SizedBox(width: 12),
-          // Основной контейнер с задачей
           Expanded(
             child: Container(
               padding: const EdgeInsets.all(16),
