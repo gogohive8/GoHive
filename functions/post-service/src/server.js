@@ -491,6 +491,20 @@ app.post('/like', verifyToken,  async (req, res) => {
   try{
     const { post_id, user_id } = req.body;
 
+
+    const {data: matchLike, error: matchLikeError} = await supabase
+    .schema('posts')
+    .from('likedGoals')
+    .select('*')
+    .match({
+      userID: user_id,
+      goalID: post_id
+    })
+
+    if (matchLike.goalID) {
+      return res.status(400).json({error: 'this post is liked'})
+    }
+
     const {data: getLike, error: getLikeError} = await supabase
     .schema('posts')
     .from('goals')
@@ -531,7 +545,7 @@ app.post('/like', verifyToken,  async (req, res) => {
       res.status(400).json({ error: userLikeError.message})
     }
 
-    return res.status(200).json({message: 'Like update successfully'});
+    return res.status(200).json({message: 'Like update successfully', numOfLikes: likes});
 
   } catch (error) {
     console.error('Error of like: ', error.message);
@@ -539,6 +553,54 @@ app.post('/like', verifyToken,  async (req, res) => {
   }
 })
 
+
+app.post('/unlike', verifyToken,  async (req, res) => {
+  try{
+    const { post_id, user_id } = req.body;
+
+    const {data: getLike, error: getLikeError} = await supabase
+    .schema('posts')
+    .from('goals')
+    .select('id, numOfLikes')
+    .eq('id', post_id)
+    .single()
+
+    if (getLikeError) {
+      console.error('Error of fetch num of likes: ', getLikeError.message);
+      return res.status(400).json({ error: getLikeError.message})
+    }
+
+    const likes = getLike.numOfLikes - 1;
+
+    const {data: insertLike, error: updateError} = await supabase
+    .schema('posts')
+    .from('goals')
+    .update({ numOfLikes: likes })
+    .eq('id', post_id)
+
+    if (updateError) {
+      console.error('Error of update num of likes: ', updateErrorError.message);
+      res.status(400).json({ error: updateErrorError.message})
+    }
+
+    const {error: userLikeError} = await supabase
+    .schema('posts')
+    .from('likedGoals')
+    .delete()
+    .match({ userID: user_id, goalID: post_id})
+
+    if (userLikeError) {
+      console.error('Error of insert user like information: ', userLikeError);
+      res.status(400).json({ error: userLikeError.message})
+    }
+
+    return res.status(200).json({message: 'Like update successfully', numOfLikes: likes});
+
+  } catch (error) {
+    console.error('Error of like: ', error.message);
+    return res.status(400).json({error: error.message});
+  }
+})
 
 app.post('/joinEvent', verifyToken, async(req, res) => {
   try{

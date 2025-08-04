@@ -437,7 +437,7 @@ class PostService {
       rethrow;
     }
   }
-  
+
 //   Future<Post> getEventById(String eventId, String token) async {
 //   try {
 //     developer.log('Fetching event by id: $eventId', name: 'PostService');
@@ -448,9 +448,9 @@ class PostService {
 //         'Content-Type': 'application/json',
 //       },
 //     ).timeout(const Duration(seconds: 10));
-    
+
 //     final data = await _handleResponse(response);
-    
+
 //     // Обработка image_urls для событий
 //     List<String>? imageUrls;
 //     if (data['image_urls'] != null) {
@@ -463,7 +463,7 @@ class PostService {
 //             .toList();
 //       }
 //     }
-    
+
 //     return Post.fromJson({
 //       ...data,
 //       'type': 'event',
@@ -475,7 +475,7 @@ class PostService {
 //       'location': data['location']?.toString() ?? '',
 //       'interest': data['interest']?.toString() ?? '',
 //       'date_time': data['date_time']?.toString() ?? '',
-//       'created_at': data['created_at']?.toString() ?? 
+//       'created_at': data['created_at']?.toString() ??
 //           data['createdAt']?.toString() ??
 //           DateTime.now().toIso8601String(),
 //       'numOfLikes': data['numOfLikes'] ?? 0,
@@ -498,6 +498,43 @@ class PostService {
 
       final response = await http.post(
         Uri.parse('$_postsUrl/like'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode({
+          'post_id': postId,
+          'user_id': userId,
+        }),
+      );
+
+      developer.log('Like response: ${response.statusCode}',
+          name: 'ApiService');
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return {
+          'message': data['message'],
+          'numOfLikes': data['numOfLikes'],
+        };
+      } else {
+        final errorData = jsonDecode(response.body);
+        throw Exception('Failed to like post: ${errorData['error']}');
+      }
+    } catch (e, stackTrace) {
+      developer.log('Error liking post: $e',
+          name: 'ApiService', stackTrace: stackTrace);
+      throw Exception('Failed to like post: $e');
+    }
+  }
+
+  Future<Map<String, dynamic>> unlikePost(
+      String postId, String userId, String token) async {
+    try {
+      developer.log('Liking post: $postId', name: 'ApiService');
+
+      final response = await http.post(
+        Uri.parse('$_postsUrl/unlike'),
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $token',
