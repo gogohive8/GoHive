@@ -37,14 +37,15 @@ class PostService {
 
   // НОВЫЕ МЕТОДЫ С ПАГИНАЦИЕЙ
   Future<List<Post>> getGoalsPaginated(
-    String token, 
+    String token,
     String userId, {
-    int offset = 0, 
+    int offset = 0,
     int limit = 20,
   }) async {
     try {
-      developer.log('Fetching goals offset $offset with limit $limit', name: 'PostService');
-      
+      developer.log('Fetching goals offset $offset with limit $limit',
+          name: 'PostService');
+
       final response = await _client.get(
         Uri.parse('$_postsUrl/goals/all?offset=$offset&limit=$limit'),
         headers: {
@@ -84,15 +85,17 @@ class PostService {
         }, type: 'goal');
       }).toList();
 
-      developer.log('Loaded ${posts.length} goals (offset $offset)', name: 'PostService');
+      developer.log('Loaded ${posts.length} goals (offset $offset)',
+          name: 'PostService');
       return posts;
     } catch (e, stackTrace) {
       developer.log('Get goals paginated error: $e',
           name: 'PostService', stackTrace: stackTrace);
-      
+
       // Fallback на старый метод если пагинация не поддерживается
       if (offset == 0 && e.toString().contains('404')) {
-        developer.log('Pagination not supported, falling back to getAllGoals', name: 'PostService');
+        developer.log('Pagination not supported, falling back to getAllGoals',
+            name: 'PostService');
         return await getAllGoals(token, userId);
       }
       rethrow;
@@ -100,13 +103,14 @@ class PostService {
   }
 
   Future<List<Post>> getEventsPaginated(
-    String token, 
+    String token,
     String userId, {
-    int offset = 0, 
+    int offset = 0,
     int limit = 20,
   }) async {
     try {
-      developer.log('Fetching events offset $offset with limit $limit', name: 'PostService');
+      developer.log('Fetching events offset $offset with limit $limit',
+          name: 'PostService');
 
       final response = await http.get(
         Uri.parse('$_postsUrl/events/all?offset=$offset&limit=$limit'),
@@ -121,7 +125,8 @@ class PostService {
 
       if (response.statusCode == 200) {
         final List<dynamic> data = jsonDecode(response.body);
-        developer.log('Loaded ${data.length} events (offset $offset)', name: 'PostService');
+        developer.log('Loaded ${data.length} events (offset $offset)',
+            name: 'PostService');
 
         return data.map((json) {
           // Обработка image_urls для событий
@@ -136,7 +141,7 @@ class PostService {
                   .toList();
             }
           }
-          
+
           return Post.fromJson({
             'id': json['id'],
             'userID': json['userID'],
@@ -157,10 +162,11 @@ class PostService {
     } catch (e, stackTrace) {
       developer.log('Error fetching events paginated: $e',
           name: 'PostService', stackTrace: stackTrace);
-      
+
       // Fallback на старый метод если пагинация не поддерживается
       if (offset == 0 && e.toString().contains('404')) {
-        developer.log('Pagination not supported, falling back to getAllEvents', name: 'PostService');
+        developer.log('Pagination not supported, falling back to getAllEvents',
+            name: 'PostService');
         return await getAllEvents(token, userId);
       }
       rethrow;
@@ -398,7 +404,8 @@ class PostService {
 
   Future<List<Post>> getPosts(String token) async {
     try {
-      developer.log('Attempting to fetch posts with token', name: 'PostService');
+      developer.log('Attempting to fetch posts with token',
+          name: 'PostService');
       final response = await _client.get(
         Uri.parse('$_postsUrl/goals/all'),
         headers: {
@@ -549,8 +556,6 @@ class PostService {
       rethrow;
     }
   }
-<<<<<<< HEAD
-=======
 
 //   Future<Post> getEventById(String eventId, String token) async {
 //   try {
@@ -604,7 +609,6 @@ class PostService {
 //     rethrow;
 //   }
 // }
->>>>>>> unlikeSystem
 
   Future<Map<String, dynamic>> likePost(
       String postId, String userId, String token) async {
