@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'screens/sign_in_screen.dart';
-import 'screens/sign_up_screen.dart';
+import 'screens/OnboardingController/onboarding_controller.dart';
 import 'screens/home_screen.dart';
 import 'screens/add_screen.dart';
 import 'screens/profile_screen.dart';
@@ -53,7 +53,7 @@ class MyApp extends StatelessWidget {
         initialRoute: '/sign_in',
         routes: {
           '/sign_in': (context) => const SignInScreen(),
-          '/sign_up': (context) => const SignUpScreen(),
+          '/sign_up': (context) => const OnboardingController(),
           '/home': (context) => const HomeScreen(),
           '/add': (context) => const AddScreen(),
           '/profile': (context) => const ProfileScreen(),
