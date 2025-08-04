@@ -59,7 +59,7 @@ class AIService {
               'Authorization': 'Bearer $token',
               'Content-Type': 'application/json',
             },
-            body: jsonEncode({'prompt': prompt}),
+            body: jsonEncode({'message': prompt}),
           )
           .timeout(const Duration(seconds: 30));
       final data = await _handleResponse(response);
@@ -85,7 +85,7 @@ class AIService {
               'Authorization': 'Bearer $token',
               'Content-Type': 'application/json',
             },
-            body: jsonEncode({'prompt': prompt}),
+            body: jsonEncode({'message': prompt}),
           )
           .timeout(const Duration(seconds: 30));
       final data = await _handleResponse(response);
