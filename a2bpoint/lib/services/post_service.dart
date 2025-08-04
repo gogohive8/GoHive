@@ -549,6 +549,62 @@ class PostService {
       rethrow;
     }
   }
+<<<<<<< HEAD
+=======
+
+//   Future<Post> getEventById(String eventId, String token) async {
+//   try {
+//     developer.log('Fetching event by id: $eventId', name: 'PostService');
+//     final response = await _client.get(
+//       Uri.parse('$_postsUrl/events/$eventId'),
+//       headers: {
+//         'Authorization': 'Bearer $token',
+//         'Content-Type': 'application/json',
+//       },
+//     ).timeout(const Duration(seconds: 10));
+
+//     final data = await _handleResponse(response);
+
+//     // Обработка image_urls для событий
+//     List<String>? imageUrls;
+//     if (data['image_urls'] != null) {
+//       if (data['image_urls'] is String && data['image_urls'].isNotEmpty) {
+//         imageUrls = [data['image_urls']];
+//       } else if (data['image_urls'] is List) {
+//         imageUrls = (data['image_urls'] as List)
+//             .where((item) => item != null)
+//             .map((item) => item.toString())
+//             .toList();
+//       }
+//     }
+
+//     return Post.fromJson({
+//       ...data,
+//       'type': 'event',
+//       'userID': data['userID']?.toString() ??
+//           data['user_id']?.toString() ??
+//           'unknown',
+//       'username': data['username']?.toString() ?? 'Unknown',
+//       'description': data['description']?.toString() ?? '',
+//       'location': data['location']?.toString() ?? '',
+//       'interest': data['interest']?.toString() ?? '',
+//       'date_time': data['date_time']?.toString() ?? '',
+//       'created_at': data['created_at']?.toString() ??
+//           data['createdAt']?.toString() ??
+//           DateTime.now().toIso8601String(),
+//       'numOfLikes': data['numOfLikes'] ?? 0,
+//       'numOfComments': data['numOfComments'] ?? 0,
+//       'id': data['id']?.toString() ?? '',
+//       'likes': data['likes'] ?? [],
+//       'image_urls': imageUrls,
+//     }, type: 'event');
+//   } catch (e, stackTrace) {
+//     developer.log('Get event by id error: $e',
+//         name: 'PostService', stackTrace: stackTrace);
+//     rethrow;
+//   }
+// }
+>>>>>>> unlikeSystem
 
   Future<Map<String, dynamic>> likePost(
       String postId, String userId, String token) async {
@@ -583,6 +639,43 @@ class PostService {
     } catch (e, stackTrace) {
       developer.log('Error liking post: $e',
           name: 'PostService', stackTrace: stackTrace);
+      throw Exception('Failed to like post: $e');
+    }
+  }
+
+  Future<Map<String, dynamic>> unlikePost(
+      String postId, String userId, String token) async {
+    try {
+      developer.log('Liking post: $postId', name: 'ApiService');
+
+      final response = await http.post(
+        Uri.parse('$_postsUrl/unlike'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode({
+          'post_id': postId,
+          'user_id': userId,
+        }),
+      );
+
+      developer.log('Like response: ${response.statusCode}',
+          name: 'ApiService');
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return {
+          'message': data['message'],
+          'numOfLikes': data['numOfLikes'],
+        };
+      } else {
+        final errorData = jsonDecode(response.body);
+        throw Exception('Failed to like post: ${errorData['error']}');
+      }
+    } catch (e, stackTrace) {
+      developer.log('Error liking post: $e',
+          name: 'ApiService', stackTrace: stackTrace);
       throw Exception('Failed to like post: $e');
     }
   }
