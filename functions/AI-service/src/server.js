@@ -69,35 +69,6 @@ const verifyToken = async (req, res, next) => {
 
 const AIclient = new OpenAI({apiKey: process.env.OPENAI_API});
 
-// Endpoint to generate goal plan
-// app.post('/api/generate-goal', verifyToken, async (req, res) => {
-//   const { prompt } = req.body;
-
-//   if (!prompt) {
-//     return res.status(400).json({ error: 'Prompt is required' });
-//   }
-
-//   try {
-// const response = await AIclient.responses.create({
-//       model: 'gpt-4.1',
-//       input: [
-//         {
-//           role: 'system',
-//           content: 'You are an experienced mentor. Ask the user the following questions one at a time, waiting for each answer before continuing: 1) Describe your current situation in detail (Point A). 2) What resources or strengths do you have that could help you reach your goal? 3) Describe your lifestyle. 4) Describe in detail the future state you want to reach (Point B). After all answers are received, respond using only this structure: 1. Point A 2. Point B 3. Steps to achieve the goal (minimum two logical and realistic steps). Do not include any extra text or formatting. Respond in the same language the user uses (English or Russian).'
-//         },
-//         {
-//           role: 'user',
-//           content: prompt
-//         }
-//       ],
-//     });
-
-//     return res.status(200).json(response.output_text);
-//   } catch (error) {
-//     console.error('Error with OpenAI API:', error.message);
-//     res.status(500).json({ error: 'Failed to generate goal plan', details: error.message });
-//   }
-// });
 
 // Store conversation history in memory (for simplicity; use a database for production)
 const conversationHistory = new Map();
@@ -159,14 +130,28 @@ app.post('/api/generate-goal', verifyToken, async (req, res) => {
     conversationHistory.set(user_id, conversation);
 
     // Check if the AI response contains a goal summary (based on format)
-    const goalPattern = /Goal Description:/i;
+   // Check if the AI response contains a goal summary
+    const goalPattern = /\*\*Goal Description:\*\*|\bGoal Description:/i;
     if (goalPattern.test(aiMessage)) {
       // Parse the AI response to extract goal components
-      const goalMatch = aiMessage.match(/Goal Description: (.*?)(?:\n|$)/i);
-      const pointAMatch = aiMessage.match(/Point A: (.*?)(?:\n|$)/i);
-      const pointBMatch = aiMessage.match(/Point B: (.*?)(?:\n|$)/i);
-      const stepsMatch = aiMessage.match(/Steps: \[(.*?)\](?:\n|$)/i);
-      const tipsMatch = aiMessage.match(/Tips: \[(.*?)\](?:\n|$)/i);
+      const goalMatch = aiMessage.match(/(?:\*\*Goal Description:\*\*|\bGoal Description:) (.*?)(?:\n|$)/i);
+      const pointAMatch = aiMessage.match(/(?:\*\*Point A:\*\*|\bPoint A:) (.*?)(?:\n|$)/i);
+      const pointBMatch = aiMessage.match(/(?:\*\*Point B:\*\*|\bPoint B:) (.*?)(?:\n|$)/i);
+      const stepsMatch = aiMessage.match(/(?:\*\*Steps:\*\*|\bSteps:) (.*?)(?:\n|$)/i);
+      const tipsMatch = aiMessage.match(/(?:\*\*Tips:\*\*|\bTips:) (.*?)(?:\n|$)/i);
+
+      // Parse steps and tips as lists (handle semicolons, numbered lists, or plain text)
+      const parseList = (text) => {
+        if (!text) return [];
+        // Split by semicolons or newlines, or treat as single item
+        if (text.includes(';')) {
+          return text.split(';').map(s => s.trim()).filter(s => s);
+        }
+        if (text.match(/\d+\./)) {
+          return text.split(/\d+\.\s*/).map(s => s.trim()).filter(s => s);
+        }
+        return [text.trim()];
+      };
 
       const goalData = {
         description: goalMatch ? goalMatch[1].trim() : '',
@@ -192,36 +177,6 @@ app.post('/api/generate-goal', verifyToken, async (req, res) => {
     return res.status(500).json({ error: 'Internal server error' });
   }
 });
-
-// // Endpoint to generate event plan
-// app.post('/api/generate-event', verifyToken, async (req, res) => {
-//   const { prompt } = req.body;
-
-//   if (!prompt) {
-//     return res.status(400).json({ error: 'Prompt is required' });
-//   }
-
-//   try {
-// const response = await AIclient.chat.completions.create({
-//       model: 'gpt-4.1',
-//       input: [
-//         {
-//           role: 'system',
-//           content: 'You are an experienced mentor. Before generating a short-term goal description (event), ask the user the following questions one at a time, waiting for each answer before continuing: 1) What exactly do you want to do in the near future? 2) Why do you want to do this? (what result or effect are you expecting?) 3) When do you plan to do it? 4) Where will it take place? (if applicable) 5) What resources or conditions do you need to complete this action? 6) Is there anything that could interfere with or complicate it? After receiving all the answers, provide one clear and concise event description (i.e., short-term action), with no headings, no explanation, and no formatting. Respond in the same language the user uses.'
-//         },
-//         {
-//           role: 'user',
-//           content: prompt
-//         }
-//       ],
-//     });
-
-//     return res.status(200).json(response.output_text);
-//   } catch (error) {
-//     console.error('Error with OpenAI API:', error.message);
-//     res.status(500).json({ error: 'Failed to generate event plan', details: error.message });
-//   }
-// });
 
 
 
@@ -279,11 +234,11 @@ app.post('/api/generate-event', verifyToken, async (req, res) => {
     conversationHistory.set(user_id, conversation);
 
     // Check if the AI response contains an event summary
-    const eventPattern = /Description:/i;
+    const eventPattern = /\*\*Description:\*\*|\bDescription:/i;
     if (eventPattern.test(aiMessage)) {
       // Parse the AI response to extract event components
-      const descriptionMatch = aiMessage.match(/Description: (.*?)(?:\n|$)/i);
-      const dateTimeMatch = aiMessage.match(/Date and Time: (.*?)(?:\n|$)/i);
+      const descriptionMatch = aiMessage.match(/(?:\*\*Description:\*\*|\bDescription:) (.*?)(?:\n|$)/i);
+      const dateTimeMatch = aiMessage.match(/(?:\*\*Date and Time:\*\*|\bDate and Time:) (.*?)(?:\n|$)/i);
 
       const eventData = {
         description: descriptionMatch ? descriptionMatch[1].trim() : '',
