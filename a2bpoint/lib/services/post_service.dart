@@ -17,7 +17,7 @@ class PostService {
 
   Future<dynamic> _handleResponse(http.Response response) async {
     developer.log('Response: ${response.statusCode}, body: ${response.body}',
-        name: 'ApiService');
+        name: 'PostService');
     if (response.statusCode >= 200 && response.statusCode < 300) {
       if (response.statusCode == 204) return {};
       return response.body.isNotEmpty ? jsonDecode(response.body) : {};
@@ -25,35 +25,152 @@ class PostService {
     if (response.statusCode == 400) {
       final errorBody = jsonDecode(response.body);
       final errorMessage = errorBody['error']?.toString() ?? 'Invalid input';
-      developer.log('Validation error: $errorMessage', name: 'ApiService');
+      developer.log('Validation error: $errorMessage', name: 'PostService');
       throw DataValidationException('Invalid input: $errorMessage');
     }
     if (response.statusCode == 401) {
-      developer.log('Unauthorized: ${response.body}', name: 'ApiService');
+      developer.log('Unauthorized: ${response.body}', name: 'PostService');
       throw AuthenticationException('Unauthorized: ${response.body}');
     }
     throw Exception('Request failed: ${response.statusCode} ${response.body}');
   }
 
-  // Future<http.Response> _makeRequest(
-  //     Future<http.Response> Function() request, int retries) async {
-  //   for (int attempt = 1; attempt <= retries; attempt++) {
-  //     try {
-  //       final response = await request().timeout(const Duration(seconds: 30));
-  //       return response;
-  //     } catch (e) {
-  //       if (attempt == retries) rethrow;
-  //       developer.log('Request attempt $attempt failed: $e',
-  //           name: 'ApiService');
-  //       await Future.delayed(Duration(milliseconds: 500 * attempt));
-  //     }
-  //   }
-  //   throw Exception('Request failed after $retries attempts');
-  // }
+  // НОВЫЕ МЕТОДЫ С ПАГИНАЦИЕЙ
+  Future<List<Post>> getGoalsPaginated(
+    String token, 
+    String userId, {
+    int offset = 0, 
+    int limit = 20,
+  }) async {
+    try {
+      developer.log('Fetching goals offset $offset with limit $limit', name: 'PostService');
+      
+      final response = await _client.get(
+        Uri.parse('$_postsUrl/goals/all?offset=$offset&limit=$limit'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+      ).timeout(const Duration(seconds: 10));
 
+      final data = await _handleResponse(response);
+      final posts = (data as List<dynamic>).map((json) {
+        // Обработка image_urls
+        List<String>? imageUrls;
+        if (json['image_urls'] != null) {
+          if (json['image_urls'] is String && json['image_urls'].isNotEmpty) {
+            imageUrls = [json['image_urls']];
+          } else if (json['image_urls'] is List) {
+            imageUrls = (json['image_urls'] as List)
+                .where((item) => item != null)
+                .map((item) => item.toString())
+                .toList();
+          }
+        }
+
+        return Post.fromJson({
+          ...json,
+          'type': 'goal',
+          'description': json['goalInfo']?.toString() ?? '',
+          'created_at': json['created_at']?.toString() ??
+              DateTime.now().toIso8601String(),
+          'numOfLikes': json['numOfLikes'] ?? 0,
+          'numOfComments': json['numOfComments'] ?? 0,
+          'id': json['id']?.toString() ?? '',
+          'userID': json['userID']?.toString() ?? 'unknown',
+          'username': json['username']?.toString() ?? 'Unknown',
+          'likedCurrentGoal': json['likedCurrentGoal'] ?? false,
+          'image_urls': imageUrls,
+        }, type: 'goal');
+      }).toList();
+
+      developer.log('Loaded ${posts.length} goals (offset $offset)', name: 'PostService');
+      return posts;
+    } catch (e, stackTrace) {
+      developer.log('Get goals paginated error: $e',
+          name: 'PostService', stackTrace: stackTrace);
+      
+      // Fallback на старый метод если пагинация не поддерживается
+      if (offset == 0 && e.toString().contains('404')) {
+        developer.log('Pagination not supported, falling back to getAllGoals', name: 'PostService');
+        return await getAllGoals(token, userId);
+      }
+      rethrow;
+    }
+  }
+
+  Future<List<Post>> getEventsPaginated(
+    String token, 
+    String userId, {
+    int offset = 0, 
+    int limit = 20,
+  }) async {
+    try {
+      developer.log('Fetching events offset $offset with limit $limit', name: 'PostService');
+
+      final response = await http.get(
+        Uri.parse('$_postsUrl/events/all?offset=$offset&limit=$limit'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      developer.log('Events paginated fetch response: ${response.statusCode}',
+          name: 'PostService');
+
+      if (response.statusCode == 200) {
+        final List<dynamic> data = jsonDecode(response.body);
+        developer.log('Loaded ${data.length} events (offset $offset)', name: 'PostService');
+
+        return data.map((json) {
+          // Обработка image_urls для событий
+          List<String>? imageUrls;
+          if (json['image_urls'] != null) {
+            if (json['image_urls'] is String && json['image_urls'].isNotEmpty) {
+              imageUrls = [json['image_urls']];
+            } else if (json['image_urls'] is List) {
+              imageUrls = (json['image_urls'] as List)
+                  .where((item) => item != null)
+                  .map((item) => item.toString())
+                  .toList();
+            }
+          }
+          
+          return Post.fromJson({
+            'id': json['id'],
+            'userID': json['userID'],
+            'username': json['username'],
+            'description': json['description'],
+            'location': json['location'],
+            'date_time': json['date_time'],
+            'numOfLikes': json['numOfLikes'],
+            'numOfComments': json['numOfComments'],
+            'created_at': json['created_at'],
+            'image_urls': imageUrls,
+          }, type: 'event');
+        }).toList();
+      } else {
+        final errorData = jsonDecode(response.body);
+        throw Exception('Failed to fetch events: ${errorData['error']}');
+      }
+    } catch (e, stackTrace) {
+      developer.log('Error fetching events paginated: $e',
+          name: 'PostService', stackTrace: stackTrace);
+      
+      // Fallback на старый метод если пагинация не поддерживается
+      if (offset == 0 && e.toString().contains('404')) {
+        developer.log('Pagination not supported, falling back to getAllEvents', name: 'PostService');
+        return await getAllEvents(token, userId);
+      }
+      rethrow;
+    }
+  }
+
+  // СТАРЫЕ МЕТОДЫ (оставляем для обратной совместимости)
   Future<String> uploadMedia(File file, String token) async {
     try {
-      developer.log('Uploading media file: ${file.path}', name: 'ApiService');
+      developer.log('Uploading media file: ${file.path}', name: 'PostService');
 
       var request =
           http.MultipartRequest('POST', Uri.parse('$_postsUrl/upload'));
@@ -66,13 +183,12 @@ class PostService {
       var response = await http.Response.fromStream(streamedResponse);
 
       developer.log('Upload response: ${response.statusCode}',
-          name: 'ApiService');
+          name: 'PostService');
       developer.log('Upload response body: ${response.body}',
-          name: 'ApiService');
+          name: 'PostService');
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        // Сервер может вернуть либо объект с url, либо массив URL
         if (data is Map && data.containsKey('url')) {
           return data['url'];
         } else if (data is List && data.isNotEmpty) {
@@ -86,7 +202,7 @@ class PostService {
       }
     } catch (e, stackTrace) {
       developer.log('Error uploading media: $e',
-          name: 'ApiService', stackTrace: stackTrace);
+          name: 'PostService', stackTrace: stackTrace);
       throw Exception('Failed to upload media: $e');
     }
   }
@@ -103,7 +219,7 @@ class PostService {
     required String token,
   }) async {
     try {
-      developer.log('Creating goal with userId: $userId', name: 'ApiService');
+      developer.log('Creating goal with userId: $userId', name: 'PostService');
 
       final response = await http.post(
         Uri.parse('$_postsUrl/goals/create'),
@@ -124,9 +240,9 @@ class PostService {
       );
 
       developer.log('Goal creation response: ${response.statusCode}',
-          name: 'ApiService');
+          name: 'PostService');
       developer.log('Goal creation response body: ${response.body}',
-          name: 'ApiService');
+          name: 'PostService');
 
       if (response.statusCode != 200) {
         final errorData = jsonDecode(response.body);
@@ -134,7 +250,7 @@ class PostService {
       }
     } catch (e, stackTrace) {
       developer.log('Error creating goal: $e',
-          name: 'ApiService', stackTrace: stackTrace);
+          name: 'PostService', stackTrace: stackTrace);
       throw Exception('Failed to create goal: $e');
     }
   }
@@ -160,7 +276,7 @@ class PostService {
 
       developer.log(
           'Creating event for userId: $userId, body: ${jsonEncode(body)}',
-          name: 'ApiService');
+          name: 'PostService');
 
       final response = await _client
           .post(
@@ -175,19 +291,114 @@ class PostService {
 
       developer.log(
           'CreateEvent response: ${response.statusCode}, ${response.body}',
-          name: 'ApiService');
+          name: 'PostService');
 
       await _handleResponse(response);
     } catch (e, stackTrace) {
       developer.log('CreateEvent error: $e',
-          name: 'ApiService', stackTrace: stackTrace);
+          name: 'PostService', stackTrace: stackTrace);
       rethrow;
+    }
+  }
+
+  Future<List<Post>> getAllGoals(String token, String userId) async {
+    try {
+      developer.log('Fetching all goals for userId: $userId',
+          name: 'PostService');
+      final response = await _client.get(
+        Uri.parse('$_postsUrl/goals/all'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+      ).timeout(const Duration(seconds: 10));
+
+      final data = await _handleResponse(response);
+      final posts = (data as List<dynamic>).map((json) {
+        List<String>? imageUrls;
+        if (json['image_urls'] != null) {
+          if (json['image_urls'] is String && json['image_urls'].isNotEmpty) {
+            imageUrls = [json['image_urls']];
+          } else if (json['image_urls'] is List) {
+            imageUrls = (json['image_urls'] as List)
+                .where((item) => item != null)
+                .map((item) => item.toString())
+                .toList();
+          }
+        }
+
+        return Post.fromJson({
+          ...json,
+          'type': 'goal',
+          'description': json['goalInfo']?.toString() ?? '',
+          'created_at': json['created_at']?.toString() ??
+              DateTime.now().toIso8601String(),
+          'numOfLikes': json['numOfLikes'] ?? 0,
+          'numOfComments': json['numOfComments'] ?? 0,
+          'id': json['id']?.toString() ?? '',
+          'userID': json['userID']?.toString() ?? 'unknown',
+          'username': json['username']?.toString() ?? 'Unknown',
+          'likedCurrentGoal': json['likedCurrentGoal'] ?? false,
+          'image_urls': imageUrls,
+        }, type: 'goal');
+      }).toList();
+
+      developer.log('Parsed ${posts.length} goals', name: 'PostService');
+      return posts;
+    } catch (e, stackTrace) {
+      developer.log('Get all goals error: $e',
+          name: 'PostService', stackTrace: stackTrace);
+      rethrow;
+    }
+  }
+
+  Future<List<Post>> getAllEvents(String token, String userId) async {
+    try {
+      developer.log('Fetching all events', name: 'PostService');
+
+      final response = await http.get(
+        Uri.parse('$_postsUrl/events/all'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      developer.log('Events fetch response: ${response.statusCode}',
+          name: 'PostService');
+
+      if (response.statusCode == 200) {
+        final List<dynamic> data = jsonDecode(response.body);
+        developer.log('Received ${data.length} events', name: 'PostService');
+
+        return data.map((json) {
+          return Post.fromJson({
+            'id': json['id'],
+            'userID': json['userID'],
+            'username': json['username'],
+            'description': json['description'],
+            'location': json['location'],
+            'date_time': json['date_time'],
+            'numOfLikes': json['numOfLikes'],
+            'numOfComments': json['numOfComments'],
+            'created_at': json['created_at'],
+            'image_urls': json['image_urls'],
+          }, type: 'event');
+        }).toList();
+      } else {
+        final errorData = jsonDecode(response.body);
+        throw Exception('Failed to fetch events: ${errorData['error']}');
+      }
+    } catch (e, stackTrace) {
+      developer.log('Error fetching events: $e',
+          name: 'PostService', stackTrace: stackTrace);
+      throw Exception('Failed to fetch events: $e');
     }
   }
 
   Future<List<Post>> getPosts(String token) async {
     try {
-      developer.log('Attempting to fetch posts with token', name: 'ApiService');
+      developer.log('Attempting to fetch posts with token', name: 'PostService');
       final response = await _client.get(
         Uri.parse('$_postsUrl/goals/all'),
         headers: {
@@ -216,117 +427,18 @@ class PostService {
                 'likes': json['likes'] ?? [],
               }, type: 'goal'))
           .toList();
-      developer.log('Parsed ${posts.length} posts', name: 'ApiService');
+      developer.log('Parsed ${posts.length} posts', name: 'PostService');
       return posts;
     } catch (e, stackTrace) {
       developer.log('Get posts error: $e',
-          name: 'ApiService', stackTrace: stackTrace);
+          name: 'PostService', stackTrace: stackTrace);
       rethrow;
-    }
-  }
-
-  Future<List<Post>> getAllGoals(String token, String userId) async {
-    try {
-      developer.log('Fetching all goals for userId: $userId',
-          name: 'ApiService');
-      final response = await _client.get(
-        Uri.parse('$_postsUrl/goals/all'),
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Content-Type': 'application/json',
-        },
-      ).timeout(const Duration(seconds: 10));
-
-      final data = await _handleResponse(response);
-      final posts = (data as List<dynamic>).map((json) {
-        // ИСПРАВЛЕНО: правильная обработка image_urls
-        List<String>? imageUrls;
-        if (json['image_urls'] != null) {
-          if (json['image_urls'] is String && json['image_urls'].isNotEmpty) {
-            imageUrls = [json['image_urls']];
-          } else if (json['image_urls'] is List) {
-            imageUrls = (json['image_urls'] as List)
-                .where((item) => item != null)
-                .map((item) => item.toString())
-                .toList();
-            developer.log(
-                'Processing image_urls: ${json['image_urls']} (type: ${json['image_urls'].runtimeType})',
-                name: 'ApiService');
-          }
-        }
-
-        return Post.fromJson({
-          ...json,
-          'type': 'goal',
-          'description': json['goalInfo']?.toString() ?? '',
-          'created_at': json['created_at']?.toString() ??
-              DateTime.now().toIso8601String(),
-          'numOfLikes': json['numOfLikes'] ?? 0,
-          'numOfComments': json['numOfComments'] ?? 0,
-          'id': json['id']?.toString() ?? '',
-          'userID': json['userID']?.toString() ?? 'unknown',
-          'username': json['username']?.toString() ?? 'Unknown',
-          'likedCurrentGoal': json['likedCurrentGoal'] ?? false,
-          'image_urls': imageUrls, // ИСПРАВЛЕНО
-        }, type: 'goal');
-      }).toList();
-
-      developer.log('Parsed ${posts.length} goals', name: 'ApiService');
-      return posts;
-    } catch (e, stackTrace) {
-      developer.log('Get all goals error: $e',
-          name: 'ApiService', stackTrace: stackTrace);
-      rethrow;
-    }
-  }
-
-  Future<List<Post>> getAllEvents(String token, String userId) async {
-    try {
-      developer.log('Fetching all events', name: 'ApiService');
-
-      final response = await http.get(
-        Uri.parse('$_postsUrl/events/all'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
-      );
-
-      developer.log('Events fetch response: ${response.statusCode}',
-          name: 'ApiService');
-
-      if (response.statusCode == 200) {
-        final List<dynamic> data = jsonDecode(response.body);
-        developer.log('Received ${data.length} events', name: 'ApiService');
-
-        return data.map((json) {
-          return Post.fromJson({
-            'id': json['id'],
-            'userID': json['userID'],
-            'username': json['username'],
-            'description': json['description'],
-            'location': json['location'],
-            'date_time': json['date_time'],
-            'numOfLikes': json['numOfLikes'],
-            'numOfComments': json['numOfComments'],
-            'created_at': json['created_at'],
-            'image_urls': json['image_urls'],
-          }, type: 'event');
-        }).toList();
-      } else {
-        final errorData = jsonDecode(response.body);
-        throw Exception('Failed to fetch events: ${errorData['error']}');
-      }
-    } catch (e, stackTrace) {
-      developer.log('Error fetching events: $e',
-          name: 'ApiService', stackTrace: stackTrace);
-      throw Exception('Failed to fetch events: $e');
     }
   }
 
   Future<List<Post>> getGoals(String userId, String token) async {
     try {
-      developer.log('GetGoals request: userId: $userId', name: 'ApiService');
+      developer.log('GetGoals request: userId: $userId', name: 'PostService');
       final response = await _client.get(
         Uri.parse('$_postsUrl/goals/$userId'),
         headers: {
@@ -356,18 +468,18 @@ class PostService {
                 'photo_urls': json['photoURL'] ?? [],
               }, type: 'goal'))
           .toList();
-      developer.log('Parsed ${posts.length} user goals', name: 'ApiService');
+      developer.log('Parsed ${posts.length} user goals', name: 'PostService');
       return posts;
     } catch (e, stackTrace) {
       developer.log('GetGoals error: $e',
-          name: 'ApiService', stackTrace: stackTrace);
+          name: 'PostService', stackTrace: stackTrace);
       return [];
     }
   }
 
   Future<List<Post>> getEvents(String userId, String token) async {
     try {
-      developer.log('GetEvents request: userId: $userId', name: 'ApiService');
+      developer.log('GetEvents request: userId: $userId', name: 'PostService');
       final response = await _client.get(
         Uri.parse('$_postsUrl/events/$userId'),
         headers: {
@@ -393,18 +505,18 @@ class PostService {
                 'image_urls': json['photoURL'] ?? [],
               }, type: 'event'))
           .toList();
-      developer.log('Parsed ${posts.length} user events', name: 'ApiService');
+      developer.log('Parsed ${posts.length} user events', name: 'PostService');
       return posts;
     } catch (e, stackTrace) {
       developer.log('GetEvents error: $e',
-          name: 'ApiService', stackTrace: stackTrace);
+          name: 'PostService', stackTrace: stackTrace);
       return [];
     }
   }
 
   Future<Post> getPostById(String post_id, String token) async {
     try {
-      developer.log('Fetching post by id: $post_id', name: 'ApiService');
+      developer.log('Fetching post by id: $post_id', name: 'PostService');
       final response = await _client.get(
         Uri.parse('$_postsUrl/posts/$post_id'),
         headers: {
@@ -433,68 +545,15 @@ class PostService {
       }, type: data['type']?.toString() ?? 'goal');
     } catch (e, stackTrace) {
       developer.log('Get post by id error: $e',
-          name: 'ApiService', stackTrace: stackTrace);
+          name: 'PostService', stackTrace: stackTrace);
       rethrow;
     }
   }
-  
-//   Future<Post> getEventById(String eventId, String token) async {
-//   try {
-//     developer.log('Fetching event by id: $eventId', name: 'PostService');
-//     final response = await _client.get(
-//       Uri.parse('$_postsUrl/events/$eventId'),
-//       headers: {
-//         'Authorization': 'Bearer $token',
-//         'Content-Type': 'application/json',
-//       },
-//     ).timeout(const Duration(seconds: 10));
-    
-//     final data = await _handleResponse(response);
-    
-//     // Обработка image_urls для событий
-//     List<String>? imageUrls;
-//     if (data['image_urls'] != null) {
-//       if (data['image_urls'] is String && data['image_urls'].isNotEmpty) {
-//         imageUrls = [data['image_urls']];
-//       } else if (data['image_urls'] is List) {
-//         imageUrls = (data['image_urls'] as List)
-//             .where((item) => item != null)
-//             .map((item) => item.toString())
-//             .toList();
-//       }
-//     }
-    
-//     return Post.fromJson({
-//       ...data,
-//       'type': 'event',
-//       'userID': data['userID']?.toString() ??
-//           data['user_id']?.toString() ??
-//           'unknown',
-//       'username': data['username']?.toString() ?? 'Unknown',
-//       'description': data['description']?.toString() ?? '',
-//       'location': data['location']?.toString() ?? '',
-//       'interest': data['interest']?.toString() ?? '',
-//       'date_time': data['date_time']?.toString() ?? '',
-//       'created_at': data['created_at']?.toString() ?? 
-//           data['createdAt']?.toString() ??
-//           DateTime.now().toIso8601String(),
-//       'numOfLikes': data['numOfLikes'] ?? 0,
-//       'numOfComments': data['numOfComments'] ?? 0,
-//       'id': data['id']?.toString() ?? '',
-//       'likes': data['likes'] ?? [],
-//       'image_urls': imageUrls,
-//     }, type: 'event');
-//   } catch (e, stackTrace) {
-//     developer.log('Get event by id error: $e',
-//         name: 'PostService', stackTrace: stackTrace);
-//     rethrow;
-//   }
-// }
 
   Future<Map<String, dynamic>> likePost(
       String postId, String userId, String token) async {
     try {
-      developer.log('Liking post: $postId', name: 'ApiService');
+      developer.log('Liking post: $postId', name: 'PostService');
 
       final response = await http.post(
         Uri.parse('$_postsUrl/like'),
@@ -509,7 +568,7 @@ class PostService {
       );
 
       developer.log('Like response: ${response.statusCode}',
-          name: 'ApiService');
+          name: 'PostService');
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
@@ -523,14 +582,14 @@ class PostService {
       }
     } catch (e, stackTrace) {
       developer.log('Error liking post: $e',
-          name: 'ApiService', stackTrace: stackTrace);
+          name: 'PostService', stackTrace: stackTrace);
       throw Exception('Failed to like post: $e');
     }
   }
 
   Future<void> joinEvent(String eventId, String userId, String token) async {
     try {
-      developer.log('Joining event: $eventId', name: 'ApiService');
+      developer.log('Joining event: $eventId', name: 'PostService');
 
       final response = await http.post(
         Uri.parse('$_postsUrl/joinEvent'),
@@ -545,7 +604,7 @@ class PostService {
       );
 
       developer.log('Join event response: ${response.statusCode}',
-          name: 'ApiService');
+          name: 'PostService');
 
       if (response.statusCode != 200) {
         final errorData = jsonDecode(response.body);
@@ -553,7 +612,7 @@ class PostService {
       }
     } catch (e, stackTrace) {
       developer.log('Error joining event: $e',
-          name: 'ApiService', stackTrace: stackTrace);
+          name: 'PostService', stackTrace: stackTrace);
       throw Exception('Failed to join event: $e');
     }
   }
