@@ -75,16 +75,17 @@ class ApiService {
   }
 
   Future<Map<String, String>> signUp(
-    String username,
-    String email,
-    String password,
-    String firstName,
-    String lastName,
-    int age,
-    String phoneNumber,
-    String date_of_birthday,
-    String sex,
-  ) async {
+      String username,
+      String email,
+      String password,
+      String firstName,
+      String lastName,
+      int age,
+      String phoneNumber,
+      DateTime? date_of_birthday,
+      String sex,
+      String city,
+      String country) async {
     try {
       developer.log(
           'Attempting signUp request: email: $email, username: $username',
@@ -101,6 +102,8 @@ class ApiService {
               'mail': email,
               'phone': phoneNumber,
               'password': password,
+              'city': city,
+              'country': country,
               'date_of_birthday': date_of_birthday,
               'sex': sex
             }),

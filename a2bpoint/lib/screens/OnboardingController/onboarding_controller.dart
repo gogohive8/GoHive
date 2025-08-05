@@ -17,7 +17,7 @@ class OnboardingController extends StatefulWidget {
 class _OnboardingControllerState extends State<OnboardingController> {
   final PageController _pageController = PageController();
   final ApiService _apiService = ApiService();
-  
+
   int _currentStep = 0;
   bool _isLoading = false;
   bool _isGoogleSignUp = false;
@@ -30,7 +30,8 @@ class _OnboardingControllerState extends State<OnboardingController> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+    final args =
+        ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
     if (args != null && args['isGoogleSignUp'] == true) {
       _isGoogleSignUp = true;
       _userId = args['userId'];
@@ -63,7 +64,8 @@ class _OnboardingControllerState extends State<OnboardingController> {
     if (_isLoading) return;
 
     setState(() => _isLoading = true);
-    developer.log('Completing sign-up, isGoogleSignUp: $_isGoogleSignUp', name: 'OnboardingController');
+    developer.log('Completing sign-up, isGoogleSignUp: $_isGoogleSignUp',
+        name: 'OnboardingController');
 
     try {
       _showLoadingDialog();
@@ -87,7 +89,7 @@ class _OnboardingControllerState extends State<OnboardingController> {
           },
           '', // photoURL
         );
-        
+
         await authProvider.setAuthData(
           authProvider.token!,
           _userId!,
@@ -98,16 +100,20 @@ class _OnboardingControllerState extends State<OnboardingController> {
       } else {
         // Email Sign-Up: создаем нового пользователя
         final authData = await _apiService.signUp(
-          _data.username,        // username
-          _data.email,          // email  
-          _data.password,       // password
-          _data.name,           // firstName (name)
-          _data.surname,        // lastName (surname)
-          _data.age,            // age
-          _data.phone,          // phoneNumber
-        );
+            _data.username, // username
+            _data.email, // email
+            _data.password, // password
+            _data.name, // firstName (name)
+            _data.surname, // lastName (surname)
+            _data.age, // age
+            _data.phone, // phoneNumber
+            _data.birthDate,
+            _data.gender,
+            _data.city,
+            _data.country);
 
-        if (authData['token']?.isNotEmpty == true && authData['userId']?.isNotEmpty == true) {
+        if (authData['token']?.isNotEmpty == true &&
+            authData['userId']?.isNotEmpty == true) {
           await authProvider.setAuthData(
             authData['token']!,
             authData['userId']!,
@@ -131,7 +137,8 @@ class _OnboardingControllerState extends State<OnboardingController> {
         _nextStep(); // Переходим к Welcome экрану
       }
     } catch (e, stackTrace) {
-      developer.log('Sign-up error: $e', name: 'OnboardingController', stackTrace: stackTrace);
+      developer.log('Sign-up error: $e',
+          name: 'OnboardingController', stackTrace: stackTrace);
       if (mounted) {
         Navigator.pop(context);
       }
@@ -150,7 +157,6 @@ class _OnboardingControllerState extends State<OnboardingController> {
     );
   }
 
-
   void _goToHome() {
     Navigator.pushReplacementNamed(context, '/home');
   }
@@ -165,7 +171,8 @@ class _OnboardingControllerState extends State<OnboardingController> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: _currentStep == 2 ? const Color(0xFF0056F7) : const Color(0xFFF4F3EE),
+      backgroundColor:
+          _currentStep == 2 ? const Color(0xFF0056F7) : const Color(0xFFF4F3EE),
       body: SafeArea(
         child: Column(
           children: [
@@ -185,7 +192,8 @@ class _OnboardingControllerState extends State<OnboardingController> {
                         ),
                         child: Icon(
                           Icons.arrow_back_ios,
-                          color: _currentStep == 2 ? Colors.white : Colors.black,
+                          color:
+                              _currentStep == 2 ? Colors.white : Colors.black,
                           size: 20,
                         ),
                       ),
@@ -193,18 +201,20 @@ class _OnboardingControllerState extends State<OnboardingController> {
                   ],
                 ),
               ),
-            
+
             // Progress Indicator
             if (_currentStep < 2)
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
                 child: Row(
                   children: [
                     Expanded(
                       child: LinearProgressIndicator(
                         value: (_currentStep + 1) / 2,
                         backgroundColor: Colors.grey.withOpacity(0.3),
-                        valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF0056F7)),
+                        valueColor: const AlwaysStoppedAnimation<Color>(
+                            Color(0xFF0056F7)),
                         minHeight: 4,
                       ),
                     ),
@@ -264,7 +274,7 @@ class OnboardingData {
   DateTime? birthDate;
   String gender = '';
   List<String> interests = [];
-  
+
   // Новые поля для локации и кода страны телефона
   String country = 'Kazakhstan';
   String city = 'Almaty';
@@ -272,16 +282,17 @@ class OnboardingData {
 
   bool get isStepOneValid {
     return name.isNotEmpty &&
-           surname.isNotEmpty &&
-           username.isNotEmpty &&
-           email.isNotEmpty &&
-           password.isNotEmpty &&
-           phone.isNotEmpty &&
-           birthDate != null &&
-           gender.isNotEmpty &&
-           age >= 5 && age <= 99 &&
-           country.isNotEmpty &&
-           city.isNotEmpty;
+        surname.isNotEmpty &&
+        username.isNotEmpty &&
+        email.isNotEmpty &&
+        password.isNotEmpty &&
+        phone.isNotEmpty &&
+        birthDate != null &&
+        gender.isNotEmpty &&
+        age >= 5 &&
+        age <= 99 &&
+        country.isNotEmpty &&
+        city.isNotEmpty;
   }
 
   bool get isStepTwoValid {

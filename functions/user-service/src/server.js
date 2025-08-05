@@ -78,7 +78,7 @@ const verifyToken = async (req, res, next) => {
 app.post('/register/email', async (req, res) => {
   console.log('Received /register/email request:', req.body); // Log incoming request
   try{
-    const { name, surname, username, age, mail, phone, password, date_of_birthday, sex} = req.body;
+    const { name, surname, username, age, mail, phone, password, city, country, date_of_birthday, sex} = req.body;
 
     // check if email is exist
     const { data: users, error: listError } = await supabase.auth.admin.listUsers();
@@ -124,6 +124,8 @@ app.post('/register/email', async (req, res) => {
         surname,
         username,
         age,
+        city,
+        country,
         date_of_birthday,
         sex
       },
