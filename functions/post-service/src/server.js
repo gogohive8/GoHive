@@ -907,6 +907,62 @@ app.get('/posts/:post_id/comments', verifyToken, async (req, res) => {
 })
 
 
+app.post('/search/goals', verifyToken, async (req, res) => {
+  try {
+    const { query } = req.body;
+    if (!query) {
+      return res.status(400).json({ error: 'Missing search query' });
+    }
+
+    console.log(`Searching goals with query: ${query}`);
+    const { data: goalsId, error } = await supabase
+      .schema('posts')
+      .from('goals')
+      .select('id')
+      .ilike('goalInfo', `%${query}%`)
+      .limit(20); // Limit to prevent excessive results
+
+    if (error) {
+      console.error('Error searching goals:', error.message, 'Code:', error.code);
+      return res.status(400).json({ error: error.message });
+    }
+
+    console.log('Found goals:', goalsId);
+    return res.status(200).json({ goalsId });
+  } catch (error) {
+    console.error('Error in /search/goals:', error.message);
+    res.status(400).json({ error: error.message });
+  }
+});
+
+app.post('/search/events', verifyToken, async (req, res) => {
+  try {
+    const { query } = req.body;
+    if (!query) {
+      return res.status(400).json({ error: 'Missing search query' });
+    }
+
+    console.log(`Searching events with query: ${query}`);
+    const { data: eventsId, error } = await supabase
+      .schema('posts')
+      .from('events')
+      .select('id')
+      .ilike('description', `%${query}%`)
+      .limit(20); // Limit to prevent excessive results
+
+    if (error) {
+      console.error('Error searching events:', error.message, 'Code:', error.code);
+      return res.status(400).json({ error: error.message });
+    }
+
+    console.log('Found events:', eventsId);
+    return res.status(200).json({ eventsId });
+  } catch (error) {
+    console.error('Error in /search/goals:', error.message);
+    res.status(400).json({ error: error.message });
+  }
+});
+
 const PORT = process.env.PORT || 3002; // Fallback for local testing
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
