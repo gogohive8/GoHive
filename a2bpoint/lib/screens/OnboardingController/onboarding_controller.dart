@@ -264,6 +264,11 @@ class OnboardingData {
   DateTime? birthDate;
   String gender = '';
   List<String> interests = [];
+  
+  // Новые поля для локации и кода страны телефона
+  String country = 'Kazakhstan';
+  String city = 'Almaty';
+  String phoneCountryCode = '+7';
 
   bool get isStepOneValid {
     return name.isNotEmpty &&
@@ -274,7 +279,9 @@ class OnboardingData {
            phone.isNotEmpty &&
            birthDate != null &&
            gender.isNotEmpty &&
-           age >= 5 && age <= 99;
+           age >= 5 && age <= 99 &&
+           country.isNotEmpty &&
+           city.isNotEmpty;
   }
 
   bool get isStepTwoValid {
@@ -292,5 +299,8 @@ class OnboardingData {
     birthDate = null;
     gender = '';
     interests.clear();
+    country = 'Kazakhstan';
+    city = 'Almaty';
+    phoneCountryCode = '+7';
   }
 }

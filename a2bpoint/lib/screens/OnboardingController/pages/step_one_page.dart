@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:intl_phone_field/intl_phone_field.dart';
+import 'package:country_picker/country_picker.dart';
 import '../onboarding_controller.dart';
 
 class StepOnePage extends StatefulWidget {
@@ -25,10 +27,15 @@ class _StepOnePageState extends State<StepOnePage> {
   final _usernameController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
-  final _phoneController = TextEditingController();
+  final _cityController = TextEditingController();
 
   String _selectedGender = '';
   DateTime? _selectedDate;
+  String _phoneNumber = '';
+  String _phoneCountryCode = '+7'; // Default to Kazakhstan
+  String _selectedCountry = 'Kazakhstan'; // Default country
+  String _selectedCountryCode = 'KZ'; // Default country code for phone field
+  bool _isPhoneValid = false;
 
   @override
   void initState() {
@@ -42,9 +49,34 @@ class _StepOnePageState extends State<StepOnePage> {
     _usernameController.text = widget.data.username;
     _emailController.text = widget.data.email;
     _passwordController.text = widget.data.password;
-    _phoneController.text = widget.data.phone;
+    _cityController.text = widget.data.city;
     _selectedGender = widget.data.gender;
     _selectedDate = widget.data.birthDate;
+    _selectedCountry = widget.data.country;
+    _phoneCountryCode = widget.data.phoneCountryCode;
+    
+    // Set initial country code for phone field
+    _selectedCountryCode = _getCountryCodeFromCountryName(_selectedCountry);
+  }
+
+  // Helper function to map country names to ISO codes
+  String _getCountryCodeFromCountryName(String countryName) {
+    const countryMap = {
+      'Kazakhstan': 'KZ',
+      'Russia': 'RU',
+      'United States': 'US',
+      'United Kingdom': 'GB',
+      'Germany': 'DE',
+      'France': 'FR',
+      'China': 'CN',
+      'Japan': 'JP',
+      'India': 'IN',
+      'Brazil': 'BR',
+      'Canada': 'CA',
+      'Australia': 'AU',
+      // Add more mappings as needed
+    };
+    return countryMap[countryName] ?? 'KZ';
   }
 
   void _updateData() {
@@ -53,7 +85,10 @@ class _StepOnePageState extends State<StepOnePage> {
     widget.data.username = _usernameController.text.trim();
     widget.data.email = _emailController.text.trim();
     widget.data.password = _passwordController.text.trim();
-    widget.data.phone = _phoneController.text.trim();
+    widget.data.phone = _phoneNumber;
+    widget.data.phoneCountryCode = _phoneCountryCode;
+    widget.data.city = _cityController.text.trim();
+    widget.data.country = _selectedCountry;
     widget.data.gender = _selectedGender;
     widget.data.birthDate = _selectedDate;
     
@@ -96,14 +131,55 @@ class _StepOnePageState extends State<StepOnePage> {
     }
   }
 
+  void _selectCountry() {
+    showCountryPicker(
+      context: context,
+      showPhoneCode: false,
+      onSelect: (Country country) {
+        setState(() {
+          _selectedCountry = country.name;
+          _selectedCountryCode = country.countryCode;
+        });
+      },
+      countryListTheme: CountryListThemeData(
+        borderRadius: const BorderRadius.only(
+          topLeft: Radius.circular(20.0),
+          topRight: Radius.circular(20.0),
+        ),
+        inputDecoration: InputDecoration(
+          labelText: 'Search',
+          hintText: 'Start typing to search',
+          prefixIcon: const Icon(Icons.search),
+          border: OutlineInputBorder(
+            borderSide: BorderSide(
+              color: const Color(0xFF8C98A8).withValues(alpha: 0.2),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   void _continue() {
-    if (_formKey.currentState!.validate() && _selectedDate != null && _selectedGender.isNotEmpty) {
+    if (_formKey.currentState!.validate() && 
+        _selectedDate != null && 
+        _selectedGender.isNotEmpty &&
+        _isPhoneValid) {
       _updateData();
       widget.onNext();
     } else {
+      String errorMessage = 'Please fill all fields correctly';
+      if (!_isPhoneValid && _phoneNumber.isNotEmpty) {
+        errorMessage = 'Please enter a valid phone number';
+      } else if (_selectedDate == null) {
+        errorMessage = 'Please select your date of birth';
+      } else if (_selectedGender.isEmpty) {
+        errorMessage = 'Please select your gender';
+      }
+      
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please fill all fields correctly'),
+        SnackBar(
+          content: Text(errorMessage),
           backgroundColor: Colors.red,
         ),
       );
@@ -202,9 +278,9 @@ class _StepOnePageState extends State<StepOnePage> {
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.8),
+                      color: Colors.white.withValues(alpha: 0.8),
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.grey.withOpacity(0.3)),
+                      border: Border.all(color: Colors.grey.withValues(alpha: 0.3)),
                     ),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -226,25 +302,44 @@ class _StepOnePageState extends State<StepOnePage> {
                 
                 SizedBox(height: screenHeight * 0.02),
 
-                // Country & City Row
-                Row(
-                  children: [
-                    Expanded(
-                      child: _buildTextField(
-                        controller: TextEditingController(text: 'Kazakhstan'), // Default
-                        label: 'Country',
-                        enabled: false,
-                      ),
+                // Country Selection
+                GestureDetector(
+                  onTap: _selectCountry,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.8),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.grey.withValues(alpha: 0.3)),
                     ),
-                    SizedBox(width: screenWidth * 0.04),
-                    Expanded(
-                      child: _buildTextField(
-                        controller: TextEditingController(text: 'Almaty'), // Default  
-                        label: 'City',
-                        enabled: false,
-                      ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          _selectedCountry,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            color: Colors.black,
+                          ),
+                        ),
+                        const Icon(Icons.arrow_drop_down, color: Colors.grey),
+                      ],
                     ),
-                  ],
+                  ),
+                ),
+                
+                SizedBox(height: screenHeight * 0.02),
+
+                // City
+                _buildTextField(
+                  controller: _cityController,
+                  label: 'City',
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Please enter your city';
+                    }
+                    return null;
+                  },
                 ),
                 
                 SizedBox(height: screenHeight * 0.02),
@@ -300,20 +395,65 @@ class _StepOnePageState extends State<StepOnePage> {
                   SizedBox(height: screenHeight * 0.02),
                 ],
 
-                // Phone Number
-                _buildTextField(
-                  controller: _phoneController,
-                  label: 'Phone number',
-                  keyboardType: TextInputType.phone,
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
+                // Phone Number with International Support
+                IntlPhoneField(
+                  key: ValueKey(_selectedCountryCode), // Add key to rebuild when country changes
+                  decoration: InputDecoration(
+                    labelText: 'Phone Number',
+                    labelStyle: TextStyle(color: Colors.grey[600]),
+                    filled: true,
+                    fillColor: Colors.white.withValues(alpha: 0.8),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide.none,
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: Colors.grey.withValues(alpha: 0.3)),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(color: Color(0xFF0056F7)),
+                    ),
+                    errorBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(color: Colors.red),
+                    ),
+                  ),
+                  initialCountryCode: _selectedCountryCode,
+                  onChanged: (phone) {
+                    setState(() {
+                      _phoneNumber = phone.completeNumber;
+                      _phoneCountryCode = phone.countryCode;
+                      _isPhoneValid = phone.isValidNumber();
+                    });
+                  },
+                  onCountryChanged: (country) {
+                    setState(() {
+                      _phoneCountryCode = country.dialCode;
+                      _selectedCountryCode = country.code;
+                      // Optionally update the selected country name as well
+                      _selectedCountry = country.name;
+                    });
+                  },
+                  validator: (phone) {
+                    if (phone == null || phone.number.isEmpty) {
                       return 'Please enter your phone number';
                     }
-                    if (value.length < 10) {
-                      return 'Phone number must be at least 10 digits';
+                    // Remove strict length validation since different countries have different lengths
+                    if (!phone.isValidNumber()) {
+                      return 'Please enter a valid phone number for ${phone.countryISOCode}';
                     }
                     return null;
                   },
+                  invalidNumberMessage: 'Invalid phone number format',
+                  languageCode: 'en',
+                  autovalidateMode: AutovalidateMode.disabled,
+                  showCountryFlag: true,
+                  showDropdownIcon: true,
+                  keyboardType: TextInputType.phone,
+                  // Remove any length restrictions
+                  disableLengthCheck: false, // Keep internal validation
                 ),
                 
                 SizedBox(height: screenHeight * 0.04),
@@ -372,14 +512,14 @@ class _StepOnePageState extends State<StepOnePage> {
         labelText: label,
         labelStyle: TextStyle(color: Colors.grey[600]),
         filled: true,
-        fillColor: enabled ? Colors.white.withOpacity(0.8) : Colors.grey.withOpacity(0.3),
+        fillColor: enabled ? Colors.white.withValues(alpha: 0.8) : Colors.grey.withValues(alpha: 0.3),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
           borderSide: BorderSide.none,
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: Colors.grey.withOpacity(0.3)),
+          borderSide: BorderSide(color: Colors.grey.withValues(alpha: 0.3)),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
@@ -397,10 +537,10 @@ class _StepOnePageState extends State<StepOnePage> {
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 12),
           decoration: BoxDecoration(
-            color: isSelected ? const Color(0xFF0056F7) : Colors.white.withOpacity(0.8),
+            color: isSelected ? const Color(0xFF0056F7) : Colors.white.withValues(alpha: 0.8),
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
-              color: isSelected ? const Color(0xFF0056F7) : Colors.grey.withOpacity(0.3),
+              color: isSelected ? const Color(0xFF0056F7) : Colors.grey.withValues(alpha: 0.3),
             ),
           ),
           child: Text(
@@ -423,7 +563,7 @@ class _StepOnePageState extends State<StepOnePage> {
     _usernameController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
-    _phoneController.dispose();
+    _cityController.dispose();
     super.dispose();
   }
 }
