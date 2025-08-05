@@ -797,6 +797,25 @@ app.post('/posts/:post_id/comments', verifyToken, async (req, res) => {
       return res.status(200).json({message: 'Complete to create comment to event'});
     }
 
+    else if (post_type == 'challenge') {
+      const {error: challengeCommentsInsertError} = await supabase
+      .schema('posts')
+      .from('challengesComments')
+      .insert({
+        userID: userId,
+        challengeId: postId,
+        comments: text
+      }).single();
+
+      if (challengeCommentsInsertError) {
+        console.error('Problem to insert comment to goal', challengeCommentsInsertError);
+        return res.status(400).json({error: challengeCommentsInsertError});
+      }
+      
+      console.log('Event comments created');
+      return res.status(200).json({message: 'Complete to create comment to event'});
+    }
+
     else {
       console.error('Undefined type of post');
       return res.status(400).json({message: 'Undefined type of post'});
@@ -857,6 +876,23 @@ app.get('/posts/:post_id/comments', verifyToken, async (req, res) => {
 
       console.log('Event comments fetched')
       return res.status(200).json({fetchComments})
+    }
+    else if (post_type == 'challenge'){
+      const {data: fetchComments, error: challengeCommentsSelectError} = await supabase
+      .schema('posts')
+      .from('challengesComments')
+      .select('*')
+      .eq('challengeId', post_id)
+
+      if (challengeCommentsSelectError) {
+        console.error('Problem to insert comment to goal', challengeCommentsSelectError);
+        return res.status(400).json({error: challengeCommentsSelectError});
+      }
+
+      if (!fetchComments || fetchComments.length === 0) {
+        console.log('No comments found');
+        return res.status(200).json([]);
+    }
     }
 
     else {
