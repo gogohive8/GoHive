@@ -82,6 +82,8 @@ class ApiService {
     String lastName,
     int age,
     String phoneNumber,
+    String date_of_birthday,
+    String sex,
   ) async {
     try {
       developer.log(
@@ -99,6 +101,8 @@ class ApiService {
               'mail': email,
               'phone': phoneNumber,
               'password': password,
+              'date_of_birthday': date_of_birthday,
+              'sex': sex
             }),
           )
           .timeout(const Duration(seconds: 30));
