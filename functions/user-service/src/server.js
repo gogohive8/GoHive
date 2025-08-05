@@ -382,6 +382,8 @@ app.post('/profile/:userID', verifyToken, async (req, res) => {
       }
       return res.status(400).json({ error: error.message });
     }
+
+    return res.status(200).json({message: 'profile update'})
   } catch (updateProfileError) {
     console.error('Error of update profile', updateProfileError);
     return res.status(400).json({error: updateProfileError.message});
