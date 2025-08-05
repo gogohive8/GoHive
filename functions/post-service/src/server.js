@@ -205,7 +205,7 @@ app.get('/goals/all', verifyToken, async (req, res) => {
     .schema('posts')
     .from('goals')
     .select('id, userID, goalInfo, numOfLikes, numOfComments, created_at')
-    .limit(100)
+    .eq('privacy', 'public')
 
     if (fetchError) {
       console.error('Problem with take data from database', fetchError.message);
@@ -288,7 +288,7 @@ app.get('/events/all', verifyToken, async (req, res) => {
     .schema('posts')
     .from('events')
     .select('id, userID, description, numOfLikes, numOfComments')
-    .limit(100)
+    .eq('privacy', 'public')
 
     if (fetchError) {
       console.error('Problem with take data from database', fetchError.message);
