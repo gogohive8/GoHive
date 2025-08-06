@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "908407585554",
+    "project_id": "gohive-72666",
+    "storage_bucket": "gohive-72666.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:908407585554:android:04054ca240b19dc68cd1cb",
+        "android_client_info": {
+          "package_name": "com.example.a2bpoint"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBJW7KX-eiliVBO1HNjSfJC2iipNUEmUjo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
