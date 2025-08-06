@@ -9,8 +9,11 @@ import '../services/api_services.dart';
 import '../services/post_service.dart';
 import '../providers/auth_provider.dart';
 import '../screens/post_detail_screen.dart';
+import '../screens/challenge_full_screen.dart';
+import '../screens/task_detail_screen.dart';
 import 'navbar.dart';
 import 'dart:developer' as developer;
+
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -428,59 +431,46 @@ class _HomeScreenState extends State<HomeScreen>
                             MaterialPageRoute(
                               builder: (_) => ChallengeFullScreen(
                                 title: 'The "Tidy Up" Challenge',
-                                subtitle:
-                                    'Start cleaning up and stay organized!',
+                                subtitle: 'Start cleaning up and stay organized!',
+                                headerImageAsset: 'assets/images/tidy_challenge.png',
                                 tasks: [
                                   [
-                                    TaskItem(
-                                        title: 'Clean your desk',
-                                        description: 'Make space to think.'),
-                                    TaskItem(
-                                        title: 'Organize the shelf',
-                                        description:
-                                            'Books, boxes, everything.'),
+                                    TaskItem(id: '1', title: 'Tidy your desk', description: 'Remove clutter, sort everything into its place, and wipe down the surface.'),
+                                    TaskItem(id: '2', title: 'Clean your screen and keyboard', description: 'Get rid of fingerprints, crumbs, and dust.'),
+                                    TaskItem(id: '3', title: 'Declutter your nightstand', description: 'Keep only the essentials. Store or throw away the rest.'),
                                   ],
                                   [
-                                    TaskItem(
-                                        title: 'Fold your clothes',
-                                        description: 'Sort and put them away.'),
+                                    TaskItem(id: '4', title: 'Do your laundry', description: 'Sort, wash, dry, and fold your clothes.'),
+                                    TaskItem(id: '5', title: 'Organize your wardrobe', description: 'Put away anything you no longer wear. Group clothes by type.'),
+                                    TaskItem(id: '6', title: 'Sort by season', description: 'Store off-season clothes in boxes or separate shelves.')
                                   ],
                                   [
-                                    TaskItem(
-                                        title: 'Clean your desk',
-                                        description: 'Make space to think.'),
-                                    TaskItem(
-                                        title: 'Organize the shelf',
-                                        description:
-                                            'Books, boxes, everything.'),
+                                    TaskItem(id: '7', title: 'Clear papers from your desk', description: 'Throw away old notes, receipts, and random sheets.'),
+                                    TaskItem(id: '7', title: 'Organize important documents', description: 'Create folders like “Important,” “To Sign,” and “Archived.” Scan if needed.'),
+                                    TaskItem(id: '7', title: 'Set up a system', description: 'Use trays, binders, or drawers to keep documents under control.')
                                   ],
                                   [
-                                    TaskItem(
-                                        title: 'Fold your clothes',
-                                        description: 'Sort and put them away.'),
+                                    TaskItem(id: '7', title: 'Clean the sink and mirror', description: 'Remove buildup and make surfaces sparkle.'),
+                                    TaskItem(id: '7', title: 'Check product expiration dates', description: 'Toss anything expired. Keep only what you use.'),
+                                    TaskItem(id: '7', title: 'Organize drawers and shelves', description: 'Group items: hygiene, skincare, medicine, etc.')
                                   ],
                                   [
-                                    TaskItem(
-                                        title: 'Clean your desk',
-                                        description: 'Make space to think.'),
-                                    TaskItem(
-                                        title: 'Organize the shelf',
-                                        description:
-                                            'Books, boxes, everything.'),
+                                    TaskItem(id: '7', title: 'Declutter drawers', description: 'Empty, wipe, and only return what\'s truly needed.'),
+                                    TaskItem(id: '7', title: 'Clean out your bag or backpack', description: 'Toss old receipts, trash, and unused items.'),
                                   ],
                                   [
-                                    TaskItem(
-                                        title: 'Fold your clothes',
-                                        description: 'Sort and put them away.'),
+                                    TaskItem(id: '7', title: 'Declutter your home screen', description: 'Keep only essentials, group apps.'),
+                                    TaskItem(id: '7', title: 'Delete photos & videos', description: 'Remove duplicates and old screenshots.'),
+                                    TaskItem(id: '7', title: 'Uninstall unused apps', description: 'Free up space and improve speed.'),
+                                    TaskItem(id: '7', title: 'Clean up downloads', description: 'Organize or delete random files.'),
+                                    TaskItem(id: '7', title: 'Tidy up your inbox', description: 'Unsubscribe, archive, and delete junk.'),
                                   ],
                                   [
-                                    TaskItem(
-                                        title: 'Clean your desk',
-                                        description: 'Make space to think.'),
-                                    TaskItem(
-                                        title: 'Organize the shelf',
-                                        description:
-                                            'Books, boxes, everything.'),
+                                    TaskItem(id: '7', title: 'Vacuum and mop floors', description: 'Finish strong with a clean sweep.'),
+                                    TaskItem(id: '7', title: 'Freshen the air', description: 'Open windows or light a candle.'),
+                                    TaskItem(id: '7', title: 'Add personal touches', description: 'Decorate with flowers or photos.'),
+                                    TaskItem(id: '7', title: 'Wipe handles and switches', description: 'Sanitize the forgotten spots.'),
+                                    TaskItem(id: '7', title: 'Celebrate your progress', description: 'Relax and enjoy your tidy space.'),
                                   ]
                                 ],
                               ),
@@ -490,8 +480,7 @@ class _HomeScreenState extends State<HomeScreen>
                       ),
                       _buildChallengeCard(
                         title: 'The "Moon" Challenge',
-                        description:
-                            '7-day live challenge\nfor those who are tired',
+                        description: '7-day live challenge\nfor those who are tired',
                         imageAsset: 'assets/images/moon_challenge.png',
                         onTap: () {
                           Navigator.push(
@@ -499,59 +488,47 @@ class _HomeScreenState extends State<HomeScreen>
                             MaterialPageRoute(
                               builder: (_) => ChallengeFullScreen(
                                 title: 'The "Moon" Challenge',
-                                subtitle:
-                                    'Start cleaning up and stay organized!',
+                                subtitle: 'Start cleaning up and stay organized!',
+                                headerImageAsset: 'assets/images/moon_challenge.png',
                                 tasks: [
                                   [
-                                    TaskItem(
-                                        title: 'Clean your desk',
-                                        description: 'Make space to think.'),
-                                    TaskItem(
-                                        title: 'Organize the shelf',
-                                        description:
-                                            'Books, boxes, everything.'),
+                                    TaskItem(id: '7', title: 'Take 10 minutes of silence', description: 'No phone, no talking — just breathe.'),
+                                    TaskItem(id: '7', title: 'Stretch your body gently', description: 'Ease into the day with mindful movement.'),
+                                    TaskItem(id: '7', title: 'Drink a full glass of water', description: 'Hydrate and refresh your system.'),
+                                    TaskItem(id: '7', title: 'Sit by a window for 5 minutes', description: 'Feel the light and the moment.'),
+                                    TaskItem(id: '7', title: 'Set one simple intention', description: 'Choose how you want to feel today.'),
                                   ],
                                   [
-                                    TaskItem(
-                                        title: 'Fold your clothes',
-                                        description: 'Sort and put them away.'),
+                                    TaskItem(id: '7', title: 'Journal your thoughts', description: 'Write freely for 10 minutes. No filter.'),
+                                    TaskItem(id: '7', title: 'Declutter one mental to-do', description: 'Finish or remove something nagging you.'),
+                                    TaskItem(id: '7', title: 'Turn off notifications', description: 'Let your mind rest from constant input.'),
                                   ],
                                   [
-                                    TaskItem(
-                                        title: 'Clean your desk',
-                                        description: 'Make space to think.'),
-                                    TaskItem(
-                                        title: 'Organize the shelf',
-                                        description:
-                                            'Books, boxes, everything.'),
+                                    TaskItem(id: '7', title: 'Eat one mindful meal', description: 'No screens, just focus on the taste.'),
+                                    TaskItem(id: '7', title: 'Prepare a healthy snack', description: 'Fuel your body with something fresh.'),
+                                    TaskItem(id: '7', title: 'Go for a short walk', description: 'Let your body and mind breathe together.'),
+                                    TaskItem(id: '7', title: 'Do 5 minutes of deep breathing', description: 'Calm your system with full, slow breaths.'),
+                                    TaskItem(id: '7', title: 'Drink herbal tea or warm water', description: 'Soothe your body gently from the inside.'),
                                   ],
                                   [
-                                    TaskItem(
-                                        title: 'Fold your clothes',
-                                        description: 'Sort and put them away.'),
+                                    TaskItem(id: '7', title: 'Light a candle or incense', description: 'Create calm with scent and glow.'),
+                                    TaskItem(id: '7', title: 'Tidy your sleep area', description: 'Clean sheets, soft light, calm vibes.'),
+                                    TaskItem(id: '7', title: 'Put away one pile of clutter', description: 'Just one. That’s enough today.'),
                                   ],
                                   [
-                                    TaskItem(
-                                        title: 'Clean your desk',
-                                        description: 'Make space to think.'),
-                                    TaskItem(
-                                        title: 'Organize the shelf',
-                                        description:
-                                            'Books, boxes, everything.'),
+                                    TaskItem(id: '7', title: 'Watch the moon tonight', description: 'Even for 2 minutes — connect upward.'),
+                                    TaskItem(id: '7', title: 'Do a body scan meditation', description: 'Lie down, relax, notice every part.'),
+                                    TaskItem(id: '7', title: 'Say no to one extra thing', description: 'Protect your energy. It’s okay.'),
                                   ],
                                   [
-                                    TaskItem(
-                                        title: 'Fold your clothes',
-                                        description: 'Sort and put them away.'),
+                                    TaskItem(id: '7', title: 'Write down what you’re letting go', description: 'Then tear it up or burn it.'),
+                                    TaskItem(id: '7', title: 'Unfollow one negative account', description: 'Your feed affects your mind.'),
+                                    TaskItem(id: '7', title: 'Take a long exhale', description: 'Let your whole body soften with it.'),
                                   ],
                                   [
-                                    TaskItem(
-                                        title: 'Clean your desk',
-                                        description: 'Make space to think.'),
-                                    TaskItem(
-                                        title: 'Organize the shelf',
-                                        description:
-                                            'Books, boxes, everything.'),
+                                    TaskItem(id: '7', title: 'Write down a dream or goal', description: 'Big or small — give it a name.'),
+                                    TaskItem(id: '7', title: 'Reflect on this week', description: 'What felt good? What surprised you?'),
+                                    TaskItem(id: '7', title: 'Do something that feels magical', description: 'A bath, a tea ritual, stargazing — your choice.'),
                                   ]
                                 ],
                               ),
@@ -561,8 +538,7 @@ class _HomeScreenState extends State<HomeScreen>
                       ),
                       _buildChallengeCard(
                         title: 'The "Animal" Challenge',
-                        description:
-                            '7-day live challenge\nfor those who are tired',
+                        description: '7-day live challenge\nfor those who are tired',
                         imageAsset: 'assets/images/animal_challenge.png',
                         onTap: () {
                           Navigator.push(
@@ -570,59 +546,43 @@ class _HomeScreenState extends State<HomeScreen>
                             MaterialPageRoute(
                               builder: (_) => ChallengeFullScreen(
                                 title: 'The "Animal" Challenge',
-                                subtitle:
-                                    'Start cleaning up and stay organized!',
+                                subtitle: 'Start cleaning up and stay organized!',
+                                headerImageAsset: 'assets/images/animal_challenge.png',
                                 tasks: [
                                   [
-                                    TaskItem(
-                                        title: 'Clean your desk',
-                                        description: 'Make space to think.'),
-                                    TaskItem(
-                                        title: 'Organize the shelf',
-                                        description:
-                                            'Books, boxes, everything.'),
+                                    TaskItem(id: '7', title: 'Stretch like a cat', description: 'Do slow, intentional full-body stretches.'),
+                                    TaskItem(id: '7', title: 'Nap like a lion', description: 'Take a guilt-free 20-minute rest.'),
+                                    TaskItem(id: '7', title: 'Observe like a bird', description: 'Spend 5 minutes just watching the world.'),
                                   ],
                                   [
-                                    TaskItem(
-                                        title: 'Fold your clothes',
-                                        description: 'Sort and put them away.'),
+                                    TaskItem(id: '7', title: 'Walk like a fox', description: 'Go for a quiet, mindful walk outdoors.'),
+                                    TaskItem(id: '7', title: 'Listen like a deer', description: 'Be still and notice every sound around you.'),
+                                    TaskItem(id: '7', title: 'Move lightly', description: 'Practice being gentle in your steps and actions.'),
                                   ],
                                   [
-                                    TaskItem(
-                                        title: 'Clean your desk',
-                                        description: 'Make space to think.'),
-                                    TaskItem(
-                                        title: 'Organize the shelf',
-                                        description:
-                                            'Books, boxes, everything.'),
+                                    TaskItem(id: '7', title: 'Hydrate like a camel', description: 'Drink plenty of water throughout the day.'),
+                                    TaskItem(id: '7', title: 'Eat with instinct', description: 'Choose meals based on how your body feels.'),
+                                    TaskItem(id: '7', title: 'Pause between bites', description: 'Chew slowly and mindfully.'),
                                   ],
                                   [
-                                    TaskItem(
-                                        title: 'Fold your clothes',
-                                        description: 'Sort and put them away.'),
+                                    TaskItem(id: '7', title: 'Declutter like a squirrel', description: 'Sort or store one small pile of clutter.'),
+                                    TaskItem(id: '7', title: 'Plan like an ant', description: 'Write down your top 3 priorities for the week.'),
+                                    TaskItem(id: '7', title: 'Tidy your “nest”', description: 'Make your home base feel calm and safe.'),
                                   ],
                                   [
-                                    TaskItem(
-                                        title: 'Clean your desk',
-                                        description: 'Make space to think.'),
-                                    TaskItem(
-                                        title: 'Organize the shelf',
-                                        description:
-                                            'Books, boxes, everything.'),
+                                    TaskItem(id: '7', title: 'Defend your space like a bear', description: 'Say “no” to something that drains you.'),
+                                    TaskItem(id: '7', title: 'Roar if needed', description: 'Let out your feelings — journal, voice note, or vent.'),
+                                    TaskItem(id: '7', title: 'Protect your time', description: 'Turn off distractions for 1 hour.'),
                                   ],
                                   [
-                                    TaskItem(
-                                        title: 'Fold your clothes',
-                                        description: 'Sort and put them away.'),
+                                    TaskItem(id: '7', title: 'Connect like wolves', description: 'Message someone you miss or admire.'),
+                                    TaskItem(id: '7', title: 'Play like a puppy', description: 'Do something just for fun and joy.'),
+                                    TaskItem(id: '7', title: 'Share a kind word', description: 'Lift someone up with a sincere compliment.'),
                                   ],
                                   [
-                                    TaskItem(
-                                        title: 'Clean your desk',
-                                        description: 'Make space to think.'),
-                                    TaskItem(
-                                        title: 'Organize the shelf',
-                                        description:
-                                            'Books, boxes, everything.'),
+                                    TaskItem(id: '7', title: 'Rest like a panda', description: 'Take it slow and release pressure to perform.'),
+                                    TaskItem(id: '7', title: 'Be curious like a dolphin', description: 'Learn something new just for fun.'),
+                                    TaskItem(id: '7', title: 'Reflect like an owl', description: 'Write down one thing you’ve learned this week.'),
                                   ]
                                 ],
                               ),
@@ -632,8 +592,7 @@ class _HomeScreenState extends State<HomeScreen>
                       ),
                       _buildChallengeCard(
                         title: 'The "Dance" Challenge',
-                        description:
-                            '7-day live challenge\nfor those who are tired',
+                        description: '7-day live challenge\nfor those who are tired',
                         imageAsset: 'assets/images/dance_challenge.png',
                         onTap: () {
                           Navigator.push(
@@ -641,59 +600,43 @@ class _HomeScreenState extends State<HomeScreen>
                             MaterialPageRoute(
                               builder: (_) => ChallengeFullScreen(
                                 title: 'The "Dance" Challenge',
-                                subtitle:
-                                    'Start cleaning up and stay organized!',
+                                subtitle: 'Start cleaning up and stay organized!',
+                                headerImageAsset: 'assets/images/dance_challenge.png',
                                 tasks: [
                                   [
-                                    TaskItem(
-                                        title: 'Clean your desk',
-                                        description: 'Make space to think.'),
-                                    TaskItem(
-                                        title: 'Organize the shelf',
-                                        description:
-                                            'Books, boxes, everything.'),
+                                    TaskItem(id: '7', title: 'Do a 1-song freestyle', description: 'Put on any song and move however you like.'),
+                                    TaskItem(id: '7', title: 'Move your arms in slow motion', description: 'Feel the air and flow like water.'),
+                                    TaskItem(id: '7', title: 'Loosen up your neck and shoulders', description: 'Roll, sway, and release tension.'),
                                   ],
                                   [
-                                    TaskItem(
-                                        title: 'Fold your clothes',
-                                        description: 'Sort and put them away.'),
+                                    TaskItem(id: '7', title: 'Dance with your eyes closed', description: 'Let your body lead, not your mind.'),
+                                    TaskItem(id: '7', title: 'Follow the rhythm of your breath', description: 'Move slowly, in sync with your inhale and exhale.'),
+                                    TaskItem(id: '7', title: 'Sway while standing still', description: 'Even subtle movement is a dance.'),
                                   ],
                                   [
-                                    TaskItem(
-                                        title: 'Clean your desk',
-                                        description: 'Make space to think.'),
-                                    TaskItem(
-                                        title: 'Organize the shelf',
-                                        description:
-                                            'Books, boxes, everything.'),
+                                    TaskItem(id: '7', title: 'Try a cultural dance move', description: 'Look up a step from another culture and give it a go.'),
+                                    TaskItem(id: '7', title: 'Use your hands expressively', description: 'Wave, shape, or reach — let hands speak.'),
+                                    TaskItem(id: '7', title: 'Bounce to a beat while doing chores', description: 'Turn mundane into fun.'),
                                   ],
                                   [
-                                    TaskItem(
-                                        title: 'Fold your clothes',
-                                        description: 'Sort and put them away.'),
+                                    TaskItem(id: '7', title: 'Spin around 5 times', description: 'Feel the dizziness and joy like a child.'),
+                                    TaskItem(id: '7', title: 'Improvise with props', description: 'Use a scarf, towel, or bottle in your dance.'),
+                                    TaskItem(id: '7', title: 'Dance in front of a mirror', description: 'Notice your flow, not flaws.'),
                                   ],
                                   [
-                                    TaskItem(
-                                        title: 'Clean your desk',
-                                        description: 'Make space to think.'),
-                                    TaskItem(
-                                        title: 'Organize the shelf',
-                                        description:
-                                            'Books, boxes, everything.'),
+                                    TaskItem(id: '7', title: 'Stomp the ground with rhythm', description: 'Feel your power and weight.'),
+                                    TaskItem(id: '7', title: 'Clap along with a song', description: 'Add percussion with your body.'),
+                                    TaskItem(id: '7', title: 'Step to a beat outdoors', description: 'Bring your groove to the street.'),
                                   ],
                                   [
-                                    TaskItem(
-                                        title: 'Fold your clothes',
-                                        description: 'Sort and put them away.'),
+                                    TaskItem(id: '7', title: 'Stretch like a ballerina', description: 'Slow, graceful, and full of poise.'),
+                                    TaskItem(id: '7', title: 'Watch a dance performance', description: 'Get inspired by others’ movement.'),
+                                    TaskItem(id: '7', title: 'Practice body isolation', description: 'Move only one part: hips, shoulders, chest, etc.'),
                                   ],
                                   [
-                                    TaskItem(
-                                        title: 'Clean your desk',
-                                        description: 'Make space to think.'),
-                                    TaskItem(
-                                        title: 'Organize the shelf',
-                                        description:
-                                            'Books, boxes, everything.'),
+                                    TaskItem(id: '7', title: 'Dance your mood', description: 'Happy, tired, wild, calm — let it all out.'),
+                                    TaskItem(id: '7', title: 'Record a short dance video', description: 'Just for you — or to share.'),
+                                    TaskItem(id: '7', title: 'Celebrate your body', description: 'End with a dance of gratitude and self-love.'),
                                   ]
                                 ],
                               ),
@@ -1239,257 +1182,18 @@ class MissionsBackgroundPainter extends CustomPainter {
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
-class ChallengeFullScreen extends StatelessWidget {
-  final String title;
-  final String subtitle;
-  final List<List<TaskItem>> tasks;
-
-  const ChallengeFullScreen({
-    Key? key,
-    required this.title,
-    required this.subtitle,
-    required this.tasks,
-  }) : super(key: key);
-
-  @override
-  Widget build(BuildContext context) {
-    final size = MediaQuery.of(context).size;
-
-    final horizontalMargin = size.width * 0.04;
-    final verticalMargin = size.height * 0.015;
-
-    return DefaultTabController(
-      length: tasks.length,
-      child: Scaffold(
-        backgroundColor: const Color(0xFFF2F1EC),
-        body: SafeArea(
-          child: Column(
-            children: [
-              Container(
-                width: double.infinity,
-                padding: EdgeInsets.only(
-                  top: size.height * 0.015,
-                  left: size.width * 0.04,
-                  right: size.width * 0.04,
-                  bottom: size.height * 0.014,
-                ),
-                decoration: BoxDecoration(
-                  color: Color(0xFFFFFFFF),
-                  borderRadius: BorderRadius.circular(60),
-                ),
-                child: Stack(
-                  children: [
-                    Positioned(
-                      top: 0,
-                      right: 20,
-                      child: Image.asset(
-                        'assets/challenge_title.png',
-                        width: 160,
-                        height: size.height * 0.21,
-                        fit: BoxFit.contain,
-                      ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.only(top: 0.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const BackButton(color: Color(0xFF222220)),
-                          const SizedBox(height: 8),
-                          Padding(
-                            padding: const EdgeInsets.only(right: 100.0),
-                            child: Text(
-                              title,
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontFamily: 'Inter',
-                                color: const Color(0xFF222220),
-                                fontSize: size.width * 0.075,
-                              ),
-                              softWrap: true,
-                              overflow: TextOverflow.visible,
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                          Container(
-                            margin: EdgeInsets.symmetric(
-                              horizontal: horizontalMargin,
-                              vertical: verticalMargin,
-                            ),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFF0EFEA),
-                              borderRadius: BorderRadius.circular(40),
-                            ),
-                            padding: EdgeInsets.symmetric(
-                              horizontal: size.width * 0.03,
-                              vertical: size.height * 0.0001,
-                            ),
-                            child: ClipRRect(
-                              borderRadius: BorderRadius.circular(40),
-                              child: TabBar(
-                                dividerColor: Colors.transparent,
-                                isScrollable: true,
-                                indicator: BoxDecoration(
-                                  color: const Color(0xFFFDFDFD),
-                                  borderRadius: BorderRadius.circular(24),
-                                ),
-                                indicatorColor: Colors.transparent,
-                                indicatorSize: TabBarIndicatorSize.tab,
-                                physics: const ClampingScrollPhysics(),
-                                labelPadding: const EdgeInsets.symmetric(
-                                    horizontal: 12, vertical: 0),
-                                labelColor: const Color(0xFF222220),
-                                unselectedLabelColor: const Color(0xFF676767),
-                                labelStyle: const TextStyle(
-                                    fontWeight: FontWeight.bold),
-                                tabs: List.generate(
-                                  tasks.length,
-                                  (index) => Tab(text: 'Day ${index + 1}'),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              Padding(
-                padding: const EdgeInsets.only(
-                    left: 26.0, top: 16.0, right: 55, bottom: 5),
-                child: Align(
-                  alignment: Alignment.centerLeft,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        'The challenge begins',
-                        style: const TextStyle(
-                          fontFamily: 'TT Norms Pro Trial',
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                          color: const Color(0xFF222220),
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Start completing tasks and checking them off. You\'ll do great!',
-                        style: const TextStyle(
-                          fontFamily: 'TT Norms Pro Trial',
-                          fontSize: 19,
-                          color: const Color(0xFF222220),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-
-              Expanded(
-                child: TabBarView(
-                  children: List.generate(
-                    tasks.length,
-                    (dayIndex) => Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: ListView.builder(
-                        itemCount: tasks[dayIndex].length,
-                        itemBuilder: (context, taskIndex) {
-                          final task = tasks[dayIndex][taskIndex];
-                          return _buildTaskCard(task, size);
-                        },
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildTaskCard(TaskItem task, Size size) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Column(
-            children: [
-              Container(
-                width: 24,
-                height: 20,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(color: const Color(0xFFBDBBB9), width: 6),
-                  color: task.isCompleted ? Colors.blue : Colors.white,
-                ),
-                child: task.isCompleted
-                    ? const Icon(Icons.check, color: Colors.black, size: 16)
-                    : null,
-              ),
-              Container(
-                width: 2,
-                height: 70,
-                color: const Color(0xFFBDBBB9),
-              ),
-            ],
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: const [
-                  BoxShadow(
-                    color: Colors.black12,
-                    blurRadius: 4,
-                    offset: Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    task.title,
-                    style: TextStyle(
-                      fontSize: size.width * 0.045,
-                      fontWeight: FontWeight.w600,
-                      color: const Color(0xFF1D1B20),
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    task.description,
-                    style: TextStyle(
-                      fontSize: size.width * 0.04,
-                      color: const Color(0xFF222220),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class TaskItem {
+  final String id;
   final String title;
   final String description;
-  final bool isCompleted;
+  bool isCompleted;
 
-  TaskItem(
-      {required this.title,
-      required this.description,
-      this.isCompleted = false});
+  TaskItem({
+    required this.id,
+    required this.title,
+    required this.description,
+    this.isCompleted = false,
+  });
 }
+
+
