@@ -82,7 +82,7 @@ class ApiService {
       String lastName,
       int age,
       String phoneNumber,
-      String date_of_birthday,
+      DateTime? date_of_birthday,
       String sex,
       String city,
       String country) async {
