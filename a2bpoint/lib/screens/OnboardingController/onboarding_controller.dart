@@ -107,7 +107,7 @@ class _OnboardingControllerState extends State<OnboardingController> {
             _data.surname, // lastName (surname)
             _data.age, // age
             _data.phone, // phoneNumber
-            _data.birthDate,
+            _data.birthDate.toString(),
             _data.gender,
             _data.city,
             _data.country);
