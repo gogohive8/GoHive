@@ -55,6 +55,42 @@ class _ProfileScreenState extends State<ProfileScreen>
     }
   }
 
+  // Функция для фильтрации постов с изображениями
+  List<Post> _filterPostsWithImages(List<Post> posts) {
+    return posts.where((post) {
+      if (post.imageUrls == null || post.imageUrls!.isEmpty) return false;
+      
+      // Проверяем, есть ли хотя бы один валидный URL
+      for (String url in post.imageUrls!) {
+        String cleanUrl = _extractImageUrl(url);
+        if (cleanUrl.isNotEmpty && cleanUrl.startsWith('http')) {
+          return true;
+        }
+      }
+      return false;
+    }).toList();
+  }
+
+  // Функция для извлечения правильного URL из массива
+  String _extractImageUrl(String? imageUrl) {
+    if (imageUrl == null || imageUrl.isEmpty) return '';
+    
+    // Убираем все лишние символы
+    String cleanUrl = imageUrl
+        .replaceAll('[', '')
+        .replaceAll(']', '')
+        .replaceAll('"', '')
+        .replaceAll("'", '')
+        .trim();
+    
+    // Берем первый URL если есть несколько (разделенных запятой)
+    if (cleanUrl.contains(',')) {
+      cleanUrl = cleanUrl.split(',').first.trim();
+    }
+    
+    return cleanUrl;
+  }
+
   Future<void> _loadProfile() async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final userId = authProvider.userId ?? '';
@@ -83,8 +119,9 @@ class _ProfileScreenState extends State<ProfileScreen>
       if (mounted) {
         setState(() {
           _profile = profile;
-          _goals = goals;
-          _events = events;
+          // Фильтруем посты с изображениями
+          _goals = _filterPostsWithImages(goals);
+          _events = _filterPostsWithImages(events);
           _biographyController.text =
               profile['biography']?.toString() ?? savedBiography;
           _isLoading = false;
@@ -148,7 +185,7 @@ class _ProfileScreenState extends State<ProfileScreen>
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Biography updated successfully'),
-            backgroundColor: Color(0xFFAFCBEA),
+            backgroundColor: Colors.green,
           ),
         );
       }
@@ -169,17 +206,17 @@ class _ProfileScreenState extends State<ProfileScreen>
     final authProvider = Provider.of<AuthProvider>(context);
     if (!authProvider.isInitialized) {
       return const Scaffold(
-        backgroundColor: Color(0xFFF9F6F2),
+        backgroundColor: const Color(0xFFF4F3EE), // Изменил на цвет из дизайна
         body: Center(child: CircularProgressIndicator()),
       );
     }
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF9F6F2),
+              backgroundColor: const Color(0xFFF4F3EE),
       body: _isLoading
           ? const Center(
               child: CircularProgressIndicator(
-                valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFAFCBEA)),
+                valueColor: AlwaysStoppedAnimation<Color>(Colors.blue),
               ),
             )
           : _profile == null
@@ -188,29 +225,15 @@ class _ProfileScreenState extends State<ProfileScreen>
                   children: [
                     // Фиксированный заголовок профиля
                     _buildProfileHeader(authProvider),
-                    // TabBar
-                    Container(
-                      color: const Color(0xFFF9F6F2),
-                      child: TabBar(
-                        controller: _tabController,
-                        tabs: const [
-                          Tab(text: 'Goals'),
-                          Tab(text: 'Events'),
-                        ],
-                        indicatorColor: const Color(0xFFAFCBEA),
-                        labelColor: const Color(0xFFAFCBEA),
-                        unselectedLabelColor: const Color(0xFF333333),
-                        labelStyle:
-                            const TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                    ),
+                    // TabBar в стиле дизайна
+                    _buildCustomTabBar(),
                     // Контент табов
                     Expanded(
                       child: TabBarView(
                         controller: _tabController,
                         children: [
-                          _buildPostsView(posts: _goals, type: 'goal'),
-                          _buildPostsView(posts: _events, type: 'event'),
+                          _buildGridView(posts: _goals),
+                          _buildGridView(posts: _events),
                         ],
                       ),
                     ),
@@ -228,70 +251,21 @@ class _ProfileScreenState extends State<ProfileScreen>
 
   Widget _buildProfileHeader(AuthProvider authProvider) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(16, 40, 16, 16),
+      padding: const EdgeInsets.fromLTRB(20, 60, 20, 20),
       child: Column(
-        mainAxisSize: MainAxisSize.min,
         children: [
-          // Профиль пользователя
+          // Верхняя строка с иконкой чата и карандашом
           Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Container(
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: const Color(0xFFAFCBEA),
-                    width: 3,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.grey.withValues(alpha: 0.3),
-                      blurRadius: 5,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: CircleAvatar(
-                  radius: 40,
-                  backgroundImage: _profile?['avatar'] != null &&
-                          _profile!['avatar'].isNotEmpty
-                      ? CachedNetworkImageProvider(_profile!['avatar'])
-                      : const AssetImage('assets/images/default_avatar.png')
-                          as ImageProvider,
-                ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const SizedBox(height: 8),
-                    Text(
-                      authProvider.username ?? 'User',
-                      style: const TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF1A1A1A),
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    if (_profile?['country'] != null)
-                      Text(
-                        _profile!['country'],
-                        style: const TextStyle(
-                          fontSize: 14,
-                          color: Color(0xFF333333),
-                        ),
-                      ),
-                    const SizedBox(height: 4),
-                    Text(
-                      authProvider.email ?? 'user@email.com',
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: Color(0xFF666666),
-                      ),
-                    ),
-                  ],
+              IconButton(
+                onPressed: () {
+                  // Функционал чата
+                },
+                icon: const Icon(
+                  Icons.chat_bubble_outline,
+                  size: 24,
+                  color: Colors.black,
                 ),
               ),
               IconButton(
@@ -305,44 +279,81 @@ class _ProfileScreenState extends State<ProfileScreen>
                 },
                 icon: const Icon(
                   Icons.edit,
-                  color: Color(0xFFAFCBEA),
+                  size: 24,
+                  color: Colors.black,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 16),
-          // Статистика
-          _buildStatsRow(),
-          const SizedBox(height: 16),
-          // Биография
-          Container(
-            constraints: const BoxConstraints(maxHeight: 80),
-            child: TextFormField(
-              controller: _biographyController,
-              decoration: InputDecoration(
-                filled: true,
-                fillColor: const Color.fromRGBO(249, 246, 242, 0.9),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  borderSide: const BorderSide(color: Color(0xFFAFCBEA)),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              // Аватар
+              Container(
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: Colors.grey.shade300,
+                    width: 2,
+                  ),
                 ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  borderSide: const BorderSide(color: Color(0xFFAFCBEA)),
+                child: CircleAvatar(
+                  radius: 45,
+                  backgroundImage: _profile?['avatar'] != null &&
+                          _profile!['avatar'].isNotEmpty
+                      ? CachedNetworkImageProvider(_profile!['avatar'])
+                      : const AssetImage('assets/images/default_avatar.png')
+                          as ImageProvider,
                 ),
-                suffixIcon: IconButton(
-                  icon: const Icon(Icons.edit, color: Color(0xFFAFCBEA)),
-                  onPressed: _updateBiography,
-                ),
-                hintText: 'Tell us about yourself...',
-                contentPadding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               ),
-              maxLines: 2,
-              style: const TextStyle(
-                fontSize: 12,
-                color: Color(0xFF1A1A1A),
+              const SizedBox(width: 20),
+              // Статистика в горизонтальном ряду
+              Expanded(
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    _buildStatColumn(
+                        '${_goals.length + _events.length}', 'Posts'),
+                    _buildStatColumn(
+                        '${_profile?['numOfFollowers'] ?? 0}', 'Followers'),
+                    _buildStatColumn(
+                        '${_profile?['following'] ?? 0}', 'Following'),
+                  ],
+                ),
               ),
+            ],
+          ),
+          const SizedBox(height: 15),
+          // Имя пользователя и биография
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  authProvider.username ?? 'User',
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.black,
+                  ),
+                ),
+                const SizedBox(height: 5),
+                Container(
+                  width: double.infinity,
+                  child: Text(
+                    _biographyController.text.isNotEmpty 
+                        ? _biographyController.text
+                        : 'Tell us about yourself...',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: _biographyController.text.isNotEmpty 
+                          ? Colors.black
+                          : Colors.grey.shade600,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -350,31 +361,7 @@ class _ProfileScreenState extends State<ProfileScreen>
     );
   }
 
-  Widget _buildStatsRow() {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-        children: [
-          _buildStatItem('Posts', (_goals.length + _events.length).toString()),
-          Container(
-            height: 30,
-            width: 1,
-            color: const Color(0xFF333333),
-          ),
-          _buildStatItem('Followers', '${_profile?['numOfFollowers'] ?? 0}'),
-          Container(
-            height: 30,
-            width: 1,
-            color: const Color(0xFF333333),
-          ),
-          _buildStatItem('Following', '${_profile?['following'] ?? 0}'),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildStatItem(String label, String count) {
+  Widget _buildStatColumn(String count, String label) {
     return Column(
       children: [
         Text(
@@ -382,38 +369,78 @@ class _ProfileScreenState extends State<ProfileScreen>
           style: const TextStyle(
             fontSize: 18,
             fontWeight: FontWeight.bold,
-            color: Color(0xFF1A1A1A),
+            color: Colors.black,
           ),
         ),
-        const SizedBox(height: 4),
         Text(
           label,
           style: const TextStyle(
-            fontSize: 12,
-            color: Color(0xFF333333),
+            fontSize: 14,
+            color: Colors.black,
           ),
         ),
       ],
     );
   }
 
-  Widget _buildPostsView({required List<Post> posts, required String type}) {
+  Widget _buildCustomTabBar() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Row(
+        children: [
+          _buildTabButton('Goals', 0),
+          const SizedBox(width: 20),
+          _buildTabButton('Events', 1),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTabButton(String title, int index) {
+    final isSelected = _tabController.index == index;
+    return GestureDetector(
+      onTap: () {
+        _tabController.animateTo(index);
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        decoration: BoxDecoration(
+          border: Border(
+            bottom: BorderSide(
+              color: isSelected ? Colors.black : Colors.transparent,
+              width: 1,
+            ),
+          ),
+        ),
+        child: Text(
+          title,
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+            color: isSelected ? Colors.black : Colors.grey.shade600,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildGridView({required List<Post> posts}) {
     if (posts.isEmpty) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
-              type == 'goal' ? Icons.flag_outlined : Icons.event_outlined,
+              Icons.photo_outlined,
               size: 64,
-              color: const Color(0xFF333333),
+              color: Colors.grey.shade400,
             ),
             const SizedBox(height: 16),
             Text(
-              'No ${type}s yet',
-              style: const TextStyle(
-                fontSize: 18,
-                color: Color(0xFF333333),
+              'No posts with photos yet',
+              style: TextStyle(
+                fontSize: 16,
+                color: Colors.grey.shade600,
               ),
             ),
           ],
@@ -423,99 +450,107 @@ class _ProfileScreenState extends State<ProfileScreen>
 
     return RefreshIndicator(
       onRefresh: _loadProfile,
-      color: const Color(0xFFAFCBEA),
-      child: ListView.builder(
-        padding: const EdgeInsets.all(16),
-        itemCount: posts.length,
-        itemBuilder: (context, index) {
-          final post = posts[index];
-          return Card(
-            color: const Color(0xFFDDDDDD),
-            elevation: 3,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-            margin: const EdgeInsets.only(bottom: 16),
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    post.text ?? 'No description available',
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w500,
-                      color: Color(0xFF1A1A1A),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        post.createdAt.toLocal().toString().split('.')[0],
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: Color(0xFF666666),
-                        ),
-                      ),
-                      Row(
-                        children: [
-                          const Icon(
-                            Icons.favorite_border,
-                            color: Color(0xFF333333),
-                            size: 16,
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            '${post.numOfLikes}',
-                            style: const TextStyle(
-                              color: Color(0xFF1A1A1A),
-                              fontSize: 14,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                  if (type == 'goal' &&
-                      post.tasks != null &&
-                      post.tasks!.isNotEmpty) ...[
-                    const SizedBox(height: 12),
-                    const Text(
-                      'Tasks:',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF1A1A1A),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    ...post.tasks!.map((task) => Container(
-                          margin: const EdgeInsets.only(bottom: 4),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 6,
-                          ),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFF9F6F2),
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Text(
-                            task.title, // Changed from task['title']?.toString() ?? 'Untitled task'
-                            style: const TextStyle(
-                              color: Color(0xFF333333),
-                              fontSize: 12,
-                            ),
-                          ),
-                        )),
-                  ],
-                ],
+      color: Colors.blue,
+      child: Padding(
+        padding: const EdgeInsets.all(2),
+        child: GridView.builder(
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 3,
+            crossAxisSpacing: 2,
+            mainAxisSpacing: 2,
+          ),
+          itemCount: posts.length,
+          itemBuilder: (context, index) {
+            final post = posts[index];
+            return _buildGridItem(post);
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildGridItem(Post post) {
+    String imageUrl = '';
+    
+    // Обрабатываем URL изображения правильно
+    if (post.imageUrls != null && post.imageUrls!.isNotEmpty) {
+      imageUrl = _extractImageUrl(post.imageUrls!.first);
+    }
+    
+    final hasMultipleImages = (post.imageUrls?.length ?? 0) > 1;
+
+    return Container(
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          CachedNetworkImage(
+            imageUrl: imageUrl,
+            fit: BoxFit.cover,
+            placeholder: (context, url) => Container(
+              color: Colors.grey.shade300,
+              child: const Center(
+                child: CircularProgressIndicator(),
               ),
             ),
-          );
-        },
+            errorWidget: (context, url, error) => Container(
+              color: Colors.grey.shade300,
+              child: const Icon(
+                Icons.error,
+                color: Colors.red,
+              ),
+            ),
+          ),
+          // Индикатор множественных изображений
+          if (hasMultipleImages)
+            Positioned(
+              top: 8,
+              right: 8,
+              child: Container(
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.7),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(
+                  Icons.copy,
+                  color: Colors.white,
+                  size: 16,
+                ),
+              ),
+            ),
+          // Показать лайки, если есть
+          if (post.numOfLikes > 0)
+            Positioned(
+              bottom: 8,
+              left: 8,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.7),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(
+                      Icons.favorite,
+                      color: Colors.red,
+                      size: 12,
+                    ),
+                    const SizedBox(width: 2),
+                    Text(
+                      '${post.numOfLikes}',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }
