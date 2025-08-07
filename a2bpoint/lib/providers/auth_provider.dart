@@ -12,20 +12,32 @@ class AuthProvider with ChangeNotifier {
   String? _username;
   String? _bio;
   String? _avatarUrl;
+  String? _phoneNumber;
+  String? _country;
+  String? _city;
+  String? _sex;
+  String? _dateOfBirthday;
   bool _isAuthenticated = false;
   bool _isInitialized = false;
   bool _isNewGoogleUser = false;
 
+  // Getters
   String? get token => _token;
   String? get userId => _userId;
   String? get email => _email;
   String? get username => _username;
   String? get bio => _bio;
   String? get avatarUrl => _avatarUrl;
+  String? get phoneNumber => _phoneNumber;
+  String? get country => _country;
+  String? get city => _city;
+  String? get sex => _sex;
+  String? get dateOfBirthday => _dateOfBirthday;
   bool get isAuthenticated => _isAuthenticated;
   bool get isInitialized => _isInitialized;
   bool get isNewGoogleUser => _isNewGoogleUser;
 
+  // Setters
   set username(String? value) {
     _username = value;
     notifyListeners();
@@ -60,6 +72,11 @@ class AuthProvider with ChangeNotifier {
       _username = prefs.getString('username');
       _bio = prefs.getString('bio_${_userId ?? ''}') ?? '';
       _avatarUrl = prefs.getString('avatarUrl_${_userId ?? ''}') ?? '';
+      _phoneNumber = prefs.getString('phoneNumber_${_userId ?? ''}');
+      _country = prefs.getString('country_${_userId ?? ''}');
+      _city = prefs.getString('city_${_userId ?? ''}');
+      _sex = prefs.getString('sex_${_userId ?? ''}');
+      _dateOfBirthday = prefs.getString('dateOfBirthday_${_userId ?? ''}');
       _isAuthenticated = _token != null &&
           _userId != null &&
           _token!.isNotEmpty &&
@@ -174,6 +191,59 @@ class AuthProvider with ChangeNotifier {
     }
   }
 
+  // Добавляем недостающий метод updatePersonalData
+  Future<void> updatePersonalData({
+    required String username,
+    required String email,
+    String? phoneNumber,
+    String? country,
+    String? city,
+    String? sex,
+    String? dateOfBirthday,
+  }) async {
+    try {
+      developer.log(
+          'Updating personal data: username=$username, email=$email, phoneNumber=$phoneNumber, country=$country, city=$city, sex=$sex, dateOfBirthday=$dateOfBirthday',
+          name: 'AuthProvider');
+      
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('username', username);
+      await prefs.setString('email', email);
+      
+      if (phoneNumber != null) {
+        await prefs.setString('phoneNumber_${_userId ?? ''}', phoneNumber);
+      }
+      if (country != null) {
+        await prefs.setString('country_${_userId ?? ''}', country);
+      }
+      if (city != null) {
+        await prefs.setString('city_${_userId ?? ''}', city);
+      }
+      if (sex != null) {
+        await prefs.setString('sex_${_userId ?? ''}', sex);
+      }
+      if (dateOfBirthday != null) {
+        await prefs.setString('dateOfBirthday_${_userId ?? ''}', dateOfBirthday);
+      }
+
+      // Обновляем локальные переменные
+      _username = username;
+      _email = email;
+      _phoneNumber = phoneNumber;
+      _country = country;
+      _city = city;
+      _sex = sex;
+      _dateOfBirthday = dateOfBirthday;
+      
+      developer.log('Personal data updated locally', name: 'AuthProvider');
+      notifyListeners();
+    } catch (e, stackTrace) {
+      developer.log('Error updating personal data: $e',
+          name: 'AuthProvider', stackTrace: stackTrace);
+      rethrow;
+    }
+  }
+
   Future<void> clearAuthData() async {
     try {
       developer.log('Clearing auth data', name: 'AuthProvider');
@@ -184,6 +254,11 @@ class AuthProvider with ChangeNotifier {
       await prefs.remove('username');
       await prefs.remove('bio_${_userId ?? ''}');
       await prefs.remove('avatarUrl_${_userId ?? ''}');
+      await prefs.remove('phoneNumber_${_userId ?? ''}');
+      await prefs.remove('country_${_userId ?? ''}');
+      await prefs.remove('city_${_userId ?? ''}');
+      await prefs.remove('sex_${_userId ?? ''}');
+      await prefs.remove('dateOfBirthday_${_userId ?? ''}');
       await prefs.remove('isNewGoogleUser');
       _token = null;
       _userId = null;
@@ -191,6 +266,11 @@ class AuthProvider with ChangeNotifier {
       _username = null;
       _bio = null;
       _avatarUrl = null;
+      _phoneNumber = null;
+      _country = null;
+      _city = null;
+      _sex = null;
+      _dateOfBirthday = null;
       _isAuthenticated = false;
       _isNewGoogleUser = false;
       developer.log('Auth data cleared', name: 'AuthProvider');

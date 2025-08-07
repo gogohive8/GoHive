@@ -3,15 +3,15 @@ import 'package:provider/provider.dart';
 import 'dart:developer' as developer;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import '../providers/auth_provider.dart';
-import '../services/api_services.dart';
-import '../services/post_service.dart';
-import '../models/post.dart';
-import '../services/exceptions.dart';
-import 'navbar.dart';
+import '../../providers/auth_provider.dart';
+import '../../services/api_services.dart';
+import '../../services/post_service.dart';
+import '../../models/post.dart';
+import '../../services/exceptions.dart';
+import '../navbar.dart';
 import 'profile_edit_screen.dart';
-import 'post_detail_screen.dart';
-import '../models/tasks.dart';
+import '../post_detail_screen.dart';
+import '../../models/tasks.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
