@@ -10,6 +10,7 @@ import '../models/post.dart';
 import '../services/exceptions.dart';
 import 'navbar.dart';
 import 'profile_edit_screen.dart';
+import 'post_detail_screen.dart';
 import '../models/tasks.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -206,13 +207,94 @@ class _ProfileScreenState extends State<ProfileScreen>
     final authProvider = Provider.of<AuthProvider>(context);
     if (!authProvider.isInitialized) {
       return const Scaffold(
-        backgroundColor: const Color(0xFFF4F3EE), // Изменил на цвет из дизайна
+        backgroundColor: Color(0xFFF4F3EE),
         body: Center(child: CircularProgressIndicator()),
       );
     }
 
     return Scaffold(
-              backgroundColor: const Color(0xFFF4F3EE),
+      backgroundColor: const Color(0xFFF4F3EE),
+      appBar: AppBar(
+        backgroundColor: const Color(0xFFF4F3EE),
+        elevation: 0,
+        automaticallyImplyLeading: false,
+        // Перенесли вкладки в AppBar
+        title: Row(
+          mainAxisAlignment: MainAxisAlignment.start,
+          children: [
+            GestureDetector(
+              onTap: () => _tabController.animateTo(0),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                decoration: BoxDecoration(
+                  color: _tabController.index == 0 
+                      ? const Color(0x1F5F93E6) // #5F93E6 с 12% прозрачностью
+                      : Colors.transparent,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  'Goals',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: _tabController.index == 0 
+                        ? const Color(0xFF5F93E6) // Синий цвет текста для активной вкладки
+                        : Colors.black,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 20),
+            GestureDetector(
+              onTap: () => _tabController.animateTo(1),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                decoration: BoxDecoration(
+                  color: _tabController.index == 1 
+                      ? const Color(0x1F5F93E6) // #5F93E6 с 12% прозрачностью
+                      : Colors.transparent,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  'Events',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: _tabController.index == 1 
+                        ? const Color(0xFF5F93E6) // Синий цвет текста для активной вкладки
+                        : Colors.black,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          // Иконка чата (используем такую же как в HomeScreen)
+          IconButton(
+            icon: Image.asset('assets/images/messages_icon.png', height: 24),
+            onPressed: () {
+              // Функционал чата
+            },
+          ),
+          // Иконка редактирования
+          IconButton(
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const ProfileEditScreen(),
+                ),
+              );
+            },
+            icon: const Icon(
+              Icons.edit,
+              size: 24,
+              color: Colors.black,
+            ),
+          ),
+        ],
+      ),
       body: _isLoading
           ? const Center(
               child: CircularProgressIndicator(
@@ -225,15 +307,13 @@ class _ProfileScreenState extends State<ProfileScreen>
                   children: [
                     // Фиксированный заголовок профиля
                     _buildProfileHeader(authProvider),
-                    // TabBar в стиле дизайна
-                    _buildCustomTabBar(),
                     // Контент табов
                     Expanded(
                       child: TabBarView(
                         controller: _tabController,
                         children: [
-                          _buildGridView(posts: _goals),
-                          _buildGridView(posts: _events),
+                          _buildGridView(posts: _goals, postType: 'goal'),
+                          _buildGridView(posts: _events, postType: 'event'),
                         ],
                       ),
                     ),
@@ -251,41 +331,9 @@ class _ProfileScreenState extends State<ProfileScreen>
 
   Widget _buildProfileHeader(AuthProvider authProvider) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(20, 60, 20, 20),
+      padding: const EdgeInsets.fromLTRB(20, 20, 20, 20),
       child: Column(
         children: [
-          // Верхняя строка с иконкой чата и карандашом
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              IconButton(
-                onPressed: () {
-                  // Функционал чата
-                },
-                icon: const Icon(
-                  Icons.chat_bubble_outline,
-                  size: 24,
-                  color: Colors.black,
-                ),
-              ),
-              IconButton(
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const ProfileEditScreen(),
-                    ),
-                  );
-                },
-                icon: const Icon(
-                  Icons.edit,
-                  size: 24,
-                  color: Colors.black,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
           Row(
             children: [
               // Аватар
@@ -383,48 +431,7 @@ class _ProfileScreenState extends State<ProfileScreen>
     );
   }
 
-  Widget _buildCustomTabBar() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: Row(
-        children: [
-          _buildTabButton('Goals', 0),
-          const SizedBox(width: 20),
-          _buildTabButton('Events', 1),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTabButton(String title, int index) {
-    final isSelected = _tabController.index == index;
-    return GestureDetector(
-      onTap: () {
-        _tabController.animateTo(index);
-      },
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 12),
-        decoration: BoxDecoration(
-          border: Border(
-            bottom: BorderSide(
-              color: isSelected ? Colors.black : Colors.transparent,
-              width: 1,
-            ),
-          ),
-        ),
-        child: Text(
-          title,
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-            color: isSelected ? Colors.black : Colors.grey.shade600,
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildGridView({required List<Post> posts}) {
+  Widget _buildGridView({required List<Post> posts, required String postType}) {
     if (posts.isEmpty) {
       return Center(
         child: Column(
@@ -462,14 +469,14 @@ class _ProfileScreenState extends State<ProfileScreen>
           itemCount: posts.length,
           itemBuilder: (context, index) {
             final post = posts[index];
-            return _buildGridItem(post);
+            return _buildGridItem(post, postType);
           },
         ),
       ),
     );
   }
 
-  Widget _buildGridItem(Post post) {
+  Widget _buildGridItem(Post post, String postType) {
     String imageUrl = '';
     
     // Обрабатываем URL изображения правильно
@@ -479,78 +486,92 @@ class _ProfileScreenState extends State<ProfileScreen>
     
     final hasMultipleImages = (post.imageUrls?.length ?? 0) > 1;
 
-    return Container(
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          CachedNetworkImage(
-            imageUrl: imageUrl,
-            fit: BoxFit.cover,
-            placeholder: (context, url) => Container(
-              color: Colors.grey.shade300,
-              child: const Center(
-                child: CircularProgressIndicator(),
-              ),
-            ),
-            errorWidget: (context, url, error) => Container(
-              color: Colors.grey.shade300,
-              child: const Icon(
-                Icons.error,
-                color: Colors.red,
-              ),
+    return GestureDetector(
+      onTap: () {
+        // Добавляем навигацию к детальному экрану поста
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => PostDetailScreen(
+              postId: post.id, 
+              postType: postType,
             ),
           ),
-          // Индикатор множественных изображений
-          if (hasMultipleImages)
-            Positioned(
-              top: 8,
-              right: 8,
-              child: Container(
-                padding: const EdgeInsets.all(4),
-                decoration: BoxDecoration(
-                  color: Colors.black.withValues(alpha: 0.7),
-                  borderRadius: BorderRadius.circular(12),
+        );
+      },
+      child: Container(
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            CachedNetworkImage(
+              imageUrl: imageUrl,
+              fit: BoxFit.cover,
+              placeholder: (context, url) => Container(
+                color: Colors.grey.shade300,
+                child: const Center(
+                  child: CircularProgressIndicator(),
                 ),
+              ),
+              errorWidget: (context, url, error) => Container(
+                color: Colors.grey.shade300,
                 child: const Icon(
-                  Icons.copy,
-                  color: Colors.white,
-                  size: 16,
+                  Icons.error,
+                  color: Colors.red,
                 ),
               ),
             ),
-          // Показать лайки, если есть
-          if (post.numOfLikes > 0)
-            Positioned(
-              bottom: 8,
-              left: 8,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(
-                  color: Colors.black.withValues(alpha: 0.7),
-                  borderRadius: BorderRadius.circular(10),
+            // Индикатор множественных изображений
+            if (hasMultipleImages)
+              Positioned(
+                top: 8,
+                right: 8,
+                child: Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.7),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(
+                    Icons.copy,
+                    color: Colors.white,
+                    size: 16,
+                  ),
                 ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(
-                      Icons.favorite,
-                      color: Colors.red,
-                      size: 12,
-                    ),
-                    const SizedBox(width: 2),
-                    Text(
-                      '${post.numOfLikes}',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 10,
-                        fontWeight: FontWeight.w500,
+              ),
+            // Показать лайки, если есть
+            if (post.numOfLikes > 0)
+              Positioned(
+                bottom: 8,
+                left: 8,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.7),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(
+                        Icons.favorite,
+                        color: Colors.red,
+                        size: 12,
                       ),
-                    ),
-                  ],
+                      const SizedBox(width: 2),
+                      Text(
+                        '${post.numOfLikes}',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ),
-        ],
+          ],
+        ),
       ),
     );
   }
