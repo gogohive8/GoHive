@@ -5,7 +5,7 @@ import 'screens/sign_in_screen.dart';
 import 'screens/OnboardingController/onboarding_controller.dart';
 import 'screens/home_screen.dart';
 import 'screens/add_screen.dart';
-import 'screens/profile_screen.dart';
+import 'screens/Profile/profile_screen.dart';
 import 'screens/ai_mentor_screen.dart';
 import 'providers/auth_provider.dart';
 import 'screens/search_screen.dart';
