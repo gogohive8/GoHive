@@ -223,6 +223,7 @@ class PostService {
     required List<Map<String, dynamic>> tasks,
     List<String>? imageUrls,
     required String token,
+    required String privacy,
   }) async {
     try {
       developer.log('Creating goal with userId: $userId', name: 'PostService');
@@ -242,6 +243,7 @@ class PostService {
           'point_b': pointB,
           'tasks': tasks,
           'image_urls': imageUrls,
+          'privacy': privacy,
         }),
       );
 
@@ -269,6 +271,8 @@ class PostService {
     required String dateTime,
     required String token,
     List<String>? imageUrls,
+    required String privacy,
+    int? maxParticipants,
   }) async {
     try {
       final body = {
@@ -277,7 +281,9 @@ class PostService {
         'location': location,
         'interest': interest,
         'date_time': dateTime,
+        'privacy': privacy,
         if (imageUrls != null && imageUrls.isNotEmpty) 'image_urls': imageUrls,
+        if (maxParticipants != null) 'max_participants': maxParticipants,
       };
 
       developer.log(
@@ -556,59 +562,6 @@ class PostService {
       rethrow;
     }
   }
-
-//   Future<Post> getEventById(String eventId, String token) async {
-//   try {
-//     developer.log('Fetching event by id: $eventId', name: 'PostService');
-//     final response = await _client.get(
-//       Uri.parse('$_postsUrl/events/$eventId'),
-//       headers: {
-//         'Authorization': 'Bearer $token',
-//         'Content-Type': 'application/json',
-//       },
-//     ).timeout(const Duration(seconds: 10));
-
-//     final data = await _handleResponse(response);
-
-//     // Обработка image_urls для событий
-//     List<String>? imageUrls;
-//     if (data['image_urls'] != null) {
-//       if (data['image_urls'] is String && data['image_urls'].isNotEmpty) {
-//         imageUrls = [data['image_urls']];
-//       } else if (data['image_urls'] is List) {
-//         imageUrls = (data['image_urls'] as List)
-//             .where((item) => item != null)
-//             .map((item) => item.toString())
-//             .toList();
-//       }
-//     }
-
-//     return Post.fromJson({
-//       ...data,
-//       'type': 'event',
-//       'userID': data['userID']?.toString() ??
-//           data['user_id']?.toString() ??
-//           'unknown',
-//       'username': data['username']?.toString() ?? 'Unknown',
-//       'description': data['description']?.toString() ?? '',
-//       'location': data['location']?.toString() ?? '',
-//       'interest': data['interest']?.toString() ?? '',
-//       'date_time': data['date_time']?.toString() ?? '',
-//       'created_at': data['created_at']?.toString() ??
-//           data['createdAt']?.toString() ??
-//           DateTime.now().toIso8601String(),
-//       'numOfLikes': data['numOfLikes'] ?? 0,
-//       'numOfComments': data['numOfComments'] ?? 0,
-//       'id': data['id']?.toString() ?? '',
-//       'likes': data['likes'] ?? [],
-//       'image_urls': imageUrls,
-//     }, type: 'event');
-//   } catch (e, stackTrace) {
-//     developer.log('Get event by id error: $e',
-//         name: 'PostService', stackTrace: stackTrace);
-//     rethrow;
-//   }
-// }
 
   Future<Map<String, dynamic>> likePost(
       String postId, String userId, String token) async {
