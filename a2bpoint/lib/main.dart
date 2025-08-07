@@ -11,9 +11,21 @@ import 'providers/auth_provider.dart';
 import 'screens/search_screen.dart';
 import 'dart:developer' as developer;
 import 'providers/posts_provider.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
+import 'services/notification_service.dart';
+
+// Background handler
+Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  await Firebase.initializeApp();
+  print(
+      'Background message: ${message.notification?.title}, data: ${message.data}');
+}
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp();
+  FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
 
   try {
     await Supabase.initialize(
@@ -34,8 +46,56 @@ void main() async {
   );
 }
 
-class MyApp extends StatelessWidget {
+// class MyApp extends StatelessWidget {
+//   const MyApp({super.key});
+
+//   @override
+//   Widget build(BuildContext context) {
+//     return MultiProvider(
+//       providers: [
+//         ChangeNotifierProvider(create: (_) => AuthProvider()),
+//         ChangeNotifierProvider(create: (_) => PostsProvider()),
+//       ],
+//       child: MaterialApp(
+//         title: 'GoHive',
+//         theme: ThemeData(
+//           primaryColor: const Color(0xFFAFCBEA),
+//           scaffoldBackgroundColor: const Color(0xFFF9F6F2),
+//         ),
+//         initialRoute: '/sign_in',
+//         routes: {
+//           '/sign_in': (context) => const SignInScreen(),
+//           '/sign_up': (context) => const OnboardingController(),
+//           '/home': (context) => const HomeScreen(),
+//           '/add': (context) => const AddScreen(),
+//           '/profile': (context) => const ProfileScreen(),
+//           '/search': (context) => const SearchScreen(),
+//           '/ai-mentor': (context) => const AIMentorScreen(),
+//         },
+//       ),
+//     );
+//   }
+// }
+
+class MyApp extends StatefulWidget {
+  // Change to StatefulWidget for context
   const MyApp({super.key});
+
+  @override
+  _MyAppState createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> {
+  final NotificationService _notificationService = NotificationService();
+
+  @override
+  void initState() {
+    super.initState();
+    // Initialize NotificationService after UI is built
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _notificationService.initialize(context);
+    });
+  }
 
   @override
   Widget build(BuildContext context) {

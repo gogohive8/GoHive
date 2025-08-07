@@ -1,1 +1,5 @@
-<string name="app_name">Gohive</string>
+<resources>
+  <string name="app_name">Gohive</string>
+  <string name="default_notification_channel_id">high_importance_channel</string>
+  <string name="default_notification_channel_name">High Importance Notifications</string>
+</resources>
