@@ -10,7 +10,9 @@ class Post {
   final int numOfLikes;
   final int numComments;
   final DateTime createdAt;
-  final List<Task>? tasks; // ИЗМЕНЕНО: теперь List<Task>
+  final List<Task>? tasks;
+  // Добавляем поле additionalData для хранения дополнительных данных
+  final Map<String, dynamic>? additionalData;
 
   Post({
     required this.id,
@@ -22,6 +24,7 @@ class Post {
     required this.numComments,
     required this.createdAt,
     this.tasks,
+    this.additionalData, // Добавляем в конструктор
   });
 
   factory Post.fromJson(Map<String, dynamic> json, {required String type}) {
@@ -75,6 +78,18 @@ class Post {
           .toList();
     }
 
+    // Создаем additionalData из всех возможных полей
+    final additionalData = <String, dynamic>{};
+    
+    // Добавляем поля, которые могут быть в JSON
+    if (json['interest'] != null) additionalData['interest'] = json['interest'];
+    if (json['location'] != null) additionalData['location'] = json['location'];
+    if (json['pointA'] != null) additionalData['pointA'] = json['pointA'];
+    if (json['pointB'] != null) additionalData['pointB'] = json['pointB'];
+    if (json['dateTime'] != null) additionalData['dateTime'] = json['dateTime'];
+    if (json['date'] != null) additionalData['dateTime'] = json['date'];
+    if (json['time'] != null) additionalData['time'] = json['time'];
+    
     return Post(
       id: json['id']?.toString() ?? '',
       user: User(
@@ -89,6 +104,7 @@ class Post {
       numComments: _safeParseInt(json['numOfComments']),
       createdAt: createdAt,
       tasks: tasks,
+      additionalData: additionalData.isNotEmpty ? additionalData : null, // Добавляем additionalData
     );
   }
 
@@ -112,7 +128,8 @@ class Post {
     int? numOfLikes,
     int? numComments,
     DateTime? createdAt,
-    List<Task>? tasks, // ИЗМЕНЕНО: теперь List<Task>
+    List<Task>? tasks,
+    Map<String, dynamic>? additionalData, // Добавляем в copyWith
   }) {
     return Post(
       id: id ?? this.id,
@@ -124,6 +141,7 @@ class Post {
       numComments: numComments ?? this.numComments,
       createdAt: createdAt ?? this.createdAt,
       tasks: tasks ?? this.tasks,
+      additionalData: additionalData ?? this.additionalData, // Добавляем в copyWith
     );
   }
 
