@@ -1,23 +1,21 @@
 import 'dart:convert';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
-import '../providers/auth_provider.dart';
-import 'package:provider/provider.dart';
 import 'package:http/http.dart' as http;
 
 class NotificationService {
   final FirebaseMessaging _messaging = FirebaseMessaging.instance;
   BuildContext? _context;
-  final String backendUrl = 'https://a2bpoint-backend.herokuapp.com';
+  final String backendUrl =
+      'https://gohive-notification-service-f9323a5e641a.herokuapp.com';
 
   void initialize(BuildContext context) {
     _context = context;
-    setupNotifications();
     _listenForMessages();
     _handleNotificationClicks();
   }
 
-  Future<void> setupNotifications() async {
+  Future<String?> setupNotifications() async {
     NotificationSettings settings = await _messaging.requestPermission(
       alert: true,
       badge: true,
@@ -28,21 +26,10 @@ class NotificationService {
     }
     String? token = await _messaging.getToken();
     print('FCM Token: $token');
-    if (token != null && _context != null) {
-      // Use AuthProvider to get user ID
-      final authProvider = Provider.of<AuthProvider>(_context!, listen: false);
-      final userId = authProvider.userId ?? 'user123'; // Fallback if null
-      await _updateToken(userId, token);
-    }
-    _messaging.onTokenRefresh.listen((newToken) async {
-      print('New FCM Token: $newToken');
-      final authProvider = Provider.of<AuthProvider>(_context!, listen: false);
-      final userId = authProvider.userId ?? 'user123';
-      await _updateToken(userId, newToken);
-    });
+    return token;
   }
 
-  Future<void> _updateToken(String userId, String token) async {
+  Future<void> updateToken(String userId, String token) async {
     try {
       final response = await http.post(
         Uri.parse('$backendUrl/update-token'),
@@ -136,4 +123,6 @@ class NotificationService {
       ),
     );
   }
+
+  Stream<String> get onTokenRefresh => _messaging.onTokenRefresh;
 }
