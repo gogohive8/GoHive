@@ -32,21 +32,113 @@ class AIService {
     throw Exception('Request failed: ${response.statusCode} ${response.body}');
   }
 
-  // Future<http.Response> _makeRequest(
-  //     Future<http.Response> Function() request, int retries) async {
-  //   for (int attempt = 1; attempt <= retries; attempt++) {
-  //     try {
-  //       final response = await request().timeout(const Duration(seconds: 30));
-  //       return response;
-  //     } catch (e) {
-  //       if (attempt == retries) rethrow;
-  //       developer.log('Request attempt $attempt failed: $e',
-  //           name: 'ApiService');
-  //       await Future.delayed(Duration(milliseconds: 500 * attempt));
-  //     }
-  //   }
-  //   throw Exception('Request failed after $retries attempts');
-  // }
+  /// Extract clean text from any API response format
+  String _extractCleanText(dynamic data) {
+    if (data == null) return 'No response received';
+    
+    // If it's already a clean string, return it
+    if (data is String) {
+      String cleaned = data.trim();
+      
+      // Remove common wrapper patterns
+      cleaned = _removeWrappers(cleaned);
+      
+      return cleaned.isNotEmpty ? cleaned : 'Empty response received';
+    }
+    
+    // If it's a Map, try to extract the actual message
+    if (data is Map<String, dynamic>) {
+      // Try common response field names
+      final possibleKeys = [
+        'message', 'response', 'text', 'content', 'answer', 'result',
+        'data', 'output', 'reply', 'body', 'value', 'payload'
+      ];
+      
+      for (String key in possibleKeys) {
+        if (data.containsKey(key) && data[key] != null) {
+          return _extractCleanText(data[key]);
+        }
+      }
+      
+      // If no standard keys found, try to find any string value
+      for (var value in data.values) {
+        if (value is String && value.trim().isNotEmpty) {
+          return _removeWrappers(value.trim());
+        }
+      }
+      
+      // If still nothing found, convert the whole map but clean it
+      return _removeWrappers(data.toString());
+    }
+    
+    // If it's a List, try to extract from first element
+    if (data is List && data.isNotEmpty) {
+      return _extractCleanText(data.first);
+    }
+    
+    // Fallback: convert to string and clean
+    return _removeWrappers(data.toString());
+  }
+  
+  /// Remove various wrapper patterns from text
+  String _removeWrappers(String text) {
+    String cleaned = text.trim();
+    
+    // Remove JSON-like wrappers
+    if (cleaned.startsWith('{') && cleaned.endsWith('}')) {
+      // Try to parse as JSON first
+      try {
+        final parsed = jsonDecode(cleaned);
+        if (parsed is Map<String, dynamic>) {
+          return _extractCleanText(parsed);
+        }
+      } catch (e) {
+        // If JSON parsing fails, manually remove braces
+        cleaned = cleaned.substring(1, cleaned.length - 1).trim();
+      }
+    }
+    
+    // Remove array wrappers
+    if (cleaned.startsWith('[') && cleaned.endsWith(']')) {
+      try {
+        final parsed = jsonDecode(cleaned);
+        if (parsed is List && parsed.isNotEmpty) {
+          return _extractCleanText(parsed.first);
+        }
+      } catch (e) {
+        cleaned = cleaned.substring(1, cleaned.length - 1).trim();
+      }
+    }
+    
+    // Remove common prefixes like "message:", "response:", etc.
+    final prefixPatterns = [
+      RegExp(r'^message\s*:\s*', caseSensitive: false),
+      RegExp(r'^response\s*:\s*', caseSensitive: false),
+      RegExp(r'^text\s*:\s*', caseSensitive: false),
+      RegExp(r'^content\s*:\s*', caseSensitive: false),
+      RegExp(r'^answer\s*:\s*', caseSensitive: false),
+      RegExp(r'^result\s*:\s*', caseSensitive: false),
+      RegExp(r'^data\s*:\s*', caseSensitive: false),
+      RegExp(r'^output\s*:\s*', caseSensitive: false),
+    ];
+    
+    for (RegExp pattern in prefixPatterns) {
+      cleaned = cleaned.replaceFirst(pattern, '');
+    }
+    
+    // Remove quotes if the entire string is wrapped in quotes
+    if ((cleaned.startsWith('"') && cleaned.endsWith('"')) ||
+        (cleaned.startsWith("'") && cleaned.endsWith("'"))) {
+      cleaned = cleaned.substring(1, cleaned.length - 1);
+    }
+    
+    // Remove escape characters
+    cleaned = cleaned.replaceAll(r'\"', '"')
+                    .replaceAll(r"\'", "'")
+                    .replaceAll(r'\\', '\\');
+    
+    return cleaned.trim();
+  }
 
   Future<String> generateGoal(String prompt, String token) async {
     try {
@@ -62,10 +154,11 @@ class AIService {
             body: jsonEncode({'message': prompt}),
           )
           .timeout(const Duration(seconds: 30));
+      
       final data = await _handleResponse(response);
-      final aiResponse = data.toString();
-      developer.log('Goal generation response: $aiResponse}',
-          name: 'ApiService');
+      final aiResponse = _extractCleanText(data);
+      
+      developer.log('Goal generation response: $aiResponse', name: 'ApiService');
       return aiResponse;
     } catch (e, stackTrace) {
       developer.log('Goal generation error: $e',
@@ -88,10 +181,11 @@ class AIService {
             body: jsonEncode({'message': prompt}),
           )
           .timeout(const Duration(seconds: 30));
+      
       final data = await _handleResponse(response);
-      final aiResponse = data.toString();
-      developer.log('Event generation response: $aiResponse}',
-          name: 'ApiService');
+      final aiResponse = _extractCleanText(data);
+      
+      developer.log('Event generation response: $aiResponse', name: 'ApiService');
       return aiResponse;
     } catch (e, stackTrace) {
       developer.log('Event generation error: $e',

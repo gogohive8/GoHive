@@ -2,7 +2,6 @@
 import 'package:flutter/material.dart';
 import '../screens/task_detail_screen.dart';
 import '../models/task_item.dart';
-import 'dart:developer' as developer;
 
 class ChallengeFullScreen extends StatefulWidget {
   final String title;
