@@ -114,7 +114,7 @@ class AuthProvider with ChangeNotifier {
   }) async {
     try {
       developer.log(
-          'Setting auth data: token=$token, userId=$userId, email=$email, username=$username, bio=$bio, avatarUrl=$avatarUrl, isGoogleLogin=$isGoogleLogin, isNewUser=$isNewUser',
+          'Setting auth data: token=$token, refreshToken=$refreshToken, userId=$userId, email=$email, username=$username, bio=$bio, avatarUrl=$avatarUrl, isGoogleLogin=$isGoogleLogin, isNewUser=$isNewUser',
           name: 'AuthProvider');
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('token', token);

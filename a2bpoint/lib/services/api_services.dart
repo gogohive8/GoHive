@@ -100,6 +100,7 @@ class ApiService {
       final data = await _handleResponse(response);
       return {
         'token': data['token']?.toString() ?? '',
+        'refreshToken': data['refreshToken']?.toString() ?? '',
         'userId': data['userID']?.toString() ?? '',
         'username': data['username']?.toString() ?? 'Unknown',
         'email': email,

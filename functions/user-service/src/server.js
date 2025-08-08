@@ -77,7 +77,7 @@ app.post('/refreshToken', async (req, res) => {
   try{
     const {user_id} = req.body;
     const refreshToken = req.headers['authorization']?.split(' ')[1];
-    if (!token) return res.status(401).json({ error: 'No token provided' });
+    if (!refreshToken) return res.status(401).json({ error: 'No token provided' });
 
     const decoded = jwt.verify(refreshToken, process.env.REFRESH_JWT_TOKEN);
     if (user_id == decoded.id) {
@@ -288,6 +288,13 @@ app.post('/login', async (req, res) => {
       return res.status(401).json({ error: authError.message });
     }
 
+    const {data: userData, error: fetchUserDataError} = await supabase
+    .schema('public')
+    .from('users')
+    .select('username')
+    .eq('id', authData.user.id)
+
+    if(fetchUserDataError) console.error('Error of fetch username');
     // Generate JWT
     const token = jwt.sign({ id: authData.user.id }, process.env.JWT_SECRET, { expiresIn: '1h' });
     const refreshToken = jwt.sign({id: authData.user.id}, process.env.REFRESH_JWT_TOKEN, {expiresIn: '30d'})
@@ -296,6 +303,8 @@ app.post('/login', async (req, res) => {
       'token' : token,
       'refreshToken': refreshToken,
       'userID' : authData.user.id,
+      'username' : userData.username,
+      'email': mail,
     });
   } catch (error) {
     res.status(400).json({ error: error.message });

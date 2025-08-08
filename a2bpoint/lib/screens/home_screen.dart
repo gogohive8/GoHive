@@ -107,8 +107,7 @@ class _HomeScreenState extends State<HomeScreen>
         JwtDecoder.isExpired(accessToken) ||
         userId == null ||
         refreshToken == null) {
-      final newToken =
-          await _apiService.refreshToken(userId ?? '', refreshToken ?? '');
+      final newToken = await _apiService.refreshToken(userId!, refreshToken!);
       if (newToken == null) {
         // Redirect to login screen
         if (mounted) {
