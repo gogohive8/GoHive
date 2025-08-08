@@ -15,7 +15,7 @@ class CommentService {
           name: 'CommentService');
 
       final response = await _client.get(
-        Uri.parse('$_commentsUrl/comments/$postId?post_type=$postType'),
+        Uri.parse('$_commentsUrl/posts/$postId/comments?limit=50&offset=0&post_type=$postType'),
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $token',
@@ -103,10 +103,11 @@ class CommentService {
     String? imageUrl,
   }) async {
     try {
+      // ИСПРАВЛЕНИЕ: Используем тот же формат что и в первом файле
       final body = {
-        'post_id': postId,
-        'user_id': userId,
         'text': text,
+        'userId': userId,
+        'postId': postId,
         'post_type': postType,
         if (taskId != null) 'task_id': taskId,
         if (imageUrl != null) 'image_url': imageUrl,
@@ -116,8 +117,9 @@ class CommentService {
           'Creating comment for post $postId, taskId: $taskId, hasImage: ${imageUrl != null}', 
           name: 'CommentService');
 
+      // ИСПРАВЛЕНИЕ: Используем endpoint как в первом файле
       final response = await _client.post(
-        Uri.parse('$_commentsUrl/comments/create'),
+        Uri.parse('$_commentsUrl/posts/$postId/comments'),
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $token',
@@ -153,7 +155,7 @@ class CommentService {
       developer.log('Deleting comment $commentId', name: 'CommentService');
 
       final response = await _client.delete(
-        Uri.parse('$_commentsUrl/comments/$commentId'),
+        Uri.parse('$_commentsUrl/posts/comments/$commentId'),
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $token',
@@ -187,7 +189,7 @@ class CommentService {
       developer.log('Updating comment $commentId', name: 'CommentService');
 
       final response = await _client.put(
-        Uri.parse('$_commentsUrl/comments/$commentId'),
+        Uri.parse('$_commentsUrl/posts/comments/$commentId'),
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $token',
