@@ -7,6 +7,7 @@ import '../services/post_service.dart';
 
 class AuthProvider with ChangeNotifier {
   String? _token;
+  String? _refreshToken;
   String? _userId;
   String? _email;
   String? _username;
@@ -23,6 +24,7 @@ class AuthProvider with ChangeNotifier {
 
   // Getters
   String? get token => _token;
+  String? get refreshToken => _refreshToken;
   String? get userId => _userId;
   String? get email => _email;
   String? get username => _username;
@@ -101,6 +103,7 @@ class AuthProvider with ChangeNotifier {
 
   Future<void> setAuthData(
     String token,
+    String refreshToken,
     String userId,
     String email,
     String? username, {
@@ -115,6 +118,7 @@ class AuthProvider with ChangeNotifier {
           name: 'AuthProvider');
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('token', token);
+      await prefs.setString('refreshToken', refreshToken);
       await prefs.setString('userId', userId);
       await prefs.setString('email', email);
       if (username != null) {
@@ -205,11 +209,11 @@ class AuthProvider with ChangeNotifier {
       developer.log(
           'Updating personal data: username=$username, email=$email, phoneNumber=$phoneNumber, country=$country, city=$city, sex=$sex, dateOfBirthday=$dateOfBirthday',
           name: 'AuthProvider');
-      
+
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('username', username);
       await prefs.setString('email', email);
-      
+
       if (phoneNumber != null) {
         await prefs.setString('phoneNumber_${_userId ?? ''}', phoneNumber);
       }
@@ -223,7 +227,8 @@ class AuthProvider with ChangeNotifier {
         await prefs.setString('sex_${_userId ?? ''}', sex);
       }
       if (dateOfBirthday != null) {
-        await prefs.setString('dateOfBirthday_${_userId ?? ''}', dateOfBirthday);
+        await prefs.setString(
+            'dateOfBirthday_${_userId ?? ''}', dateOfBirthday);
       }
 
       // Обновляем локальные переменные
@@ -234,7 +239,7 @@ class AuthProvider with ChangeNotifier {
       _city = city;
       _sex = sex;
       _dateOfBirthday = dateOfBirthday;
-      
+
       developer.log('Personal data updated locally', name: 'AuthProvider');
       notifyListeners();
     } catch (e, stackTrace) {

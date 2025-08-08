@@ -12,6 +12,7 @@ import '../widgets/home/home_app_bar.dart';
 import '../widgets/home/posts_view.dart';
 import '../widgets/home/challenge_view.dart';
 import 'dart:developer' as developer;
+import 'package:jwt_decoder/jwt_decoder.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -59,15 +60,16 @@ class _HomeScreenState extends State<HomeScreen>
   void initState() {
     super.initState();
     _initializeScreen();
+    _refreshTokenIfNeeded();
   }
 
   void _initializeScreen() {
     _tabController = TabController(length: 3, vsync: this);
     _tabController.addListener(_handleTabSelection);
-    
+
     _goalsScrollController.addListener(_onGoalsScroll);
     _eventsScrollController.addListener(_onEventsScroll);
-    
+
     _checkAuthAndLoadInitialTab();
     _setupNotifications();
   }
@@ -92,6 +94,29 @@ class _HomeScreenState extends State<HomeScreen>
         await NotificationService().updateToken(userId, token);
       }
     }
+  }
+
+  Future<void> _refreshTokenIfNeeded() async {
+    setState(() => _isLoading = true);
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final accessToken = authProvider.token;
+    final refreshToken = authProvider.refreshToken;
+    final userId = authProvider.userId; // Assuming user_id is stored
+
+    if (accessToken == null ||
+        JwtDecoder.isExpired(accessToken) ||
+        userId == null ||
+        refreshToken == null) {
+      final newToken =
+          await _apiService.refreshToken(userId ?? '', refreshToken ?? '');
+      if (newToken == null) {
+        // Redirect to login screen
+        if (mounted) {
+          Navigator.pushReplacementNamed(context, '/login');
+        }
+      }
+    }
+    setState(() => _isLoading = false);
   }
 
   @override
@@ -187,7 +212,8 @@ class _HomeScreenState extends State<HomeScreen>
     });
 
     try {
-      developer.log('Fetching goals offset ${_goalsOffset}', name: 'HomeScreen');
+      developer.log('Fetching goals offset ${_goalsOffset}',
+          name: 'HomeScreen');
 
       final goals = await _postService.getGoalsPaginated(
         authProvider.token!,
@@ -242,7 +268,8 @@ class _HomeScreenState extends State<HomeScreen>
     });
 
     try {
-      developer.log('Fetching events offset ${_eventsOffset}', name: 'HomeScreen');
+      developer.log('Fetching events offset ${_eventsOffset}',
+          name: 'HomeScreen');
 
       final events = await _postService.getEventsPaginated(
         authProvider.token!,

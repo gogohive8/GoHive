@@ -1,9 +1,11 @@
 import 'dart:convert';
+import 'dart:async';
 import 'dart:developer' as developer;
 import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/post.dart';
 import 'exceptions.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class ApiService {
   final http.Client _client = http.Client();
@@ -11,6 +13,9 @@ class ApiService {
   static const String _baseUrl =
       'https://gohive-user-service-efb5dea164ed.herokuapp.com';
   SupabaseClient get supabase => _supabase;
+  final _tokenRefreshController = StreamController<String>.broadcast();
+
+  Stream<String> get onTokenRefresh => _tokenRefreshController.stream;
 
   Future<dynamic> _handleResponse(http.Response response) async {
     developer.log('Response: ${response.statusCode}, body: ${response.body}',
@@ -46,6 +51,38 @@ class ApiService {
       }
     }
     throw Exception('Request failed after $retries attempts');
+  }
+
+  Future<String?> refreshToken(String userId, String refreshToken) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$_baseUrl/refreshToken'),
+        headers: {
+          'Authorization': 'Bearer $refreshToken',
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({'user_id': userId}),
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        final newAccessToken = data['token'];
+
+        // Save new access token to SharedPreferences
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('token', newAccessToken);
+
+        _tokenRefreshController.add(newAccessToken);
+        return newAccessToken;
+      } else {
+        final error =
+            jsonDecode(response.body)['error'] ?? 'Failed to refresh token';
+        throw Exception(error);
+      }
+    } catch (e) {
+      print('Error refreshing token: $e');
+      return null;
+    }
   }
 
   Future<Map<String, String>> login(String email, String password) async {
@@ -404,6 +441,7 @@ class ApiService {
   void dispose() {
     developer.log('Disposing ApiService', name: 'ApiService');
     _client.close();
+    _tokenRefreshController.close();
   }
 
   Future<List<Post>> getUserGoals(String userId, String token) async {

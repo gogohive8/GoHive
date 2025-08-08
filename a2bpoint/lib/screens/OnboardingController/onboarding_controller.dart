@@ -92,6 +92,7 @@ class _OnboardingControllerState extends State<OnboardingController> {
 
         await authProvider.setAuthData(
           authProvider.token!,
+          authProvider.refreshToken!,
           _userId!,
           _googleEmail ?? '',
           _data.username,
@@ -116,6 +117,7 @@ class _OnboardingControllerState extends State<OnboardingController> {
             authData['userId']?.isNotEmpty == true) {
           await authProvider.setAuthData(
             authData['token']!,
+            authData['refreshToken']!,
             authData['userId']!,
             authData['email'] ?? _data.email,
             authData['username'] ?? _data.username,

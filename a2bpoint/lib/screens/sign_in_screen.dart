@@ -52,6 +52,7 @@ class _SignInScreenState extends State<SignInScreen> {
         final authProvider = Provider.of<AuthProvider>(context, listen: false);
         await authProvider.setAuthData(
           authData['token']!,
+          authData['refreshToken']!,
           authData['userId']!,
           authData['email'] ?? _emailController.text,
           authData['username'] ?? '',

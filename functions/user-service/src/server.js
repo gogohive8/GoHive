@@ -73,6 +73,26 @@ const verifyToken = async (req, res, next) => {
 
 // Routes
 
+app.post('/refreshToken', async (req, res) => {
+  try{
+    const {user_id} = req.body;
+    const refreshToken = req.headers['authorization']?.split(' ')[1];
+    if (!token) return res.status(401).json({ error: 'No token provided' });
+
+    const decoded = jwt.verify(refreshToken, process.env.REFRESH_JWT_TOKEN);
+    if (user_id == decoded.id) {
+      const token = jwt.sign({ id: user_id }, process.env.JWT_SECRET, { expiresIn: '1h' });
+      return res.status(200).json({'token': token});
+    } else {
+      return res.status(400).json({error: 'refresh token is not correct'});
+    }
+  }catch (error) {
+    console.error('Error of refresh access token', error);
+    return res.status(500).json({error: error});
+  }
+})
+
+
 // email registration
 
 app.post('/register/email', async (req, res) => {
@@ -152,9 +172,11 @@ app.post('/register/email', async (req, res) => {
     }
     // Generate JWT
     const token = jwt.sign({ id: authData.user.id }, process.env.JWT_SECRET, {expiresIn: '1h'});
+    const refreshToken = jwt.sign({id: authData.user.id}, process.env.REFRESH_JWT_TOKEN, {expiresIn: '30d'})
 
    return res.status(200).json({
       'token' : token,
+      'refreshToken': refreshToken,
       'userID' : authData.user.id,
     });
   } catch (error) {
@@ -233,9 +255,11 @@ app.post('/register/oauth/google', async (req, res) => {
 
     // Generate JWT
     const token = jwt.sign({ id: authUser.id }, process.env.JWT_SECRET, { expiresIn: '1h' });
+    const refreshToken = jwt.sign({id: authUser.id}, process.env.REFRESH_JWT_TOKEN, {expiresIn: '30d'})
 
     return res.status(200).json({
       token: token,
+      refreshToken: refreshToken,
       userID: authUser.id,
     });
   } catch (error) {
@@ -266,9 +290,11 @@ app.post('/login', async (req, res) => {
 
     // Generate JWT
     const token = jwt.sign({ id: authData.user.id }, process.env.JWT_SECRET, { expiresIn: '1h' });
+    const refreshToken = jwt.sign({id: authData.user.id}, process.env.REFRESH_JWT_TOKEN, {expiresIn: '30d'})
 
     return res.status(200).json({
       'token' : token,
+      'refreshToken': refreshToken,
       'userID' : authData.user.id,
     });
   } catch (error) {
