@@ -5,12 +5,12 @@ import 'package:ionicons/ionicons.dart';
 import 'package:like_button/like_button.dart';
 import 'package:provider/provider.dart';
 import 'package:timeago/timeago.dart' as timeago;
-import '../models/post.dart';
-import '../models/comment.dart';
-import '../services/api_services.dart';
-import '../services/post_service.dart';
-import '../services/comment_service.dart';
-import '../providers/auth_provider.dart';
+import '../../models/post.dart';
+import '../../models/comment.dart';
+import '../../services/api_services.dart';
+import '../../services/post_service.dart';
+import '../../services/comment_service.dart';
+import '../../providers/auth_provider.dart';
 import 'dart:developer' as developer;
 
 class TaskDetailScreen extends StatefulWidget {

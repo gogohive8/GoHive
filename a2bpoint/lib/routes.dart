@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'screens/sign_in_screen.dart';
+import 'screens/Auth/sign_in_screen.dart';
 
 class Routes {
   static const String signIn = '/sign-in';

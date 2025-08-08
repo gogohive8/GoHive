@@ -4,7 +4,7 @@ import 'package:ionicons/ionicons.dart';
 import 'package:like_button/like_button.dart';
 import 'package:video_player/video_player.dart';
 import '../../models/post.dart';
-import '../../screens/post_detail_screen.dart';
+import '../../screens/Home/post_detail_screen.dart';
 import 'media_widget.dart';
 
 class PostCard extends StatelessWidget {

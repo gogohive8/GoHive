@@ -1,7 +1,7 @@
 // widgets/home/challenge_view.dart
 import 'package:GoHive/models/task_item.dart';
 import 'package:flutter/material.dart';
-import '../../screens/challenge_full_screen.dart';
+import '../../screens/Home/challenge_full_screen.dart';
 import '../../data/challenge_data.dart';
 import 'challenge_card.dart';
 import 'missions_background_painter.dart';

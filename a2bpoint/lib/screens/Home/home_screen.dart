@@ -2,15 +2,15 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:video_player/video_player.dart';
-import '../models/post.dart';
-import '../services/api_services.dart';
-import '../services/post_service.dart';
-import '../providers/auth_provider.dart';
-import '../services/notification_service.dart';
-import '../screens/navbar.dart';
-import '../widgets/home/home_app_bar.dart';
-import '../widgets/home/posts_view.dart';
-import '../widgets/home/challenge_view.dart';
+import '../../models/post.dart';
+import '../../services/api_services.dart';
+import '../../services/post_service.dart';
+import '../../providers/auth_provider.dart';
+import '../../services/notification_service.dart';
+import '../navbar.dart';
+import '../../widgets/home/home_app_bar.dart';
+import '../../widgets/home/posts_view.dart';
+import '../../widgets/home/challenge_view.dart';
 import 'dart:developer' as developer;
 import 'package:jwt_decoder/jwt_decoder.dart';
 

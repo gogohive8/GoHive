@@ -4,13 +4,13 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import '../providers/auth_provider.dart';
-import '../services/api_services.dart';
-import '../services/post_service.dart';
-import '../models/post.dart';
-import 'navbar.dart';
-import '../services/exceptions.dart';
-import '../screens/post_detail_screen.dart';
+import '../../providers/auth_provider.dart';
+import '../../services/api_services.dart';
+import '../../services/post_service.dart';
+import '../../models/post.dart';
+import '../navbar.dart';
+import '../../services/exceptions.dart';
+import '../Home/post_detail_screen.dart';
 
 class SearchScreen extends StatefulWidget {
   const SearchScreen({super.key});

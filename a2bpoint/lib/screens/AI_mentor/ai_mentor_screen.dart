@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../providers/auth_provider.dart';
-import '../services/ai_service.dart';
+import '../../providers/auth_provider.dart';
+import '../../services/ai_service.dart';
 import 'dart:developer' as developer;
-import 'navbar.dart';
+import '../navbar.dart';
 
 class AIMentorScreen extends StatefulWidget {
   const AIMentorScreen({super.key});

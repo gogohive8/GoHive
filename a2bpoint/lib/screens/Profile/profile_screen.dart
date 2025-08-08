@@ -10,7 +10,7 @@ import '../../models/post.dart';
 import '../../services/exceptions.dart';
 import '../navbar.dart';
 import 'profile_edit_screen.dart';
-import '../post_detail_screen.dart';
+import '../Home/post_detail_screen.dart';
 import '../../models/tasks.dart';
 
 class ProfileScreen extends StatefulWidget {

@@ -1,7 +1,7 @@
 // screens/challenge_full_screen.dart (обновленная версия)
 import 'package:flutter/material.dart';
-import '../screens/task_detail_screen.dart';
-import '../models/task_item.dart';
+import 'task_detail_screen.dart';
+import '../../models/task_item.dart';
 
 class ChallengeFullScreen extends StatefulWidget {
   final String title;

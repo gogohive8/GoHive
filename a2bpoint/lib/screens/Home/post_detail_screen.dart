@@ -7,20 +7,20 @@ import 'dart:io';
 import 'package:image_picker/image_picker.dart';
 import 'dart:developer' as developer;
 
-import '../models/post.dart';
-import '../models/comment.dart';
-import '../models/tasks.dart';
-import '../services/api_services.dart';
-import '../services/post_service.dart';
-import '../services/comment_service.dart';
-import '../providers/auth_provider.dart';
+import '../../models/post.dart';
+import '../../models/comment.dart';
+import '../../models/tasks.dart';
+import '../../services/api_services.dart';
+import '../../services/post_service.dart';
+import '../../services/comment_service.dart';
+import '../../providers/auth_provider.dart';
 
 // Import widgets
-import '../widgets/post_detail/post_header_widget.dart';
-import '../widgets/post_detail/post_media_widget.dart';
-import '../widgets/post_detail/task_list_widget.dart';
-import '../widgets/post_detail/comments_section_widget.dart';
-import '../widgets/post_detail/comment_input_widget.dart';
+import '../../widgets/post_detail/post_header_widget.dart';
+import '../../widgets/post_detail/post_media_widget.dart';
+import '../../widgets/post_detail/task_list_widget.dart';
+import '../../widgets/post_detail/comments_section_widget.dart';
+import '../../widgets/post_detail/comment_input_widget.dart';
 
 class PostDetailScreen extends StatefulWidget {
   final String postId;

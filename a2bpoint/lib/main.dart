@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'screens/sign_in_screen.dart';
+import 'screens/Auth/sign_in_screen.dart';
 import 'screens/OnboardingController/onboarding_controller.dart';
-import 'screens/home_screen.dart';
+import 'screens/Home/home_screen.dart';
 import 'screens/add_screen.dart';
 import 'screens/Profile/profile_screen.dart';
-import 'screens/ai_mentor_screen.dart';
+import 'screens/AI_mentor/ai_mentor_screen.dart';
 import 'providers/auth_provider.dart';
-import 'screens/search_screen.dart';
+import 'screens/Auth/search_screen.dart';
 import 'dart:developer' as developer;
 import 'providers/posts_provider.dart';
 import 'package:firebase_core/firebase_core.dart';
