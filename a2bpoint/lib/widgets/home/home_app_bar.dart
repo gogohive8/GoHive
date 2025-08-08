@@ -30,7 +30,10 @@ class HomeAppBar extends StatelessWidget implements PreferredSizeWidget {
       actions: [
         IconButton(
           icon: Image.asset('assets/images/messages_icon.png', height: 24),
-          onPressed: () {},
+          onPressed: () {
+            // Навигация к экрану списка чатов
+            Navigator.pushNamed(context, '/chat_list');
+          },
         ),
       ],
     );

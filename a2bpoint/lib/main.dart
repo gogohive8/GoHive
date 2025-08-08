@@ -7,7 +7,9 @@ import 'screens/Home/home_screen.dart';
 import 'screens/add_screen.dart';
 import 'screens/Profile/profile_screen.dart';
 import 'screens/AI_mentor/ai_mentor_screen.dart';
+import 'screens/Chats/chat_list_screen.dart'; 
 import 'providers/auth_provider.dart';
+import 'providers/chat_provider.dart'; 
 import 'screens/Auth/search_screen.dart';
 import 'dart:developer' as developer;
 import 'providers/posts_provider.dart';
@@ -54,6 +56,7 @@ class MyApp extends StatelessWidget {
       providers: [
         ChangeNotifierProvider(create: (_) => AuthProvider()),
         ChangeNotifierProvider(create: (_) => PostsProvider()),
+        ChangeNotifierProvider(create: (_) => ChatProvider()), // Добавить ChatProvider
       ],
       child: MaterialApp(
         title: 'GoHive',
@@ -70,6 +73,7 @@ class MyApp extends StatelessWidget {
           '/profile': (context) => const ProfileScreen(),
           '/search': (context) => const SearchScreen(),
           '/ai-mentor': (context) => const AIMentorScreen(),
+          '/chat_list': (context) => ChatListScreen(), // Добавить эту строку
         },
       ),
     );
