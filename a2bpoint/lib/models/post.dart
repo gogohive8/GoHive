@@ -5,12 +5,16 @@ class Post {
   final String id;
   final User user;
   final String? text;
+  final String? title; // Added title property
+  final String? content; // Added content property (alias for text)
   final List<String>? imageUrls;
   final String type;
   final int numOfLikes;
   final int numComments;
   final DateTime createdAt;
   final List<Task>? tasks;
+  final bool isLiked; // Added isLiked property
+  final String? difficulty; // Added difficulty property
   // Добавляем поле additionalData для хранения дополнительных данных
   final Map<String, dynamic>? additionalData;
 
@@ -18,14 +22,30 @@ class Post {
     required this.id,
     required this.user,
     this.text,
+    this.title,
+    this.content,
     this.imageUrls,
     required this.type,
     required this.numOfLikes,
     required this.numComments,
     required this.createdAt,
     this.tasks,
+    this.isLiked = false, // Default to false
+    this.difficulty,
     this.additionalData, // Добавляем в конструктор
   });
+
+  // Convenience getter for content
+  String? get displayContent => content ?? text;
+  
+  // Convenience getter for title (fallback to truncated text)
+  String? get displayTitle {
+    if (title != null && title!.isNotEmpty) return title;
+    if (text != null && text!.isNotEmpty) {
+      return text!.length > 50 ? '${text!.substring(0, 50)}...' : text;
+    }
+    return null;
+  }
 
   factory Post.fromJson(Map<String, dynamic> json, {required String type}) {
     // Безопасное извлечение данных с проверками на null
@@ -60,6 +80,10 @@ class Post {
                 json['goalInfo']?.toString() ?? 
                 json['text']?.toString();
 
+    // Extract title and content
+    final title = json['title']?.toString();
+    final content = json['content']?.toString() ?? text;
+
     // Обработка даты создания
     DateTime createdAt;
     try {
@@ -77,6 +101,13 @@ class Post {
           .map((taskJson) => Task.fromJson(taskJson))
           .toList();
     }
+
+    // Extract isLiked and difficulty
+    final isLiked = json['isLiked'] == true || 
+                   json['is_liked'] == true ||
+                   json['liked'] == true;
+    
+    final difficulty = json['difficulty']?.toString();
 
     // Создаем additionalData из всех возможных полей
     final additionalData = <String, dynamic>{};
@@ -98,12 +129,16 @@ class Post {
         profileImage: profileImage,
       ),
       text: text,
+      title: title,
+      content: content,
       imageUrls: imageUrls,
       type: type,
       numOfLikes: _safeParseInt(json['numOfLikes']),
       numComments: _safeParseInt(json['numOfComments']),
       createdAt: createdAt,
       tasks: tasks,
+      isLiked: isLiked,
+      difficulty: difficulty,
       additionalData: additionalData.isNotEmpty ? additionalData : null, // Добавляем additionalData
     );
   }
@@ -123,30 +158,38 @@ class Post {
     String? id,
     User? user,
     String? text,
+    String? title,
+    String? content,
     List<String>? imageUrls,
     String? type,
     int? numOfLikes,
     int? numComments,
     DateTime? createdAt,
     List<Task>? tasks,
+    bool? isLiked,
+    String? difficulty,
     Map<String, dynamic>? additionalData, // Добавляем в copyWith
   }) {
     return Post(
       id: id ?? this.id,
       user: user ?? this.user,
       text: text ?? this.text,
+      title: title ?? this.title,
+      content: content ?? this.content,
       imageUrls: imageUrls ?? this.imageUrls,
       type: type ?? this.type,
       numOfLikes: numOfLikes ?? this.numOfLikes,
       numComments: numComments ?? this.numComments,
       createdAt: createdAt ?? this.createdAt,
       tasks: tasks ?? this.tasks,
+      isLiked: isLiked ?? this.isLiked,
+      difficulty: difficulty ?? this.difficulty,
       additionalData: additionalData ?? this.additionalData, // Добавляем в copyWith
     );
   }
 
   @override
   String toString() {
-    return 'Post(id: $id, user: $user, text: $text, type: $type, likes: $numOfLikes, comments: $numComments)';
+    return 'Post(id: $id, user: $user, text: $text, type: $type, likes: $numOfLikes, comments: $numComments, isLiked: $isLiked)';
   }
 }

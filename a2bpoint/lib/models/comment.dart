@@ -5,6 +5,8 @@ class Comment {
   final String username;
   final String text;
   final DateTime createdAt;
+  final String? taskId; // Добавляем для привязки к конкретной задаче
+  final String? imageUrl; // Добавляем для фотографий в комментариях
 
   Comment({
     required this.id,
@@ -13,6 +15,8 @@ class Comment {
     required this.username,
     required this.text,
     required this.createdAt,
+    this.taskId,
+    this.imageUrl,
   });
 
   factory Comment.fromJson(Map<String, dynamic> json) {
@@ -38,6 +42,8 @@ class Comment {
       username: json['username']?.toString() ?? 'Unknown User',
       text: json['text']?.toString() ?? '',
       createdAt: createdAt,
+      taskId: json['task_id']?.toString(), // Добавляем taskId
+      imageUrl: json['image_url']?.toString(), // Добавляем imageUrl
     );
   }
 
@@ -49,11 +55,35 @@ class Comment {
       'username': username,
       'text': text,
       'created_at': createdAt.toIso8601String(),
+      'task_id': taskId,
+      'image_url': imageUrl,
     };
+  }
+
+  Comment copyWith({
+    String? id,
+    String? postId,
+    String? userId,
+    String? username,
+    String? text,
+    DateTime? createdAt,
+    String? taskId,
+    String? imageUrl,
+  }) {
+    return Comment(
+      id: id ?? this.id,
+      postId: postId ?? this.postId,
+      userId: userId ?? this.userId,
+      username: username ?? this.username,
+      text: text ?? this.text,
+      createdAt: createdAt ?? this.createdAt,
+      taskId: taskId ?? this.taskId,
+      imageUrl: imageUrl ?? this.imageUrl,
+    );
   }
 
   @override
   String toString() {
-    return 'Comment(id: $id, postId: $postId, userId: $userId, username: $username, text: $text)';
+    return 'Comment(id: $id, postId: $postId, userId: $userId, username: $username, text: $text, taskId: $taskId)';
   }
 }

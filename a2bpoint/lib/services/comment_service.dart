@@ -1,147 +1,224 @@
 import 'dart:convert';
 import 'dart:developer' as developer;
 import 'package:http/http.dart' as http;
-import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/comment.dart';
-import 'exceptions.dart';
 
 class CommentService {
   final http.Client _client = http.Client();
-  final SupabaseClient _supabase = Supabase.instance.client;
-  static const String _postsUrl =
+  
+  static const String _commentsUrl = 
       'https://gohive-post-service-9ac288c0fa11.herokuapp.com';
 
-  SupabaseClient get supabase => _supabase;
-
-  Future<dynamic> _handleResponse(http.Response response) async {
-    developer.log('Response: ${response.statusCode}, body: ${response.body}',
-        name: 'ApiService');
-    if (response.statusCode >= 200 && response.statusCode < 300) {
-      if (response.statusCode == 204) return {};
-      return response.body.isNotEmpty ? jsonDecode(response.body) : {};
-    }
-    if (response.statusCode == 400) {
-      final errorBody = jsonDecode(response.body);
-      final errorMessage = errorBody['error']?.toString() ?? 'Invalid input';
-      developer.log('Validation error: $errorMessage', name: 'ApiService');
-      throw DataValidationException('Invalid input: $errorMessage');
-    }
-    if (response.statusCode == 401) {
-      developer.log('Unauthorized: ${response.body}', name: 'ApiService');
-      throw AuthenticationException('Unauthorized: ${response.body}');
-    }
-    throw Exception('Request failed: ${response.statusCode} ${response.body}');
-  }
-
-  // Future<http.Response> _makeRequest(
-  //     Future<http.Response> Function() request, int retries) async {
-  //   for (int attempt = 1; attempt <= retries; attempt++) {
-  //     try {
-  //       final response = await request().timeout(const Duration(seconds: 30));
-  //       return response;
-  //     } catch (e) {
-  //       if (attempt == retries) rethrow;
-  //       developer.log('Request attempt $attempt failed: $e',
-  //           name: 'ApiService');
-  //       await Future.delayed(Duration(milliseconds: 500 * attempt));
-  //     }
-  //   }
-  //   throw Exception('Request failed after $retries attempts');
-  // }
-
-  Future<Map<String, dynamic>> createComment(String post_id, String userId,
-      String text, String post_type, String token) async {
+  Future<List<Comment>> getComments(String postId, String token, String postType) async {
     try {
-      developer.log(
-          'Creating comment for post_id: $post_id, userId: $userId, text: $text',
-          name: 'ApiService');
-      final response = await _client
-          .post(
-            Uri.parse('$_postsUrl/posts/$post_id/comments'),
-            headers: {
-              'Authorization': 'Bearer $token',
-              'Content-Type': 'application/json',
-            },
-            body: jsonEncode({
-              'text': text,
-              'userId': userId,
-              'postId': post_id,
-              'post_type': post_type // ИСПРАВЛЕНО: правильное название поля
-            }),
-          )
-          .timeout(const Duration(seconds: 10));
+      developer.log('Fetching comments for post $postId of type $postType', 
+          name: 'CommentService');
 
-      final data = await _handleResponse(response);
-
-      // Возвращаем данные в правильном формате
-      final comment = {
-        'post_id': post_id,
-        'userId': userId,
-        'text': text,
-        'id': DateTime.now().millisecondsSinceEpoch.toString(), // Временный ID
-        'username': 'Current User', // Можно получить из AuthProvider
-        'created_at': DateTime.now().toIso8601String(),
-      };
-
-      developer.log('Comment created: $comment', name: 'ApiService');
-      return comment;
-    } catch (e, stackTrace) {
-      developer.log('Create comment error: $e',
-          name: 'ApiService', stackTrace: stackTrace);
-      rethrow;
-    }
-  }
-
-  Future<List<Comment>> getComments(
-      String post_id, String token, String post_type,
-      {int limit = 10, int offset = 0}) async {
-    try {
-      developer.log(
-          'Fetching comments for post_id: $post_id, limit: $limit, offset: $offset',
-          name: 'ApiService');
       final response = await _client.get(
-        Uri.parse(
-            '$_postsUrl/posts/$post_id/comments?limit=$limit&offset=$offset&post_type=$post_type'),
+        Uri.parse('$_commentsUrl/comments/$postId?post_type=$postType'),
         headers: {
-          'Authorization': 'Bearer $token',
           'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
         },
       ).timeout(const Duration(seconds: 10));
 
-      final data = await _handleResponse(response);
+      developer.log('Comments response: ${response.statusCode}, Content-Type: ${response.headers['content-type']}', 
+          name: 'CommentService');
 
-      // ИСПРАВЛЕНО: правильная обработка ответа сервера
-      if (data.isEmpty || data['fetchComments'] == null) {
-        developer.log('No comments found for post_id: $post_id',
-            name: 'ApiService');
-        return [];
+      // ИСПРАВЛЕНИЕ: Проверяем статус код и Content-Type
+      if (response.statusCode == 404) {
+        developer.log('No comments found for post $postId (404)', name: 'CommentService');
+        return []; // Возвращаем пустой список вместо ошибки
       }
 
-      // Берем массив комментариев из fetchComments
-      final commentsData = data['fetchComments'] as List<dynamic>;
+      if (response.statusCode == 200) {
+        // ИСПРАВЛЕНИЕ: Проверяем Content-Type перед парсингом
+        final contentType = response.headers['content-type'] ?? '';
+        if (!contentType.contains('application/json')) {
+          developer.log('Server returned non-JSON response: $contentType', name: 'CommentService');
+          developer.log('Response body: ${response.body}', name: 'CommentService');
+          throw Exception('Server returned HTML instead of JSON - API endpoint may not exist');
+        }
 
-      final comments = commentsData
-          .map((json) => Comment.fromJson({
-                'id': json['id']?.toString() ?? '',
-                'post_id': post_id,
-                'userId': json['userID']?.toString() ?? 'unknown', // ИСПРАВЛЕНО
-                'username': json['username']?.toString() ?? 'Unknown',
-                'text': json['comment']?.toString() ??
-                    json['comments']?.toString() ??
-                    '', // ИСПРАВЛЕНО
-                'created_at': json['created_at']?.toString() ??
-                    DateTime.now().toIso8601String(),
-              }))
-          .toList();
+        // ИСПРАВЛЕНИЕ: Проверяем, что body не пустой
+        if (response.body.isEmpty) {
+          developer.log('Empty response body', name: 'CommentService');
+          return [];
+        }
+
+        try {
+          final dynamic jsonData = jsonDecode(response.body);
+          
+          // ИСПРАВЛЕНИЕ: Обрабатываем разные форматы ответа
+          List<dynamic> data;
+          if (jsonData is List) {
+            data = jsonData;
+          } else if (jsonData is Map && jsonData['fetchComments'] != null) {
+            data = jsonData['fetchComments'] as List<dynamic>;
+          } else if (jsonData is Map && jsonData['comments'] != null) {
+            data = jsonData['comments'] as List<dynamic>;
+          } else {
+            developer.log('Unexpected JSON structure: $jsonData', name: 'CommentService');
+            return [];
+          }
+
+          final comments = data.map((json) => Comment.fromJson(json)).toList();
+          developer.log('Parsed ${comments.length} comments', name: 'CommentService');
+          return comments;
+          
+        } catch (jsonError) {
+          developer.log('JSON parsing error: $jsonError', name: 'CommentService');
+          developer.log('Response body that failed to parse: ${response.body}', name: 'CommentService');
+          throw Exception('Failed to parse JSON response: $jsonError');
+        }
+      } else {
+        // ИСПРАВЛЕНИЕ: Безопасная обработка ошибок
+        try {
+          final errorData = jsonDecode(response.body);
+          throw Exception('Failed to fetch comments: ${errorData['error']}');
+        } catch (e) {
+          // Если не удается распарсить JSON ошибки
+          throw Exception('Failed to fetch comments: HTTP ${response.statusCode}');
+        }
+      }
+    } catch (e, stackTrace) {
+      developer.log('Error fetching comments: $e', 
+          name: 'CommentService', stackTrace: stackTrace);
+      
+      // ИСПРАВЛЕНИЕ: Более информативные сообщения об ошибках
+      if (e.toString().contains('FormatException')) {
+        throw Exception('Server returned invalid response format (possibly HTML instead of JSON)');
+      }
+      throw Exception('Failed to fetch comments: $e');
+    }
+  }
+
+  Future<Map<String, dynamic>> createComment(
+    String postId,
+    String userId,
+    String text,
+    String postType,
+    String token, {
+    String? taskId,
+    String? imageUrl,
+  }) async {
+    try {
+      final body = {
+        'post_id': postId,
+        'user_id': userId,
+        'text': text,
+        'post_type': postType,
+        if (taskId != null) 'task_id': taskId,
+        if (imageUrl != null) 'image_url': imageUrl,
+      };
 
       developer.log(
-          'Parsed ${comments.length} comments: ${comments.map((c) => c.id)}',
-          name: 'ApiService');
-      return comments;
+          'Creating comment for post $postId, taskId: $taskId, hasImage: ${imageUrl != null}', 
+          name: 'CommentService');
+
+      final response = await _client.post(
+        Uri.parse('$_commentsUrl/comments/create'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode(body),
+      ).timeout(const Duration(seconds: 30));
+
+      developer.log('Create comment response: ${response.statusCode}', 
+          name: 'CommentService');
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final data = jsonDecode(response.body);
+        developer.log('Comment created successfully', name: 'CommentService');
+        return data;
+      } else {
+        // ИСПРАВЛЕНИЕ: Безопасная обработка ошибок создания
+        try {
+          final errorData = jsonDecode(response.body);
+          throw Exception('Failed to create comment: ${errorData['error']}');
+        } catch (e) {
+          throw Exception('Failed to create comment: HTTP ${response.statusCode}');
+        }
+      }
     } catch (e, stackTrace) {
-      developer.log('Get comments error: $e',
-          name: 'ApiService', stackTrace: stackTrace);
-      rethrow;
+      developer.log('Error creating comment: $e', 
+          name: 'CommentService', stackTrace: stackTrace);
+      throw Exception('Failed to create comment: $e');
     }
+  }
+
+  Future<void> deleteComment(String commentId, String token) async {
+    try {
+      developer.log('Deleting comment $commentId', name: 'CommentService');
+
+      final response = await _client.delete(
+        Uri.parse('$_commentsUrl/comments/$commentId'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      ).timeout(const Duration(seconds: 10));
+
+      developer.log('Delete comment response: ${response.statusCode}', 
+          name: 'CommentService');
+
+      if (response.statusCode != 200 && response.statusCode != 204) {
+        try {
+          final errorData = jsonDecode(response.body);
+          throw Exception('Failed to delete comment: ${errorData['error']}');
+        } catch (e) {
+          throw Exception('Failed to delete comment: HTTP ${response.statusCode}');
+        }
+      }
+    } catch (e, stackTrace) {
+      developer.log('Error deleting comment: $e', 
+          name: 'CommentService', stackTrace: stackTrace);
+      throw Exception('Failed to delete comment: $e');
+    }
+  }
+
+  Future<Map<String, dynamic>> updateComment(
+    String commentId,
+    String text,
+    String token,
+  ) async {
+    try {
+      developer.log('Updating comment $commentId', name: 'CommentService');
+
+      final response = await _client.put(
+        Uri.parse('$_commentsUrl/comments/$commentId'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode({
+          'text': text,
+        }),
+      ).timeout(const Duration(seconds: 10));
+
+      developer.log('Update comment response: ${response.statusCode}', 
+          name: 'CommentService');
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return data;
+      } else {
+        try {
+          final errorData = jsonDecode(response.body);
+          throw Exception('Failed to update comment: ${errorData['error']}');
+        } catch (e) {
+          throw Exception('Failed to update comment: HTTP ${response.statusCode}');
+        }
+      }
+    } catch (e, stackTrace) {
+      developer.log('Error updating comment: $e', 
+          name: 'CommentService', stackTrace: stackTrace);
+      throw Exception('Failed to update comment: $e');
+    }
+  }
+
+  void dispose() {
+    _client.close();
   }
 }

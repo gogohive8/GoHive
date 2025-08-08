@@ -1,25 +1,36 @@
-import 'package:GoHive/services/post_service.dart';
-import 'package:cached_network_image/cached_network_image.dart';
+// lib/screens/post_detail_screen.dart
 import 'package:flutter/material.dart';
 import 'package:ionicons/ionicons.dart';
-import 'package:like_button/like_button.dart';
 import 'package:provider/provider.dart';
-import 'package:timeago/timeago.dart' as timeago;
+import 'dart:convert';
+import 'dart:io';
+import 'package:image_picker/image_picker.dart';
+import 'dart:developer' as developer;
+
 import '../models/post.dart';
 import '../models/comment.dart';
+import '../models/tasks.dart';
 import '../services/api_services.dart';
 import '../services/post_service.dart';
 import '../services/comment_service.dart';
 import '../providers/auth_provider.dart';
-import 'dart:developer' as developer;
+
+// Import widgets
+import '../widgets/post_detail/post_header_widget.dart';
+import '../widgets/post_detail/post_media_widget.dart';
+import '../widgets/post_detail/task_list_widget.dart';
+import '../widgets/post_detail/comments_section_widget.dart';
+import '../widgets/post_detail/comment_input_widget.dart';
 
 class PostDetailScreen extends StatefulWidget {
   final String postId;
   final String postType;
 
-  const PostDetailScreen(
-      {Key? key, required this.postId, required this.postType})
-      : super(key: key);
+  const PostDetailScreen({
+    Key? key,
+    required this.postId,
+    required this.postType,
+  }) : super(key: key);
 
   @override
   _PostDetailScreenState createState() => _PostDetailScreenState();
@@ -27,11 +38,16 @@ class PostDetailScreen extends StatefulWidget {
 
 class _PostDetailScreenState extends State<PostDetailScreen> {
   final _commentController = TextEditingController();
+  final _taskCommentControllers = <String, TextEditingController>{};
   Post? _post;
   List<Comment> _comments = [];
+  Map<String, List<Comment>> _taskComments = {};
   bool _isLoading = true;
   bool _isCommenting = false;
   String? _error;
+  File? _selectedImage;
+  final ImagePicker _picker = ImagePicker();
+  
   final ApiService _apiService = ApiService();
   final PostService _postService = PostService();
   final CommentService _commentService = CommentService();
@@ -45,11 +61,14 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
   @override
   void dispose() {
     _commentController.dispose();
+    for (var controller in _taskCommentControllers.values) {
+      controller.dispose();
+    }
     _apiService.dispose();
     super.dispose();
   }
 
-  void _fetchPostAndComments() async {
+  Future<void> _fetchPostAndComments() async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
 
     if (!authProvider.isAuthenticated ||
@@ -80,6 +99,25 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
       // Fetch comments
       final comments = await _commentService.getComments(
           widget.postId, authProvider.token!, widget.postType);
+
+      // Initialize task comment controllers
+      if (post.tasks != null) {
+        for (var task in post.tasks!) {
+          _taskCommentControllers[task.id] = TextEditingController();
+        }
+      }
+
+      // Group comments by task
+      _taskComments.clear();
+      _taskComments['general'] = []; // Общие комментарии к посту
+      
+      for (var comment in comments) {
+        final taskId = comment.taskId ?? 'general';
+        if (!_taskComments.containsKey(taskId)) {
+          _taskComments[taskId] = [];
+        }
+        _taskComments[taskId]!.add(comment);
+      }
 
       if (mounted) {
         setState(() {
@@ -137,7 +175,96 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
     }
   }
 
-  void _addComment() async {
+  void _toggleTaskCompletion(String taskId, bool completed) async {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final userId = authProvider.userId ?? '';
+    final token = authProvider.token ?? '';
+    
+    // Проверяем, является ли пользователь автором поста
+    if (userId != _post?.user.id) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Only the post author can mark tasks as completed'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    try {
+      // Обновляем локальное состояние сразу для быстрого отклика
+      if (mounted && _post != null) {
+        setState(() {
+          final updatedTasks = _post!.tasks!.map((task) {
+            if (task.id == taskId) {
+              return task.copyWith(completed: completed);
+            }
+            return task;
+          }).toList();
+          _post = _post!.copyWith(tasks: updatedTasks);
+        });
+      }
+
+      developer.log('Task $taskId marked as ${completed ? "completed" : "incomplete"}', 
+          name: 'PostDetailScreen');
+      
+    } catch (e) {
+      developer.log('Update task error: $e', name: 'PostDetailScreen');
+      // Откатываем изменения в случае ошибки
+      if (mounted && _post != null) {
+        setState(() {
+          final updatedTasks = _post!.tasks!.map((task) {
+            if (task.id == taskId) {
+              return task.copyWith(completed: !completed);
+            }
+            return task;
+          }).toList();
+          _post = _post!.copyWith(tasks: updatedTasks);
+        });
+      }
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to update task: $e')),
+      );
+    }
+  }
+
+  Future<void> _pickImage() async {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final userId = authProvider.userId ?? '';
+    
+    // Только автор поста может добавлять изображения
+    if (userId != _post?.user.id) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Only the post author can add images to comments'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    final XFile? image = await _picker.pickImage(
+      source: ImageSource.gallery,
+      maxWidth: 1024,
+      maxHeight: 1024,
+      imageQuality: 80,
+    );
+    
+    if (image != null) {
+      setState(() {
+        _selectedImage = File(image.path);
+      });
+    }
+  }
+
+  void _removeSelectedImage() {
+    setState(() {
+      _selectedImage = null;
+    });
+  }
+
+  void _addComment({String? taskId}) async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final userId = authProvider.userId ?? '';
     final token = authProvider.token ?? '';
@@ -151,8 +278,12 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
       return;
     }
 
-    final commentText = _commentController.text.trim();
-    if (commentText.isEmpty) {
+    final controller = taskId != null 
+        ? _taskCommentControllers[taskId]! 
+        : _commentController;
+    final commentText = controller.text.trim();
+    
+    if (commentText.isEmpty && _selectedImage == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Comment cannot be empty')),
       );
@@ -164,6 +295,13 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
     });
 
     try {
+      String? imageUrl;
+      if (_selectedImage != null) {
+        // Загружаем изображение сначала
+        imageUrl = await _postService.uploadMedia(_selectedImage!, token);
+      }
+
+      // Создаем комментарий
       final commentData = await _commentService.createComment(
         widget.postId,
         userId,
@@ -172,15 +310,33 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
         token,
       );
 
-      final newComment = Comment.fromJson(commentData);
+      // Создаем новый комментарий с дополнительными данными
+      final newComment = Comment.fromJson({
+        ...commentData,
+        'task_id': taskId,
+        'image_url': imageUrl,
+      });
 
       if (mounted && _post != null) {
         setState(() {
-          _comments = [newComment, ..._comments];
+          final targetTaskId = taskId ?? 'general';
+          if (!_taskComments.containsKey(targetTaskId)) {
+            _taskComments[targetTaskId] = [];
+          }
+          _taskComments[targetTaskId]!.insert(0, newComment);
+          
           _post = _post!.copyWith(numComments: _post!.numComments + 1);
-          _commentController.clear();
+          controller.clear();
+          _selectedImage = null;
           _isCommenting = false;
         });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Comment added successfully'),
+            backgroundColor: Colors.green,
+          ),
+        );
       }
     } catch (e) {
       developer.log('Add comment error: $e', name: 'PostDetailScreen');
@@ -195,68 +351,23 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
     }
   }
 
-  Widget _buildMediaWidget() {
-    if (_post?.imageUrls == null || _post!.imageUrls!.isEmpty) {
-      return const SizedBox.shrink();
-    }
-
-    final url = _post!.imageUrls![0];
-
-    return Container(
-      height: 300,
-      width: double.infinity,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: CachedNetworkImage(
-        imageUrl: url,
-        height: 300,
-        width: double.infinity,
-        fit: BoxFit.cover,
-        placeholder: (context, url) => Container(
-          height: 300,
-          width: double.infinity,
-          color: Colors.grey[200],
-          child: const Center(
-            child: CircularProgressIndicator(),
-          ),
-        ),
-        errorWidget: (context, url, error) {
-          developer.log('Error loading image: $error for URL: $url',
-              name: 'PostDetailScreen');
-          return Container(
-            height: 300,
-            width: double.infinity,
-            color: Colors.grey[300],
-            child: const Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.error, size: 50, color: Colors.red),
-                SizedBox(height: 8),
-                Text('Failed to load image'),
-              ],
-            ),
-          );
-        },
-        httpHeaders: const {
-          'User-Agent': 'Flutter App',
-        },
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
       return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
+        backgroundColor: Color(0xFFF9F6F2),
+        body: Center(
+          child: CircularProgressIndicator(color: Color(0xFFAFCBEA)),
+        ),
       );
     }
 
     if (_error != null || _post == null) {
       return Scaffold(
+        backgroundColor: const Color(0xFFF9F6F2),
         appBar: AppBar(
           title: const Text('Error'),
+          backgroundColor: const Color(0xFFF9F6F2),
           leading: IconButton(
             icon: const Icon(Ionicons.chevron_back),
             onPressed: () => Navigator.pop(context),
@@ -268,10 +379,9 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
             children: [
               Icon(Icons.error_outline, size: 64, color: Colors.red[300]),
               const SizedBox(height: 16),
-              Text(
+              const Text(
                 'Error loading post',
-                style:
-                    const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 8),
               Text(
@@ -294,15 +404,39 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
       );
     }
 
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final isAuthor = authProvider.userId == _post?.user.id;
+    final generalComments = _taskComments['general'] ?? [];
+
     return Scaffold(
+      backgroundColor: const Color(0xFFF9F6F2),
       appBar: AppBar(
-        title: Text('${_post!.user.username}\'s Post'),
+        title: Text('${_post!.user.username}\'s Goal'),
         backgroundColor: const Color(0xFFF9F6F2),
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Ionicons.chevron_back),
           onPressed: () => Navigator.pop(context),
         ),
+        actions: [
+          if (isAuthor)
+            Container(
+              margin: const EdgeInsets.only(right: 16),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: const Color(0xFFAFCBEA).withOpacity(0.2),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: const Text(
+                'Author',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF333333),
+                ),
+              ),
+            ),
+        ],
       ),
       body: Column(
         children: [
@@ -312,265 +446,50 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // User info
-                  Row(
-                    children: [
-                      CircleAvatar(
-                        backgroundImage: _post!.user.profileImage.isNotEmpty
-                            ? NetworkImage(_post!.user.profileImage)
-                            : null,
-                        backgroundColor: const Color(0xFF333333),
-                        radius: 20,
-                        child: _post!.user.profileImage.isEmpty
-                            ? Text(
-                                _post!.user.username.isNotEmpty
-                                    ? _post!.user.username[0].toUpperCase()
-                                    : 'U',
-                                style: const TextStyle(color: Colors.white),
-                              )
-                            : null,
-                      ),
-                      const SizedBox(width: 12),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            _post!.user.username.isNotEmpty
-                                ? _post!.user.username
-                                : 'Unknown User',
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 18,
-                              color: Color(0xFF000000),
-                            ),
-                          ),
-                          Text(
-                            timeago.format(_post!.createdAt),
-                            style: const TextStyle(
-                              fontSize: 12,
-                              color: Color(0xFF333333),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
+                  // Post header
+                  PostHeaderWidget(
+                    post: _post!,
+                    isAuthor: isAuthor,
+                    onLikePressed: _onLikeButtonTapped,
                   ),
-                  const SizedBox(height: 12),
 
                   // Post media
-                  _buildMediaWidget(),
-                  const SizedBox(height: 12),
+                  PostMediaWidget(imageUrls: _post!.imageUrls),
 
-                  // Post text
-                  Text(
-                    _post!.text ?? 'No description',
-                    style: const TextStyle(
-                      fontSize: 16,
-                      color: Color(0xFF1A1A1A),
-                    ),
+                  // Task list
+                  TaskListWidget(
+                    tasks: _post!.tasks,
+                    isAuthor: isAuthor,
+                    taskComments: _taskComments,
+                    taskCommentControllers: _taskCommentControllers,
+                    isCommenting: _isCommenting,
+                    onToggleTaskCompletion: _toggleTaskCompletion,
+                    onAddTaskComment: (taskId) => _addComment(taskId: taskId),
+                    onPickImage: _pickImage,
+                    selectedImage: _selectedImage,
+                    onRemoveImage: _removeSelectedImage,
                   ),
 
-                  // Tasks (if goal) - ИСПРАВЛЕНО
-                  if (widget.postType == 'goal' &&
-                      _post!.tasks != null &&
-                      _post!.tasks!.isNotEmpty) ...[
-                    const SizedBox(height: 12),
-                    const Text(
-                      'Tasks',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF000000),
-                      ),
-                    ),
-                    ..._post!.tasks!.map((task) => Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 4),
-                          child: Row(
-                            children: [
-                              Icon(
-                                task.completed
-                                    ? Icons.check_circle
-                                    : Icons.radio_button_unchecked,
-                                size: 16,
-                                color:
-                                    task.completed ? Colors.green : Colors.grey,
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  task.title,
-                                  style: TextStyle(
-                                    color: const Color(0xFF333333),
-                                    decoration: task.completed
-                                        ? TextDecoration.lineThrough
-                                        : null,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        )),
-                  ],
-
-                  const SizedBox(height: 12),
-
-                  // Like and comment counts
-                  Row(
-                    children: [
-                      Text(
-                        '${_post!.numOfLikes} likes',
-                        style: const TextStyle(color: Color(0xFF000000)),
-                      ),
-                      const SizedBox(width: 12),
-                      Text(
-                        '${_post!.numComments} comments',
-                        style: const TextStyle(color: Color(0xFF000000)),
-                      ),
-                      const Spacer(),
-                      if (widget.postType == 'goal')
-                        LikeButton(
-                          onTap: _onLikeButtonTapped,
-                          size: 25,
-                          circleColor: const CircleColor(
-                              start: Color(0xffFFC0CB), end: Color(0xffff0000)),
-                          bubblesColor: const BubblesColor(
-                            dotPrimaryColor: Color(0xffFFA500),
-                            dotSecondaryColor: Color(0xffd8392b),
-                            dotThirdColor: Color(0xffFF69B4),
-                            dotLastColor: Color(0xffff8c00),
-                          ),
-                          likeBuilder: (isLiked) {
-                            return Icon(
-                              isLiked ? Ionicons.heart : Ionicons.heart_outline,
-                              color: isLiked
-                                  ? Colors.red
-                                  : const Color(0xFF333333),
-                              size: 25,
-                            );
-                          },
-                        ),
-                    ],
+                  // General comments
+                  CommentsSectionWidget(
+                    comments: generalComments,
+                    title: 'General Comments',
                   ),
-
-                  const SizedBox(height: 16),
-
-                  // Comments section
-                  const Text(
-                    'Comments',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF000000),
-                    ),
-                  ),
-
-                  if (_comments.isEmpty)
-                    const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 16),
-                      child: Center(
-                        child: Text(
-                          'No comments yet',
-                          style: TextStyle(color: Colors.grey),
-                        ),
-                      ),
-                    ),
-
-                  // Comments list
-                  ..._comments.map((comment) => Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 8.0),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            CircleAvatar(
-                              backgroundColor: const Color(0xFF333333),
-                              radius: 20,
-                              child: Text(
-                                comment.username.isNotEmpty
-                                    ? comment.username[0].toUpperCase()
-                                    : 'U',
-                                style: const TextStyle(color: Colors.white),
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    comment.username.isNotEmpty
-                                        ? comment.username
-                                        : 'Unknown User',
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      color: Color(0xFF000000),
-                                    ),
-                                  ),
-                                  Text(
-                                    timeago.format(comment.createdAt),
-                                    style: const TextStyle(
-                                      fontSize: 12,
-                                      color: Color(0xFF333333),
-                                    ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    comment.text,
-                                    style: const TextStyle(
-                                        color: Color(0xFF1A1A1A)),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      )),
                 ],
               ),
             ),
           ),
 
-          // Comment input
-          Container(
-            padding: const EdgeInsets.all(16.0),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(
-                      alpha: 0.1), // ИСПРАВЛЕНО: использование withValues
-                  blurRadius: 4,
-                  offset: const Offset(0, -2),
-                ),
-              ],
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _commentController,
-                    decoration: const InputDecoration(
-                      labelText: 'Add a comment',
-                      border: OutlineInputBorder(),
-                      contentPadding:
-                          EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    ),
-                    maxLines: null,
-                    enabled: !_isCommenting,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                _isCommenting
-                    ? const SizedBox(
-                        width: 24,
-                        height: 24,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : IconButton(
-                        icon: const Icon(Icons.send),
-                        onPressed: _addComment,
-                      ),
-              ],
-            ),
+          // Bottom comment input for general comments
+          CommentInputWidget(
+            controller: _commentController,
+            isLoading: _isCommenting,
+            isAuthor: isAuthor,
+            hintText: 'Add a general comment...',
+            onSend: () => _addComment(),
+            onPickImage: _pickImage,
+            selectedImage: _selectedImage,
+            onRemoveImage: _removeSelectedImage,
           ),
         ],
       ),

@@ -217,7 +217,7 @@ class _AddScreenState extends State<AddScreen>
   void _addTask() {
     if (_taskController.text.isNotEmpty) {
       setState(() {
-        _tasks.add(Task(title: _taskController.text.trim(), completed: false)
+        _tasks.add(Task(title: _taskController.text.trim(), completed: false, id: '')
             .toJson());
         _taskController.clear();
       });
