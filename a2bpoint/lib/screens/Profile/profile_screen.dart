@@ -133,7 +133,10 @@ class _ProfileScreenState extends State<ProfileScreen>
       developer.log('Load profile error: $e',
           name: 'ProfileScreen', stackTrace: stackTrace);
       if (mounted) {
-        authProvider.handleAuthError(context, e);
+        authProvider.handleAuthError(
+          context,
+          e is AuthenticationException ? e : AuthenticationException(e.toString()),
+        );
         setState(() => _isLoading = false);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(

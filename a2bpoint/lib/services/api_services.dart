@@ -53,37 +53,34 @@ class ApiService {
     throw Exception('Request failed after $retries attempts');
   }
 
-  Future<String?> refreshToken(String userId, String refreshToken) async {
-    try {
-      final response = await http.post(
-        Uri.parse('$_baseUrl/refreshToken'),
-        headers: {
-          'Authorization': 'Bearer $refreshToken',
-          'Content-Type': 'application/json',
-        },
-        body: jsonEncode({'user_id': userId}),
-      );
+  Future<Map<String, dynamic>?> refreshToken(String refreshToken, String s) async {
+  try {
+    developer.log('Refreshing token with refresh token: $refreshToken', name: 'ApiService');
+    
+    final response = await http.post(
+      Uri.parse('$_baseUrl/auth/refresh'), // Замените на ваш endpoint для обновления токена
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: json.encode({
+        'refresh_token': refreshToken,
+      }),
+    );
 
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        final newAccessToken = data['token'];
+    developer.log('Refresh token response status: ${response.statusCode}', name: 'ApiService');
+    developer.log('Refresh token response body: ${response.body}', name: 'ApiService');
 
-        // Save new access token to SharedPreferences
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.setString('token', newAccessToken);
-
-        _tokenRefreshController.add(newAccessToken);
-        return newAccessToken;
-      } else {
-        final error =
-            jsonDecode(response.body)['error'] ?? 'Failed to refresh token';
-        throw Exception(error);
-      }
-    } catch (e) {
-      print('Error refreshing token: $e');
-      return null;
+    if (response.statusCode == 200) {
+      final data = json.decode(response.body);
+      return data;
+    } else {
+      throw Exception('Failed to refresh token: HTTP ${response.statusCode}');
     }
+  } catch (e) {
+    developer.log('Error refreshing token: $e', name: 'ApiService');
+    return null;
   }
+}
 
   Future<Map<String, String>> login(String email, String password) async {
     try {

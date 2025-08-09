@@ -94,32 +94,71 @@ class _CreateChatScreenState extends State<CreateChatScreen> {
 
     try {
       final authProvider = context.read<AuthProvider>();
+      final chatProvider = context.read<ChatProvider>();
       final token = authProvider.token!;
 
-      // Создаем или находим существующий чат
-      await context.read<ChatProvider>().createChat(
-        user.username,
-        [user.id],
-        ChatType.direct,
-        token,
-      );
+      // Сначала загружаем все чаты, чтобы проверить существующие
+      await chatProvider.loadChats(token);
 
-      if (mounted) {
-        // Закрываем индикатор загрузки
-        Navigator.pop(context);
-        // Закрываем экран поиска
-        Navigator.pop(context);
+      // Проверяем, есть ли уже чат с этим пользователем
+      Chat? existingChat = _findExistingDirectChat(chatProvider.chats, user.id);
+
+      if (existingChat != null) {
+        // Если чат уже существует, просто выбираем его
+        chatProvider.selectChat(existingChat.id, token);
         
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Chat with ${user.username} opened'),
-            backgroundColor: Color(0xFF6B73FF),
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
+        if (mounted) {
+          // Закрываем индикатор загрузки
+          Navigator.pop(context);
+          // Закрываем экран поиска
+          Navigator.pop(context);
+          
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Chat with ${user.username} opened'),
+              backgroundColor: Color(0xFF6B73FF),
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
             ),
-          ),
+          );
+        }
+      } else {
+        // Создаем новый чат только если его нет
+        await chatProvider.createChat(
+          user.username,
+          [user.id],
+          ChatType.direct,
+          token,
         );
+
+        // Ждем обновления списка чатов
+        await chatProvider.loadChats(token);
+        
+        // Находим созданный чат и выбираем его
+        Chat? newChat = _findExistingDirectChat(chatProvider.chats, user.id);
+        if (newChat != null) {
+          chatProvider.selectChat(newChat.id, token);
+        }
+
+        if (mounted) {
+          // Закрываем индикатор загрузки
+          Navigator.pop(context);
+          // Закрываем экран поиска
+          Navigator.pop(context);
+          
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('New chat with ${user.username} created'),
+              backgroundColor: Color(0xFF6B73FF),
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+          );
+        }
       }
     } catch (e) {
       if (mounted) {
@@ -137,6 +176,19 @@ class _CreateChatScreenState extends State<CreateChatScreen> {
           ),
         );
       }
+    }
+  }
+
+  // Помощник для поиска существующего прямого чата с пользователем
+  Chat? _findExistingDirectChat(List<Chat> chats, String userId) {
+    try {
+      return chats.firstWhere(
+        (chat) => chat.type == ChatType.direct && 
+                 chat.participants.contains(userId),
+      );
+    } catch (e) {
+      // firstWhere выбрасывает исключение если элемент не найден
+      return null;
     }
   }
 
@@ -366,7 +418,7 @@ class _CreateChatScreenState extends State<CreateChatScreen> {
             borderRadius: BorderRadius.circular(12),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.05),
+                color: Colors.black.withValues(alpha: 0.05),
                 blurRadius: 4,
                 offset: Offset(0, 2),
               ),

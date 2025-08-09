@@ -1,4 +1,5 @@
 // screens/home_screen.dart (рефакторенная версия)
+import 'package:GoHive/services/exceptions.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:video_player/video_player.dart';
@@ -96,26 +97,83 @@ class _HomeScreenState extends State<HomeScreen>
     }
   }
 
+  // ИСПРАВЛЕННЫЙ метод обновления токена в HomeScreen
   Future<void> _refreshTokenIfNeeded() async {
-    setState(() => _isLoading = true);
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    final accessToken = authProvider.token;
-    final refreshToken = authProvider.refreshToken;
-    final userId = authProvider.userId; // Assuming user_id is stored
+    try {
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      final accessToken = authProvider.token;
+      final refreshToken = authProvider.refreshToken;
+      final userId = authProvider.userId;
 
-    if (accessToken == null ||
-        JwtDecoder.isExpired(accessToken) ||
-        userId == null ||
-        refreshToken == null) {
-      final newToken = await _apiService.refreshToken(userId!, refreshToken!);
-      if (newToken == null) {
-        // Redirect to login screen
+      developer.log('Checking token validity: token=${accessToken != null}, refresh=${refreshToken != null}, userId=${userId != null}', name: 'HomeScreen');
+
+      // Если нет базовых данных авторизации - перенаправляем на вход
+      if (accessToken == null || userId == null || refreshToken == null) {
+        developer.log('Missing auth data, redirecting to sign in', name: 'HomeScreen');
         if (mounted) {
-          Navigator.pushReplacementNamed(context, '/login');
+          await authProvider.clearAuthData();
+          Navigator.pushReplacementNamed(context, '/sign_in');
+        }
+        return;
+      }
+
+      // Проверяем срок действия токена если доступен JWT decoder
+      bool tokenExpired = false;
+      try {
+        if (JwtDecoder.isExpired(accessToken)) {
+          tokenExpired = true;
+          developer.log('Access token is expired', name: 'HomeScreen');
+        }
+      } catch (e) {
+        // Если не можем проверить JWT, считаем что токен может быть недействительным
+        developer.log('Cannot verify JWT token: $e', name: 'HomeScreen');
+        tokenExpired = true;
+      }
+
+      // Если токен истек, пытаемся обновить
+      if (tokenExpired) {
+        developer.log('Attempting token refresh...', name: 'HomeScreen');
+        
+        final newTokenData = await _apiService.refreshToken(refreshToken, userId);
+        
+        if (newTokenData != null && newTokenData['access_token'] != null) {
+          // Успешное обновление токена
+          developer.log('Token refreshed successfully', name: 'HomeScreen');
+          
+          await authProvider.setAuthData(
+            newTokenData['access_token'],
+            newTokenData['refresh_token'] ?? refreshToken,
+            userId,
+            authProvider.email ?? '',
+            authProvider.username,
+            expiresInSeconds: newTokenData['expires_in'],
+          );
+        } else {
+          // Не удалось обновить токен - выходим
+          developer.log('Token refresh failed, signing out', name: 'HomeScreen');
+          await authProvider.handleAuthError('Token refresh failed', context as AuthenticationException);
+          if (mounted) {
+            Navigator.pushReplacementNamed(context, '/sign_in');
+          }
+          return;
         }
       }
+
+    } catch (e) {
+      developer.log('Error in _refreshTokenIfNeeded: $e', name: 'HomeScreen');
+      
+      // В случае любой критической ошибки - безопасно выходим
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      await authProvider.handleAuthError('Authentication error: $e', context as AuthenticationException);
+      
+      if (mounted) {
+        Navigator.pushReplacementNamed(context, '/sign_in');
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
-    setState(() => _isLoading = false);
   }
 
   @override

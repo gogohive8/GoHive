@@ -33,16 +33,64 @@ class _ChatScreenState extends State<ChatScreen> {
   bool _isTyping = false;
   String? _replyToMessageId;
   Message? _replyToMessage;
+  bool _isInitialized = false;
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      context
-          .read<ChatProvider>()
-          .loadChatMessages(widget.chatId, context.read<AuthProvider>().token!);
-    });
     _textController.addListener(_onTextChanged);
+    _initializeChat();
+  }
+
+  Future<void> _initializeChat() async {
+    try {
+      final chatProvider = context.read<ChatProvider>();
+      final authProvider = context.read<AuthProvider>();
+      
+      // Сначала устанавливаем текущий чат
+      chatProvider.selectChat(widget.chatId, authProvider.token!);
+      
+      // Проверяем, существует ли чат в списке чатов
+      if (chatProvider.chats.isEmpty) {
+        await chatProvider.loadChats(authProvider.token!);
+      }
+      
+      // Проверяем, есть ли чат с таким ID
+      final chatExists = chatProvider.chats.any((chat) => chat.id == widget.chatId);
+      
+      if (!chatExists) {
+        // Если чат не найден, показываем ошибку и возвращаемся назад
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Chat not found'),
+              backgroundColor: Colors.red,
+            ),
+          );
+          Navigator.pop(context);
+        }
+        return;
+      }
+      
+      // Загружаем сообщения только если чат существует
+      await chatProvider.loadChatMessages(widget.chatId, authProvider.token!);
+      
+      if (mounted) {
+        setState(() {
+          _isInitialized = true;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error loading chat: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        Navigator.pop(context);
+      }
+    }
   }
 
   @override
@@ -71,6 +119,21 @@ class _ChatScreenState extends State<ChatScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (!_isInitialized) {
+      return Scaffold(
+        appBar: AppBar(
+          title: Text('Loading...'),
+          backgroundColor: Theme.of(context).primaryColor,
+          foregroundColor: Colors.white,
+        ),
+        body: Center(
+          child: CircularProgressIndicator(
+            valueColor: AlwaysStoppedAnimation<Color>(Theme.of(context).primaryColor),
+          ),
+        ),
+      );
+    }
+
     return Consumer<ChatProvider>(
       builder: (context, chatProvider, child) {
         final chat = chatProvider.getCurrentChat();
