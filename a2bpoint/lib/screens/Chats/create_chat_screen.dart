@@ -46,8 +46,13 @@ class _CreateChatScreenState extends State<CreateChatScreen> {
 
     try {
       final authProvider = context.read<AuthProvider>();
-      final token = authProvider.token!;
-      final userId = authProvider.userId!;
+      final token = authProvider.token;
+      final userId = authProvider.userId;
+
+      // Проверяем, что токен и userId не null
+      if (token == null || userId == null) {
+        throw Exception('User not authenticated');
+      }
 
       final results = await _apiService.searchUsers(
         query.trim(),
@@ -73,113 +78,114 @@ class _CreateChatScreenState extends State<CreateChatScreen> {
   }
 
   void _openChatWithUser(Map<String, dynamic> userData) async {
+    // Безопасное извлечение данных пользователя
+    final String userId = userData['userID']?.toString() ?? 
+                         userData['id']?.toString() ?? 
+                         userData['user_id']?.toString() ?? '';
+    final String username = userData['username']?.toString() ?? 'Unknown';
+    final String profileImage = userData['profileImage']?.toString() ?? 
+                               userData['profile_image']?.toString() ?? '';
+
+    // Проверяем обязательные поля
+    if (userId.isEmpty) {
+      _showError('Invalid user data: missing user ID');
+      return;
+    }
+
     final user = User(
-      id: userData['userID']?.toString() ?? userData['id']?.toString() ?? '',
-      username: userData['username']?.toString() ?? 'Unknown',
-      profileImage: userData['profileImage']?.toString() ?? '',
+      id: userId,
+      username: username,
+      profileImage: profileImage,
     );
 
     // Показываем индикатор загрузки
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (BuildContext context) {
-        return Center(
-          child: CircularProgressIndicator(
-            valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF6B73FF)),
-          ),
-        );
-      },
-    );
+    _showLoadingDialog();
 
     try {
       final authProvider = context.read<AuthProvider>();
       final chatProvider = context.read<ChatProvider>();
-      final token = authProvider.token!;
+      final token = authProvider.token;
 
-      // Сначала загружаем все чаты, чтобы проверить существующие
-      await chatProvider.loadChats(token);
+      if (token == null) {
+        throw Exception('User not authenticated');
+      }
 
-      // Проверяем, есть ли уже чат с этим пользователем
+      // Проверяем существующие чаты
       Chat? existingChat = _findExistingDirectChat(chatProvider.chats, user.id);
 
       if (existingChat != null) {
-        // Если чат уже существует, просто выбираем его
-        chatProvider.selectChat(existingChat.id, token);
-        
-        if (mounted) {
-          // Закрываем индикатор загрузки
-          Navigator.pop(context);
-          // Закрываем экран поиска
-          Navigator.pop(context);
-          
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Chat with ${user.username} opened'),
-              backgroundColor: Color(0xFF6B73FF),
-              behavior: SnackBarBehavior.floating,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
-          );
-        }
+        // Используем существующий чат
+        await _selectExistingChat(existingChat, user, token);
       } else {
-        // Создаем новый чат только если его нет
-        await chatProvider.createChat(
-          user.username,
-          [user.id],
-          ChatType.direct,
-          token,
-        );
-
-        // Ждем обновления списка чатов
-        await chatProvider.loadChats(token);
-        
-        // Находим созданный чат и выбираем его
-        Chat? newChat = _findExistingDirectChat(chatProvider.chats, user.id);
-        if (newChat != null) {
-          chatProvider.selectChat(newChat.id, token);
-        }
-
-        if (mounted) {
-          // Закрываем индикатор загрузки
-          Navigator.pop(context);
-          // Закрываем экран поиска
-          Navigator.pop(context);
-          
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('New chat with ${user.username} created'),
-              backgroundColor: Color(0xFF6B73FF),
-              behavior: SnackBarBehavior.floating,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
-          );
-        }
+        // Создаем новый чат
+        await _createNewChat(user, token);
       }
     } catch (e) {
-      if (mounted) {
-        // Закрываем индикатор загрузки
-        Navigator.pop(context);
-        
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error opening chat: ${e.toString().split(':').last.trim()}'),
-            backgroundColor: Colors.red,
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-          ),
-        );
-      }
+      print('Error in _openChatWithUser: $e'); // Для отладки
+      _hideLoadingDialog();
+      _showError('Error opening chat: ${_getErrorMessage(e)}');
     }
   }
 
-  // Помощник для поиска существующего прямого чата с пользователем
+  Future<void> _selectExistingChat(Chat existingChat, User user, String token) async {
+    try {
+      final chatProvider = context.read<ChatProvider>();
+      chatProvider.selectChat(existingChat.id, token);
+      
+      _hideLoadingDialog();
+      _closeScreen();
+      _showSuccessMessage('Chat with ${user.username} opened');
+    } catch (e) {
+      throw Exception('Failed to select existing chat: $e');
+    }
+  }
+
+  Future<void> _createNewChat(User user, String token) async {
+    try {
+      final chatProvider = context.read<ChatProvider>();
+      
+      // Создаем новый чат с более надежными параметрами
+      await chatProvider.createChat(
+        user.username, // name - обязательное поле
+        [user.id], // participants
+        ChatType.direct, // type
+        token,
+        description: '', // Пустая строка вместо null
+      );
+
+      // Обновляем список чатов
+      await chatProvider.loadChats(token);
+      
+      // Ищем созданный чат
+      Chat? newChat = _findExistingDirectChat(chatProvider.chats, user.id);
+      if (newChat != null) {
+        chatProvider.selectChat(newChat.id, token);
+      }
+
+      _hideLoadingDialog();
+      _closeScreen();
+      _showSuccessMessage('New chat with ${user.username} created');
+    } catch (e) {
+      // Дополнительная попытка загрузить чаты, если создание не удалось
+      try {
+        final chatProvider = context.read<ChatProvider>();
+        await chatProvider.loadChats(token);
+        Chat? existingChat = _findExistingDirectChat(chatProvider.chats, user.id);
+        if (existingChat != null) {
+          chatProvider.selectChat(existingChat.id, token);
+          _hideLoadingDialog();
+          _closeScreen();
+          _showSuccessMessage('Chat with ${user.username} found and opened');
+          return;
+        }
+      } catch (loadError) {
+        print('Error loading chats after creation failure: $loadError');
+      }
+      
+      throw Exception('Failed to create new chat: $e');
+    }
+  }
+
   Chat? _findExistingDirectChat(List<Chat> chats, String userId) {
     try {
       return chats.firstWhere(
@@ -187,9 +193,92 @@ class _CreateChatScreenState extends State<CreateChatScreen> {
                  chat.participants.contains(userId),
       );
     } catch (e) {
-      // firstWhere выбрасывает исключение если элемент не найден
       return null;
     }
+  }
+
+  void _showLoadingDialog() {
+    if (!mounted) return;
+    
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return Center(
+          child: Container(
+            padding: EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CircularProgressIndicator(
+                  valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF6B73FF)),
+                ),
+                SizedBox(height: 16),
+                Text('Opening chat...', style: TextStyle(fontSize: 16)),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  void _hideLoadingDialog() {
+    if (mounted && Navigator.of(context).canPop()) {
+      Navigator.of(context).pop();
+    }
+  }
+
+  void _closeScreen() {
+    if (mounted && Navigator.of(context).canPop()) {
+      Navigator.of(context).pop();
+    }
+  }
+
+  void _showError(String message) {
+    if (!mounted) return;
+    
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.red,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+        duration: Duration(seconds: 4),
+      ),
+    );
+  }
+
+  void _showSuccessMessage(String message) {
+    if (!mounted) return;
+    
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Color(0xFF6B73FF),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+        duration: Duration(seconds: 2),
+      ),
+    );
+  }
+
+  String _getErrorMessage(dynamic error) {
+    String errorStr = error.toString();
+    if (errorStr.contains('Exception:')) {
+      return errorStr.split('Exception:').last.trim();
+    } else if (errorStr.contains(':')) {
+      return errorStr.split(':').last.trim();
+    }
+    return errorStr;
   }
 
   String _getChatTypeTitle() {
@@ -341,10 +430,13 @@ class _CreateChatScreenState extends State<CreateChatScreen> {
               ),
             ),
             SizedBox(height: 8),
-            Text(
-              _searchError,
-              style: TextStyle(color: Colors.grey[600]),
-              textAlign: TextAlign.center,
+            Padding(
+              padding: EdgeInsets.symmetric(horizontal: 32),
+              child: Text(
+                _searchError,
+                style: TextStyle(color: Colors.grey[600]),
+                textAlign: TextAlign.center,
+              ),
             ),
             SizedBox(height: 16),
             ElevatedButton(
@@ -408,7 +500,8 @@ class _CreateChatScreenState extends State<CreateChatScreen> {
       itemBuilder: (context, index) {
         final userData = _searchResults[index];
         final username = userData['username']?.toString() ?? 'Unknown';
-        final profileImage = userData['profileImage']?.toString() ?? '';
+        final profileImage = userData['profileImage']?.toString() ?? 
+                            userData['profile_image']?.toString() ?? '';
         final biography = userData['biography']?.toString() ?? '';
 
         return Container(

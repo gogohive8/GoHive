@@ -28,28 +28,46 @@ class ChatProvider extends ChangeNotifier {
 
   Chat? getCurrentChat() {
     if (_currentChatId == null) return null;
-    return _chats.firstWhere(
-      (chat) => chat.id == _currentChatId,
-      orElse: () => _chats.first,
-    );
+    try {
+      return _chats.firstWhere(
+        (chat) => chat.id == _currentChatId,
+        orElse: () => _chats.isNotEmpty ? _chats.first : throw StateError('No chats available'),
+      );
+    } catch (e) {
+      developer.log('Error getting current chat: $e', name: 'ChatProvider');
+      return null;
+    }
   }
 
   // Initialize
   Future<void> initialize() async {
-    // Token is handled by AuthProvider, so just initialize ChatService
-    _chatService.initialize();
+    try {
+      _chatService.initialize();
+    } catch (e) {
+      developer.log('Error initializing ChatProvider: $e', name: 'ChatProvider');
+    }
   }
 
-  // Load all chats
-  Future<void> loadChats(String token) async {
+  // Load all chats with retry logic
+  Future<void> loadChats(String token, {int retryCount = 0}) async {
+    const maxRetries = 2;
+    
     _setLoading(true);
     try {
       _chats = await _chatService.getChats(token);
       _error = null;
+      developer.log('Successfully loaded ${_chats.length} chats', name: 'ChatProvider');
     } catch (e, stackTrace) {
-      _error = e.toString();
-      developer.log('Error loading chats: $e',
+      _error = 'Error loading chats: ${_getErrorMessage(e)}';
+      developer.log('Error loading chats (attempt ${retryCount + 1}): $e',
           name: 'ChatProvider', stackTrace: stackTrace);
+      
+      // Retry logic for server errors
+      if (retryCount < maxRetries && _isRetryableError(e)) {
+        developer.log('Retrying loadChats in 2 seconds...', name: 'ChatProvider');
+        await Future.delayed(Duration(seconds: 2));
+        return loadChats(token, retryCount: retryCount + 1);
+      }
     } finally {
       _setLoading(false);
     }
@@ -57,6 +75,12 @@ class ChatProvider extends ChangeNotifier {
 
   // Load messages for a chat
   Future<void> loadChatMessages(String chatId, String token) async {
+    if (chatId.isEmpty) {
+      _error = 'Invalid chat ID';
+      notifyListeners();
+      return;
+    }
+
     _setLoading(true);
     try {
       final messages = await _chatService.getChatMessages(chatId, token);
@@ -66,10 +90,64 @@ class ChatProvider extends ChangeNotifier {
 
       // Connect to chat for real-time messages
       _chatService.connectToChat(chatId);
+      developer.log('Loaded ${messages.length} messages for chat $chatId', name: 'ChatProvider');
     } catch (e, stackTrace) {
-      _error = e.toString();
+      _error = 'Error loading chat messages: ${_getErrorMessage(e)}';
       developer.log('Error loading chat messages: $e',
           name: 'ChatProvider', stackTrace: stackTrace);
+    } finally {
+      _setLoading(false);
+    }
+  }
+
+  // Create a new chat with improved error handling
+  Future<void> createChat(
+      String name, 
+      List<String> participants, 
+      ChatType type, 
+      String token,
+      {String? description, String? avatar}) async {
+    
+    // Validate inputs
+    if (name.trim().isEmpty) {
+      throw ArgumentError('Chat name cannot be empty');
+    }
+    if (participants.isEmpty) {
+      throw ArgumentError('At least one participant is required');
+    }
+    if (token.isEmpty) {
+      throw ArgumentError('Authentication token is required');
+    }
+
+    _setLoading(true);
+    try {
+      // Ensure description is not null
+      final safeDescription = description ?? '';
+      
+      developer.log(
+        'Creating chat: name="$name", participants=${participants.length}, type=$type', 
+        name: 'ChatProvider'
+      );
+
+      final chat = await _chatService.createChat(
+        name.trim(),
+        participants,
+        type,
+        token,
+        description: safeDescription,
+        avatar: avatar,
+      );
+      
+      // Add to the beginning of the chat list
+      _chats.insert(0, chat);
+      _error = null;
+      
+      developer.log('Chat created successfully: ${chat.id}', name: 'ChatProvider');
+    } catch (e, stackTrace) {
+      _error = 'Error creating chat: ${_getErrorMessage(e)}';
+      developer.log('Error creating chat: $e',
+          name: 'ChatProvider', stackTrace: stackTrace);
+      rethrow; // Re-throw to allow UI to handle
     } finally {
       _setLoading(false);
     }
@@ -85,10 +163,16 @@ class ChatProvider extends ChangeNotifier {
       return;
     }
 
+    if (content.trim().isEmpty) {
+      _error = 'Message content cannot be empty';
+      notifyListeners();
+      return;
+    }
+
     try {
       final message = await _chatService.sendTextMessage(
         _currentChatId!,
-        content,
+        content.trim(),
         token,
         replyToId: replyToId,
       );
@@ -96,9 +180,10 @@ class ChatProvider extends ChangeNotifier {
       _addMessageToChat(_currentChatId!, message);
       _updateLastMessage(_currentChatId!, message);
     } catch (e, stackTrace) {
-      _error = e.toString();
+      _error = 'Error sending message: ${_getErrorMessage(e)}';
       developer.log('Error sending text message: $e',
           name: 'ChatProvider', stackTrace: stackTrace);
+      notifyListeners();
     }
   }
 
@@ -108,6 +193,12 @@ class ChatProvider extends ChangeNotifier {
     if (_currentChatId == null) {
       _error = 'No chat selected';
       developer.log('Error: No chat selected', name: 'ChatProvider');
+      notifyListeners();
+      return;
+    }
+
+    if (!file.existsSync()) {
+      _error = 'File does not exist';
       notifyListeners();
       return;
     }
@@ -124,9 +215,10 @@ class ChatProvider extends ChangeNotifier {
       _addMessageToChat(_currentChatId!, message);
       _updateLastMessage(_currentChatId!, message);
     } catch (e, stackTrace) {
-      _error = e.toString();
+      _error = 'Error sending media: ${_getErrorMessage(e)}';
       developer.log('Error sending media message: $e',
           name: 'ChatProvider', stackTrace: stackTrace);
+      notifyListeners();
     }
   }
 
@@ -146,9 +238,10 @@ class ChatProvider extends ChangeNotifier {
       _addMessageToChat(_currentChatId!, message);
       _updateLastMessage(_currentChatId!, message);
     } catch (e, stackTrace) {
-      _error = e.toString();
+      _error = 'Error sending audio: ${_getErrorMessage(e)}';
       developer.log('Error sending audio message: $e',
           name: 'ChatProvider', stackTrace: stackTrace);
+      notifyListeners();
     }
   }
 
@@ -167,9 +260,10 @@ class ChatProvider extends ChangeNotifier {
       _addMessageToChat(_currentChatId!, message);
       _updateLastMessage(_currentChatId!, message);
     } catch (e, stackTrace) {
-      _error = e.toString();
+      _error = 'Error sending file: ${_getErrorMessage(e)}';
       developer.log('Error sending file message: $e',
           name: 'ChatProvider', stackTrace: stackTrace);
+      notifyListeners();
     }
   }
 
@@ -196,9 +290,10 @@ class ChatProvider extends ChangeNotifier {
       _addMessageToChat(_currentChatId!, message);
       _updateLastMessage(_currentChatId!, message);
     } catch (e, stackTrace) {
-      _error = e.toString();
+      _error = 'Error sending location: ${_getErrorMessage(e)}';
       developer.log('Error sending location message: $e',
           name: 'ChatProvider', stackTrace: stackTrace);
+      notifyListeners();
     }
   }
 
@@ -224,9 +319,10 @@ class ChatProvider extends ChangeNotifier {
       _addMessageToChat(_currentChatId!, message);
       _updateLastMessage(_currentChatId!, message);
     } catch (e, stackTrace) {
-      _error = e.toString();
+      _error = 'Error sending contact: ${_getErrorMessage(e)}';
       developer.log('Error sending contact message: $e',
           name: 'ChatProvider', stackTrace: stackTrace);
+      notifyListeners();
     }
   }
 
@@ -246,34 +342,10 @@ class ChatProvider extends ChangeNotifier {
       _addMessageToChat(_currentChatId!, message);
       _updateLastMessage(_currentChatId!, message);
     } catch (e, stackTrace) {
-      _error = e.toString();
+      _error = 'Error sending GIF: ${_getErrorMessage(e)}';
       developer.log('Error sending gif message: $e',
           name: 'ChatProvider', stackTrace: stackTrace);
-    }
-  }
-
-  // Create a new chat
-  Future<void> createChat(
-      String name, List<String> participants, ChatType type, String token,
-      {String? description, String? avatar}) async {
-    _setLoading(true);
-    try {
-      final chat = await _chatService.createChat(
-        name,
-        participants,
-        type,
-        token,
-        description: description,
-        avatar: avatar,
-      );
-      _chats.insert(0, chat);
-      _error = null;
-    } catch (e, stackTrace) {
-      _error = e.toString();
-      developer.log('Error creating chat: $e',
-          name: 'ChatProvider', stackTrace: stackTrace);
-    } finally {
-      _setLoading(false);
+      notifyListeners();
     }
   }
 
@@ -283,9 +355,10 @@ class ChatProvider extends ChangeNotifier {
       await _chatService.joinChat(chatId, token);
       await loadChats(token); // Refresh chat list
     } catch (e, stackTrace) {
-      _error = e.toString();
+      _error = 'Error joining chat: ${_getErrorMessage(e)}';
       developer.log('Error joining chat: $e',
           name: 'ChatProvider', stackTrace: stackTrace);
+      notifyListeners();
     }
   }
 
@@ -302,9 +375,10 @@ class ChatProvider extends ChangeNotifier {
 
       notifyListeners();
     } catch (e, stackTrace) {
-      _error = e.toString();
+      _error = 'Error leaving chat: ${_getErrorMessage(e)}';
       developer.log('Error leaving chat: $e',
           name: 'ChatProvider', stackTrace: stackTrace);
+      notifyListeners();
     }
   }
 
@@ -332,9 +406,10 @@ class ChatProvider extends ChangeNotifier {
         notifyListeners();
       }
     } catch (e, stackTrace) {
-      _error = e.toString();
+      _error = 'Error marking messages as read: ${_getErrorMessage(e)}';
       developer.log('Error marking messages as read: $e',
           name: 'ChatProvider', stackTrace: stackTrace);
+      notifyListeners();
     }
   }
 
@@ -352,9 +427,10 @@ class ChatProvider extends ChangeNotifier {
       _chatMessages[_currentChatId!]?.removeWhere((msg) => msg.id == messageId);
       notifyListeners();
     } catch (e, stackTrace) {
-      _error = e.toString();
+      _error = 'Error deleting message: ${_getErrorMessage(e)}';
       developer.log('Error deleting message: $e',
           name: 'ChatProvider', stackTrace: stackTrace);
+      notifyListeners();
     }
   }
 
@@ -379,9 +455,10 @@ class ChatProvider extends ChangeNotifier {
         }
       }
     } catch (e, stackTrace) {
-      _error = e.toString();
+      _error = 'Error editing message: ${_getErrorMessage(e)}';
       developer.log('Error editing message: $e',
           name: 'ChatProvider', stackTrace: stackTrace);
+      notifyListeners();
     }
   }
 
@@ -397,9 +474,10 @@ class ChatProvider extends ChangeNotifier {
     try {
       await _chatService.startCall(_currentChatId!, callType, isGroup: isGroup);
     } catch (e, stackTrace) {
-      _error = e.toString();
+      _error = 'Error starting call: ${_getErrorMessage(e)}';
       developer.log('Error starting call: $e',
           name: 'ChatProvider', stackTrace: stackTrace);
+      notifyListeners();
     }
   }
 
@@ -454,8 +532,15 @@ class ChatProvider extends ChangeNotifier {
     }
   }
 
-  // Select a chat
+  // Select a chat with validation
   void selectChat(String chatId, String token) {
+    if (chatId.isEmpty) {
+      _error = 'Invalid chat ID';
+      developer.log('Error: Invalid chat ID', name: 'ChatProvider');
+      notifyListeners();
+      return;
+    }
+
     _currentChatId = chatId;
     if (!_chatMessages.containsKey(chatId)) {
       loadChatMessages(chatId, token);
@@ -466,10 +551,20 @@ class ChatProvider extends ChangeNotifier {
   // Clear selected chat
   void clearCurrentChat() {
     if (_currentChatId != null) {
-      _chatService.disconnectFromChat(_currentChatId!);
+      try {
+        _chatService.disconnectFromChat(_currentChatId!);
+      } catch (e) {
+        developer.log('Error disconnecting from chat: $e', name: 'ChatProvider');
+      }
       _currentChatId = null;
       notifyListeners();
     }
+  }
+
+  // Clear error
+  void clearError() {
+    _error = null;
+    notifyListeners();
   }
 
   // Private methods
@@ -502,30 +597,64 @@ class ChatProvider extends ChangeNotifier {
       case MessageType.text:
         return message.content;
       case MessageType.image:
-        return '📷 Фото';
+        return '📷 Photo';
       case MessageType.video:
-        return '🎥 Видео';
+        return '🎥 Video';
       case MessageType.audio:
-        return '🎵 Аудио';
+        return '🎵 Audio';
       case MessageType.file:
-        return '📁 Файл';
+        return '📁 File';
       case MessageType.location:
-        return '📍 Локация';
+        return '📍 Location';
       case MessageType.gif:
         return '🎭 GIF';
       case MessageType.sticker:
-        return '😀 Стикер';
+        return '😀 Sticker';
       case MessageType.contact:
-        return '👤 Контакт';
+        return '👤 Contact';
       case MessageType.call:
-        return '📞 Звонок';
+        return '📞 Call';
       case MessageType.system:
         return message.content;
     }
   }
 
+  // Helper method to extract readable error messages
+  String _getErrorMessage(dynamic error) {
+    if (error == null) return 'Unknown error';
+    
+    String errorStr = error.toString();
+    
+    // Handle different error formats
+    if (errorStr.contains('Exception:')) {
+      return errorStr.split('Exception:').last.trim();
+    } else if (errorStr.contains('Error:')) {
+      return errorStr.split('Error:').last.trim();
+    } else if (errorStr.contains(':')) {
+      List<String> parts = errorStr.split(':');
+      return parts.length > 1 ? parts.last.trim() : errorStr;
+    }
+    
+    return errorStr;
+  }
+
+  // Helper method to determine if an error is retryable
+  bool _isRetryableError(dynamic error) {
+    String errorStr = error.toString().toLowerCase();
+    return errorStr.contains('http 500') || 
+           errorStr.contains('server error') ||
+           errorStr.contains('network') ||
+           errorStr.contains('timeout') ||
+           errorStr.contains('connection');
+  }
+
   // Handle new messages (for WebSocket)
   void onNewMessage(Message message) {
+    if (message.chatId.isEmpty) {
+      developer.log('Received message with empty chat ID', name: 'ChatProvider');
+      return;
+    }
+
     _addMessageToChat(message.chatId, message);
     _updateLastMessage(message.chatId, message);
 
@@ -541,11 +670,40 @@ class ChatProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  // Handle message status updates
+  void onMessageStatusUpdate(String messageId, MessageStatus status) {
+    if (_currentChatId == null) return;
+
+    final messages = _chatMessages[_currentChatId!];
+    if (messages != null) {
+      for (int i = 0; i < messages.length; i++) {
+        if (messages[i].id == messageId) {
+          _chatMessages[_currentChatId!]![i] = messages[i].copyWith(status: status);
+          notifyListeners();
+          break;
+        }
+      }
+    }
+  }
+
+  // Handle chat updates
+  void onChatUpdate(Chat updatedChat) {
+    final chatIndex = _chats.indexWhere((chat) => chat.id == updatedChat.id);
+    if (chatIndex != -1) {
+      _chats[chatIndex] = updatedChat;
+      notifyListeners();
+    }
+  }
+
   // Cleanup on provider disposal
   @override
   void dispose() {
-    if (_currentChatId != null) {
-      _chatService.disconnectFromChat(_currentChatId!);
+    try {
+      if (_currentChatId != null) {
+        _chatService.disconnectFromChat(_currentChatId!);
+      }
+    } catch (e) {
+      developer.log('Error during disposal: $e', name: 'ChatProvider');
     }
     super.dispose();
   }
