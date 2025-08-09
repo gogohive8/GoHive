@@ -10,7 +10,7 @@ import 'screens/AI_mentor/ai_mentor_screen.dart';
 import 'screens/Chats/chat_list_screen.dart'; 
 import 'providers/auth_provider.dart';
 import 'providers/chat_provider.dart'; 
-import 'screens/Auth/search_screen.dart';
+import 'screens/search_screen.dart';
 import 'dart:developer' as developer;
 import 'providers/posts_provider.dart';
 import 'package:firebase_core/firebase_core.dart';
