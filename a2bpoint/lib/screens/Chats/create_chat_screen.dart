@@ -4,6 +4,7 @@ import '../../models/chat.dart';
 import '../../models/user.dart';
 import '../../providers/chat_provider.dart';
 import '../../providers/auth_provider.dart';
+import '../../services/api_services.dart';
 
 class CreateChatScreen extends StatefulWidget {
   final ChatType chatType;
@@ -15,310 +16,167 @@ class CreateChatScreen extends StatefulWidget {
 }
 
 class _CreateChatScreenState extends State<CreateChatScreen> {
-  final _nameController = TextEditingController();
-  final _descriptionController = TextEditingController();
   final _searchController = TextEditingController();
+  final ApiService _apiService = ApiService();
 
-  List<User> _selectedUsers = [];
-  List<User> _availableUsers = [];
-  List<User> _filteredUsers = [];
-  bool _isLoading = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadAvailableUsers(context.read<AuthProvider>().token!); // Pass token
-  }
+  List<Map<String, dynamic>> _searchResults = [];
+  bool _isSearching = false;
+  String _searchError = '';
 
   @override
   void dispose() {
-    _nameController.dispose();
-    _descriptionController.dispose();
     _searchController.dispose();
     super.dispose();
   }
 
-  void _loadAvailableUsers(String token) {
+  void _searchUsers(String query) async {
+    if (query.trim().isEmpty) {
+      setState(() {
+        _searchResults = [];
+        _isSearching = false;
+        _searchError = '';
+      });
+      return;
+    }
+
     setState(() {
-      _isLoading = true;
+      _isSearching = true;
+      _searchError = '';
     });
 
-    // Simulate loading users (replace with real backend call)
-    Future.delayed(Duration(seconds: 1), () {
+    try {
+      final authProvider = context.read<AuthProvider>();
+      final token = authProvider.token!;
+      final userId = authProvider.userId!;
+
+      final results = await _apiService.searchUsers(
+        query.trim(),
+        token: token,
+        userId: userId,
+      );
+
       if (mounted) {
         setState(() {
-          _availableUsers = [
-            User(id: '1', username: 'Анна Смирнова', profileImage: ''),
-            User(id: '2', username: 'Иван Петров', profileImage: ''),
-            User(id: '3', username: 'Мария Козлова', profileImage: ''),
-            User(id: '4', username: 'Алексей Иванов', profileImage: ''),
-            User(id: '5', username: 'Елена Васильева', profileImage: ''),
-            User(id: '6', username: 'Дмитрий Сидоров', profileImage: ''),
-          ];
-          _filteredUsers = List.from(_availableUsers);
-          _isLoading = false;
+          _searchResults = results;
+          _isSearching = false;
         });
       }
-    });
-    // TODO: Replace with real backend call, e.g.:
-    // context.read<ChatProvider>().getAvailableUsers(token).then((users) {
-    //   if (mounted) {
-    //     setState(() {
-    //       _availableUsers = users;
-    //       _filteredUsers = List.from(_availableUsers);
-    //       _isLoading = false;
-    //     });
-    //   }
-    // }).catchError((e) {
-    //   setState(() { _isLoading = false; });
-    //   ScaffoldMessenger.of(context).showSnackBar(
-    //     SnackBar(content: Text('Ошибка загрузки пользователей: $e'), backgroundColor: Colors.red),
-    //   );
-    // });
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _searchResults = [];
+          _isSearching = false;
+          _searchError = 'Error searching users: ${e.toString().split(':').last.trim()}';
+        });
+      }
+    }
   }
 
-  void _filterUsers(String query) {
-    setState(() {
-      if (query.isEmpty) {
-        _filteredUsers = List.from(_availableUsers);
-      } else {
-        _filteredUsers = _availableUsers
-            .where((user) =>
-                user.username.toLowerCase().contains(query.toLowerCase()))
-            .toList();
-      }
-    });
-  }
+  void _openChatWithUser(Map<String, dynamic> userData) async {
+    final user = User(
+      id: userData['userID']?.toString() ?? userData['id']?.toString() ?? '',
+      username: userData['username']?.toString() ?? 'Unknown',
+      profileImage: userData['profileImage']?.toString() ?? '',
+    );
 
-  void _toggleUserSelection(User user) {
-    setState(() {
-      if (_selectedUsers.contains(user)) {
-        _selectedUsers.remove(user);
-      } else {
-        _selectedUsers.add(user);
+    // Показываем индикатор загрузки
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return Center(
+          child: CircularProgressIndicator(
+            valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF6B73FF)),
+          ),
+        );
+      },
+    );
+
+    try {
+      final authProvider = context.read<AuthProvider>();
+      final token = authProvider.token!;
+
+      // Создаем или находим существующий чат
+      await context.read<ChatProvider>().createChat(
+        user.username,
+        [user.id],
+        ChatType.direct,
+        token,
+      );
+
+      if (mounted) {
+        // Закрываем индикатор загрузки
+        Navigator.pop(context);
+        // Закрываем экран поиска
+        Navigator.pop(context);
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Chat with ${user.username} opened'),
+            backgroundColor: Color(0xFF6B73FF),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+        );
       }
-    });
+    } catch (e) {
+      if (mounted) {
+        // Закрываем индикатор загрузки
+        Navigator.pop(context);
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error opening chat: ${e.toString().split(':').last.trim()}'),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+        );
+      }
+    }
   }
 
   String _getChatTypeTitle() {
     switch (widget.chatType) {
       case ChatType.direct:
-        return 'Новый чат';
+        return 'New Chat';
       case ChatType.group:
-        return 'Новая группа';
+        return 'New Group';
       case ChatType.mentorship:
-        return 'Менторский чат';
+        return 'Mentorship Chat';
       case ChatType.conference:
-        return 'Конференция';
-    }
-  }
-
-  bool _canCreateChat() {
-    if (widget.chatType == ChatType.direct) {
-      return _selectedUsers.length == 1;
-    } else {
-      return _selectedUsers.isNotEmpty &&
-          _nameController.text.trim().isNotEmpty;
-    }
-  }
-
-  void _createChat(String token) async {
-    if (!_canCreateChat()) return;
-
-    setState(() {
-      _isLoading = true;
-    });
-
-    try {
-      String chatName;
-      if (widget.chatType == ChatType.direct) {
-        chatName = _selectedUsers.first.username;
-      } else {
-        chatName = _nameController.text.trim();
-      }
-
-      await context.read<ChatProvider>().createChat(
-            chatName,
-            _selectedUsers.map((user) => user.id).toList(),
-            widget.chatType,
-            token,
-            description: _descriptionController.text.trim().isNotEmpty
-                ? _descriptionController.text.trim()
-                : null,
-          );
-
-      Navigator.pop(context);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('${_getChatTypeTitle()} создан')),
-      );
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Ошибка при создании чата: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    } finally {
-      setState(() {
-        _isLoading = false;
-      });
+        return 'Conference';
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Color(0xFFF4F3EE),
       appBar: AppBar(
-        title: Text(_getChatTypeTitle()),
-        backgroundColor: Theme.of(context).primaryColor,
-        foregroundColor: Colors.white,
-        actions: [
-          TextButton(
-            onPressed: _canCreateChat()
-                ? () => _createChat(context.read<AuthProvider>().token!)
-                : null,
-            child: Text(
-              'Создать',
-              style: TextStyle(
-                color: _canCreateChat() ? Colors.white : Colors.white60,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
+        backgroundColor: Color(0xFFF4F3EE),
+        elevation: 0,
+        leading: IconButton(
+          icon: Icon(Icons.arrow_back, color: Colors.black87),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: Text(
+          _getChatTypeTitle(),
+          style: TextStyle(
+            color: Colors.black87,
+            fontSize: 20,
+            fontWeight: FontWeight.w600,
           ),
-        ],
+        ),
       ),
-      body: _isLoading
-          ? Center(child: CircularProgressIndicator())
-          : Column(
-              children: [
-                if (widget.chatType != ChatType.direct) ...[
-                  _buildChatInfoForm(),
-                  Divider(thickness: 1),
-                ],
-                _buildSelectedUsers(),
-                _buildUserSearch(),
-                Expanded(child: _buildUserList()),
-              ],
-            ),
-    );
-  }
-
-  Widget _buildChatInfoForm() {
-    return Container(
-      padding: EdgeInsets.all(16),
-      child: Column(
+      body: Column(
         children: [
-          TextField(
-            controller: _nameController,
-            decoration: InputDecoration(
-              labelText:
-                  'Название ${widget.chatType == ChatType.group ? 'группы' : 'чата'}',
-              border: OutlineInputBorder(),
-              prefixIcon: Icon(Icons.edit),
-            ),
-            textCapitalization: TextCapitalization.words,
-            onChanged: (_) => setState(() {}),
-          ),
-          if (widget.chatType == ChatType.group ||
-              widget.chatType == ChatType.conference) ...[
-            SizedBox(height: 16),
-            TextField(
-              controller: _descriptionController,
-              decoration: InputDecoration(
-                labelText: 'Описание (необязательно)',
-                border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.description),
-              ),
-              maxLines: 2,
-              textCapitalization: TextCapitalization.sentences,
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSelectedUsers() {
-    if (_selectedUsers.isEmpty) {
-      return SizedBox.shrink();
-    }
-
-    return Container(
-      padding: EdgeInsets.symmetric(vertical: 8),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: EdgeInsets.symmetric(horizontal: 16),
-            child: Text(
-              'Выбрано: ${_selectedUsers.length}',
-              style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                    color: Theme.of(context).primaryColor,
-                    fontWeight: FontWeight.bold,
-                  ),
-            ),
-          ),
-          SizedBox(height: 8),
-          Container(
-            height: 60,
-            child: ListView.builder(
-              scrollDirection: Axis.horizontal,
-              padding: EdgeInsets.symmetric(horizontal: 16),
-              itemCount: _selectedUsers.length,
-              itemBuilder: (context, index) {
-                final user = _selectedUsers[index];
-                return Container(
-                  margin: EdgeInsets.only(right: 8),
-                  child: Column(
-                    children: [
-                      Stack(
-                        children: [
-                          CircleAvatar(
-                            radius: 20,
-                            backgroundImage: user.profileImage.isNotEmpty
-                                ? NetworkImage(user.profileImage)
-                                : null,
-                            child: user.profileImage.isEmpty
-                                ? Text(user.username[0].toUpperCase())
-                                : null,
-                          ),
-                          Positioned(
-                            top: -2,
-                            right: -2,
-                            child: GestureDetector(
-                              onTap: () => _toggleUserSelection(user),
-                              child: Container(
-                                padding: EdgeInsets.all(2),
-                                decoration: BoxDecoration(
-                                  color: Colors.red,
-                                  shape: BoxShape.circle,
-                                ),
-                                child: Icon(
-                                  Icons.close,
-                                  size: 12,
-                                  color: Colors.white,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      SizedBox(height: 4),
-                      SizedBox(
-                        width: 50,
-                        child: Text(
-                          user.username.split(' ')[0],
-                          style: TextStyle(fontSize: 10),
-                          textAlign: TextAlign.center,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              },
-            ),
-          ),
+          _buildUserSearch(),
+          Expanded(child: _buildUserList()),
         ],
       ),
     );
@@ -330,20 +188,137 @@ class _CreateChatScreenState extends State<CreateChatScreen> {
       child: TextField(
         controller: _searchController,
         decoration: InputDecoration(
-          hintText: 'Поиск пользователей...',
-          prefixIcon: Icon(Icons.search),
+          hintText: 'Search users...',
+          hintStyle: TextStyle(color: Colors.grey[500]),
+          filled: true,
+          fillColor: Colors.white,
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(25),
+            borderSide: BorderSide.none,
           ),
-          contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          prefixIcon: Icon(Icons.search, color: Color(0xFF6B73FF)),
+          suffixIcon: _isSearching
+              ? Container(
+                  width: 20,
+                  height: 20,
+                  padding: EdgeInsets.all(12),
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF6B73FF)),
+                  ),
+                )
+              : _searchController.text.isNotEmpty
+                  ? IconButton(
+                      icon: Icon(Icons.clear, color: Colors.grey),
+                      onPressed: () {
+                        _searchController.clear();
+                        setState(() {
+                          _searchResults = [];
+                          _searchError = '';
+                        });
+                      },
+                    )
+                  : null,
         ),
-        onChanged: _filterUsers,
+        onChanged: (value) {
+          // Debounce search
+          Future.delayed(Duration(milliseconds: 500), () {
+            if (_searchController.text == value) {
+              _searchUsers(value);
+            }
+          });
+        },
       ),
     );
   }
 
   Widget _buildUserList() {
-    if (_filteredUsers.isEmpty) {
+    if (_searchController.text.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 80,
+              height: 80,
+              decoration: BoxDecoration(
+                color: Colors.grey[200],
+                borderRadius: BorderRadius.circular(40),
+              ),
+              child: Icon(
+                Icons.search,
+                size: 40,
+                color: Colors.grey[400],
+              ),
+            ),
+            SizedBox(height: 24),
+            Text(
+              'Search for users',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+                color: Colors.black87,
+              ),
+            ),
+            SizedBox(height: 8),
+            Text(
+              'Enter a username to find users',
+              style: TextStyle(
+                color: Colors.grey[600],
+                fontSize: 14,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (_searchError.isNotEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.error_outline, size: 64, color: Colors.red),
+            SizedBox(height: 16),
+            Text(
+              'Search Error',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+                color: Colors.black87,
+              ),
+            ),
+            SizedBox(height: 8),
+            Text(
+              _searchError,
+              style: TextStyle(color: Colors.grey[600]),
+              textAlign: TextAlign.center,
+            ),
+            SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: () => _searchUsers(_searchController.text),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Color(0xFF6B73FF),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              child: Text('Try Again', style: TextStyle(color: Colors.white)),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (_isSearching) {
+      return Center(
+        child: CircularProgressIndicator(
+          valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF6B73FF)),
+        ),
+      );
+    }
+
+    if (_searchResults.isEmpty) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -355,12 +330,20 @@ class _CreateChatScreenState extends State<CreateChatScreen> {
             ),
             SizedBox(height: 16),
             Text(
-              _searchController.text.isNotEmpty
-                  ? 'Пользователи не найдены'
-                  : 'Нет доступных пользователей',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: Colors.grey,
-                  ),
+              'No users found',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+                color: Colors.black87,
+              ),
+            ),
+            SizedBox(height: 8),
+            Text(
+              'Try a different search term',
+              style: TextStyle(
+                color: Colors.grey[600],
+                fontSize: 14,
+              ),
             ),
           ],
         ),
@@ -368,67 +351,72 @@ class _CreateChatScreenState extends State<CreateChatScreen> {
     }
 
     return ListView.builder(
-      itemCount: _filteredUsers.length,
+      padding: EdgeInsets.symmetric(horizontal: 16),
+      itemCount: _searchResults.length,
       itemBuilder: (context, index) {
-        final user = _filteredUsers[index];
-        final isSelected = _selectedUsers.contains(user);
+        final userData = _searchResults[index];
+        final username = userData['username']?.toString() ?? 'Unknown';
+        final profileImage = userData['profileImage']?.toString() ?? '';
+        final biography = userData['biography']?.toString() ?? '';
 
-        return ListTile(
-          leading: Stack(
-            children: [
-              CircleAvatar(
-                backgroundImage: user.profileImage.isNotEmpty
-                    ? NetworkImage(user.profileImage)
-                    : null,
-                child: user.profileImage.isEmpty
-                    ? Text(user.username[0].toUpperCase())
-                    : null,
+        return Container(
+          margin: EdgeInsets.only(bottom: 8),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.05),
+                blurRadius: 4,
+                offset: Offset(0, 2),
               ),
-              if (isSelected)
-                Positioned(
-                  bottom: 0,
-                  right: 0,
-                  child: Container(
-                    padding: EdgeInsets.all(2),
-                    decoration: BoxDecoration(
-                      color: Theme.of(context).primaryColor,
-                      shape: BoxShape.circle,
-                      border: Border.all(color: Colors.white, width: 2),
-                    ),
-                    child: Icon(
-                      Icons.check,
-                      size: 12,
-                      color: Colors.white,
-                    ),
-                  ),
-                ),
             ],
           ),
-          title: Text(user.username),
-          subtitle: Text('ID: ${user.id}'),
-          trailing: widget.chatType == ChatType.direct &&
-                  _selectedUsers.isNotEmpty &&
-                  !isSelected
-              ? null
-              : Checkbox(
-                  value: isSelected,
-                  onChanged: widget.chatType == ChatType.direct &&
-                          _selectedUsers.isNotEmpty &&
-                          !isSelected
-                      ? null
-                      : (_) => _toggleUserSelection(user),
-                ),
-          onTap: () {
-            if (widget.chatType == ChatType.direct &&
-                _selectedUsers.isNotEmpty &&
-                !isSelected) {
-              return;
-            }
-            _toggleUserSelection(user);
-          },
-          enabled: !(widget.chatType == ChatType.direct &&
-              _selectedUsers.isNotEmpty &&
-              !isSelected),
+          child: ListTile(
+            contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            leading: CircleAvatar(
+              backgroundImage: profileImage.isNotEmpty
+                  ? NetworkImage(profileImage)
+                  : null,
+              backgroundColor: Colors.grey[300],
+              radius: 24,
+              child: profileImage.isEmpty
+                  ? Text(
+                      username.isNotEmpty ? username[0].toUpperCase() : 'U',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.black87,
+                      ),
+                    )
+                  : null,
+            ),
+            title: Text(
+              username,
+              style: TextStyle(
+                fontWeight: FontWeight.w600,
+                fontSize: 16,
+                color: Colors.black87,
+              ),
+            ),
+            subtitle: biography.isNotEmpty
+                ? Text(
+                    biography,
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.grey[600],
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  )
+                : null,
+            trailing: Icon(
+              Icons.chat_bubble_outline,
+              color: Color(0xFF6B73FF),
+              size: 20,
+            ),
+            onTap: () => _openChatWithUser(userData),
+          ),
         );
       },
     );
