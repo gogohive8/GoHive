@@ -15,7 +15,7 @@ class AIService {
 
   // Save chat history to local storage
   Future<void> _saveChatHistory(
-      String userId, List<Map<String, String>> history) async {
+      String userId, List<Map<String, dynamic>> history) async {
     final prefs = await SharedPreferences.getInstance();
     final key = 'chat_history_$userId';
     final jsonString = jsonEncode(history);
@@ -24,14 +24,14 @@ class AIService {
   }
 
   // Load chat history from local storage
-  Future<List<Map<String, String>>> _loadChatHistory(String userId) async {
+  Future<List<Map<String, dynamic>>> _loadChatHistory(String userId) async {
     final prefs = await SharedPreferences.getInstance();
     final key = 'chat_history_$userId';
     final jsonString = prefs.getString(key);
     if (jsonString == null) return [];
     try {
       final List<dynamic> decoded = jsonDecode(jsonString);
-      return decoded.cast<Map<String, String>>();
+      return decoded.cast<Map<String, dynamic>>();
     } catch (e) {
       developer.log('Error loading chat history: $e', name: 'AIService');
       return [];
@@ -166,7 +166,7 @@ class AIService {
       developer.log('Sending goal generation request: prompt: $prompt',
           name: 'ApiService');
       // Load existing chat history
-      List<Map<String, String>> chatHistory = await _loadChatHistory(userId);
+      List<Map<String, dynamic>> chatHistory = await _loadChatHistory(userId);
 
       // Append user prompt to chat history
       chatHistory.add({'role': 'user', 'content': prompt});
@@ -207,7 +207,7 @@ class AIService {
       developer.log('Sending event generation request: prompt: $prompt',
           name: 'ApiService');
       // Load existing chat history
-      List<Map<String, String>> chatHistory = await _loadChatHistory(userId);
+      List<Map<String, dynamic>> chatHistory = await _loadChatHistory(userId);
 
       // Append user prompt to chat history
       chatHistory.add({'role': 'user', 'content': prompt});
