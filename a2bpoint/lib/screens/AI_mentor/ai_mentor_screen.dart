@@ -24,6 +24,7 @@ class AIMentorScreenState extends State<AIMentorScreen> {
     if (message.isEmpty) return;
 
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final userId = authProvider.userId;
     final aiService = AIService();
 
     setState(() {
@@ -44,11 +45,11 @@ class AIMentorScreenState extends State<AIMentorScreen> {
     try {
       String response;
       if (_requestType == 'goal') {
-        response =
-            await aiService.generateGoal(message, authProvider.token ?? '');
+        response = await aiService.generateGoal(
+            message, authProvider.token ?? '', userId!);
       } else {
-        response =
-            await aiService.generateEvent(message, authProvider.token ?? '');
+        response = await aiService.generateEvent(
+            message, authProvider.token ?? '', userId!);
       }
 
       setState(() {
@@ -68,7 +69,8 @@ class AIMentorScreenState extends State<AIMentorScreen> {
       developer.log('Error sending AI request: $e', name: 'AIMentorScreen');
       setState(() {
         _messages.add({
-          'text': 'Sorry, an error occurred while processing your request. Please try again.',
+          'text':
+              'Sorry, an error occurred while processing your request. Please try again.',
           'isUser': false,
           'timestamp': DateTime.now(),
         });
@@ -105,7 +107,8 @@ class AIMentorScreenState extends State<AIMentorScreen> {
         children: [
           // Choice chips for selecting request type
           Container(
-            padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
+            padding:
+                const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
@@ -139,7 +142,7 @@ class AIMentorScreenState extends State<AIMentorScreen> {
               ],
             ),
           ),
-          
+
           // Messages list
           Expanded(
             child: _messages.isEmpty
@@ -174,12 +177,13 @@ class AIMentorScreenState extends State<AIMentorScreen> {
                   )
                 : ListView.builder(
                     controller: _scrollController,
-                    padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16.0, vertical: 8.0),
                     itemCount: _messages.length,
                     itemBuilder: (context, index) {
                       final message = _messages[index];
                       final isUser = message['isUser'] as bool;
-                      
+
                       return Container(
                         margin: const EdgeInsets.only(bottom: 12.0),
                         child: Row(
@@ -200,11 +204,11 @@ class AIMentorScreenState extends State<AIMentorScreen> {
                               ),
                               const SizedBox(width: 8),
                             ],
-                            
                             Flexible(
                               child: Container(
                                 constraints: BoxConstraints(
-                                  maxWidth: MediaQuery.of(context).size.width * 0.75,
+                                  maxWidth:
+                                      MediaQuery.of(context).size.width * 0.75,
                                 ),
                                 padding: const EdgeInsets.symmetric(
                                   horizontal: 16.0,
@@ -229,8 +233,8 @@ class AIMentorScreenState extends State<AIMentorScreen> {
                                     Text(
                                       message['text'] as String,
                                       style: TextStyle(
-                                        color: isUser 
-                                            ? Colors.white 
+                                        color: isUser
+                                            ? Colors.white
                                             : const Color(0xFF1A1A1A),
                                         fontSize: 15,
                                         height: 1.4,
@@ -238,7 +242,8 @@ class AIMentorScreenState extends State<AIMentorScreen> {
                                     ),
                                     const SizedBox(height: 6),
                                     Text(
-                                      _formatTimestamp(message['timestamp'] as DateTime),
+                                      _formatTimestamp(
+                                          message['timestamp'] as DateTime),
                                       style: TextStyle(
                                         color: isUser
                                             ? Colors.white.withOpacity(0.8)
@@ -250,7 +255,6 @@ class AIMentorScreenState extends State<AIMentorScreen> {
                                 ),
                               ),
                             ),
-                            
                             if (isUser) ...[
                               const SizedBox(width: 8),
                               CircleAvatar(
@@ -269,7 +273,7 @@ class AIMentorScreenState extends State<AIMentorScreen> {
                     },
                   ),
           ),
-          
+
           // Loading indicator
           if (_isLoading)
             Container(
@@ -330,7 +334,7 @@ class AIMentorScreenState extends State<AIMentorScreen> {
                 ],
               ),
             ),
-          
+
           // Input field
           Container(
             padding: const EdgeInsets.all(16.0),
