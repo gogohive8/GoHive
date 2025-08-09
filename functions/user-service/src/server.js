@@ -428,39 +428,34 @@ app.post('/profile/:userID', verifyToken, async (req, res) => {
 });
 
 
-// app.put('/profile/:id/biography', verifyToken, async (req, res) => {
-//   try {
-//     const { id } = req.params;
-//     const { biography } = req.body;
-//     console.log(`Updating biography for user: ${id}, biography: ${biography}`);
+app.post('/profile/:userID/follow', verifyToken, async (req, res) => {
+  try{
+    const {user_id} = req.params;
+    const follower_id = req.userId;
 
-//     if (!biography) {
-//       return res.status(400).json({ error: 'Missing biographygraphy' });
-//     }
+    const {error} = await supabase
+    .schema('public')
+    .from('follows')
+    .insert({
+      follower_id: follower_id,
+      following_id: user_id
+    })
 
-//     const { data, error } = await supabase
-//       .schema('public')
-//       .from('profiles')
-//       .update({ biographygraphy: biography })
-//       .eq('id', id)
-//       // .select()
-//       // .single();
+    if (error.code === '23505') {
+      console.error('User ', follower_id, ' is already follow to ', user_id);
+      res.status(400).json({message: 'user is already follow', error: error});
+    }
 
-//     if (error) {
-//       console.error('Error updating biography:', error.message, 'Code:', error.code);
-//       if (error.code === 'PGRST116') {
-//         return res.status(404).json({ error: 'Profile not found' });
-//       }
-//       return res.status(400).json({ error: error.message });
-//     }
+    if (error){
+      res.status(400).json({error: error});
+    }
 
-//     // res.status(200).json({ message: 'biographygraphy updated', biographygraphy: data.biographygraphy });
-//     return res.status(200).json({message: 'biographygraphy updated'});
-//   } catch (error) {
-//     console.error('Error in /profile/:id/biography:', error.message);
-//     res.status(400).json({ error: error.message });
-//   }
-// });
+    res.status(200).json({message: 'Follow is successful'});
+  } catch (e) {
+    console.error('Problem of follow', e);
+    return res.status(500).json({error: e});
+  } 
+})
 
 app.post('/search/users', verifyToken, async (req, res) => {
   try {

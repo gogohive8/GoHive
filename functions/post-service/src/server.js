@@ -93,7 +93,7 @@ const upload = multer({
 
 app.post('/goals/create', verifyToken, async (req, res) => {
   try{
-    const { user_id, description, location, interest, point_a, point_b, tasks, image_urls } = req.body;
+    const { user_id, description, location, interest, point_a, point_b, tasks, image_urls, privacy } = req.body;
 
     const { data: goalInfo, error: insertGoalError } = await supabase
     .schema('posts')
@@ -105,6 +105,7 @@ app.post('/goals/create', verifyToken, async (req, res) => {
       pointB: point_b,
       goalInfo: description,
       location: location,
+      privacy: privacy
     })
     .select('id')
     .single();
@@ -152,7 +153,7 @@ app.post('/goals/create', verifyToken, async (req, res) => {
 
 app.post('/events/create',verifyToken, async (req, res) => {
   try{
-    const { user_id, description, location, date_time, image_urls } = req.body;
+    const { user_id, description, location, date_time, image_urls, privacy } = req.body;
 
     const { data: eventInfo, error: insertEventError } = await supabase
     .schema('posts')
@@ -162,6 +163,7 @@ app.post('/events/create',verifyToken, async (req, res) => {
       description: description,
       location: location,
       date_time: date_time,
+      privacy:privacy
     })
     .select('id')
     .single();

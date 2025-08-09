@@ -386,6 +386,25 @@ class ApiService {
     }
   }
 
+  Future<void> followUser(String userId, String token) async {
+    try {
+      final url = Uri.parse('$_baseUrl/profile/$userId/follow');
+
+      final response = await http.post(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token', // Include the JWT token
+        },
+      ).timeout(const Duration(seconds: 30));
+      await _handleResponse(response);
+    } catch (e, stackTrace) {
+      developer.log('Update profile error: $e',
+          name: 'ApiService', stackTrace: stackTrace);
+      rethrow;
+    }
+  }
+
   Future<List<Map<String, dynamic>>> searchUsers(
     String query, {
     required String token,
