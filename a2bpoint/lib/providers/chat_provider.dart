@@ -1,31 +1,31 @@
-// lib/providers/chat_provider.dart
 import 'package:flutter/foundation.dart';
 import 'dart:io';
 import '../models/chat.dart';
 import '../models/message.dart';
 import '../services/chat_service.dart';
+import 'dart:developer' as developer;
 
 class ChatProvider extends ChangeNotifier {
   final ChatService _chatService = ChatService();
-  
+
   List<Chat> _chats = [];
   Map<String, List<Message>> _chatMessages = {};
   bool _isLoading = false;
   String? _error;
   String? _currentChatId;
-  
+
   // Getters
   List<Chat> get chats => _chats;
   Map<String, List<Message>> get chatMessages => _chatMessages;
   bool get isLoading => _isLoading;
   String? get error => _error;
   String? get currentChatId => _currentChatId;
-  
+
   List<Message> getCurrentChatMessages() {
     if (_currentChatId == null) return [];
     return _chatMessages[_currentChatId!] ?? [];
   }
-  
+
   Chat? getCurrentChat() {
     if (_currentChatId == null) return null;
     return _chats.firstWhere(
@@ -34,272 +34,338 @@ class ChatProvider extends ChangeNotifier {
     );
   }
 
-  // Инициализация
+  // Initialize
   Future<void> initialize() async {
-    await loadChats();
+    // Token is handled by AuthProvider, so just initialize ChatService
+    _chatService.initialize();
   }
 
-  // Загрузить все чаты
-  Future<void> loadChats() async {
+  // Load all chats
+  Future<void> loadChats(String token) async {
     _setLoading(true);
     try {
-      _chats = await _chatService.getChats();
+      _chats = await _chatService.getChats(token);
       _error = null;
-    } catch (e) {
+    } catch (e, stackTrace) {
       _error = e.toString();
-      debugPrint('Error loading chats: $e');
+      developer.log('Error loading chats: $e',
+          name: 'ChatProvider', stackTrace: stackTrace);
     } finally {
       _setLoading(false);
     }
   }
 
-  // Загрузить сообщения для чата
-  Future<void> loadChatMessages(String chatId) async {
+  // Load messages for a chat
+  Future<void> loadChatMessages(String chatId, String token) async {
     _setLoading(true);
     try {
-      final messages = await _chatService.getChatMessages(chatId);
+      final messages = await _chatService.getChatMessages(chatId, token);
       _chatMessages[chatId] = messages;
       _currentChatId = chatId;
       _error = null;
-      
-      // Подключиться к чату для получения сообщений в реальном времени
+
+      // Connect to chat for real-time messages
       _chatService.connectToChat(chatId);
-    } catch (e) {
+    } catch (e, stackTrace) {
       _error = e.toString();
-      debugPrint('Error loading chat messages: $e');
+      developer.log('Error loading chat messages: $e',
+          name: 'ChatProvider', stackTrace: stackTrace);
     } finally {
       _setLoading(false);
     }
   }
 
-  // Отправить текстовое сообщение
-  Future<void> sendTextMessage(String content, {String? replyToId}) async {
-    if (_currentChatId == null) return;
-    
+  // Send text message
+  Future<void> sendTextMessage(String content, String token,
+      {String? replyToId}) async {
+    if (_currentChatId == null) {
+      _error = 'No chat selected';
+      developer.log('Error: No chat selected', name: 'ChatProvider');
+      notifyListeners();
+      return;
+    }
+
     try {
       final message = await _chatService.sendTextMessage(
-        _currentChatId!, 
-        content, 
+        _currentChatId!,
+        content,
+        token,
         replyToId: replyToId,
       );
-      
+
       _addMessageToChat(_currentChatId!, message);
       _updateLastMessage(_currentChatId!, message);
-    } catch (e) {
+    } catch (e, stackTrace) {
       _error = e.toString();
-      debugPrint('Error sending text message: $e');
+      developer.log('Error sending text message: $e',
+          name: 'ChatProvider', stackTrace: stackTrace);
     }
   }
 
-  // Отправить медиа-сообщение
-  Future<void> sendMediaMessage(File file, MessageType type, {String? caption}) async {
-    if (_currentChatId == null) return;
-    
+  // Send media message
+  Future<void> sendMediaMessage(File file, MessageType type, String token,
+      {String? caption}) async {
+    if (_currentChatId == null) {
+      _error = 'No chat selected';
+      developer.log('Error: No chat selected', name: 'ChatProvider');
+      notifyListeners();
+      return;
+    }
+
     try {
       final message = await _chatService.sendMediaMessage(
-        _currentChatId!, 
-        file, 
-        type, 
+        _currentChatId!,
+        file,
+        type,
+        token,
         caption: caption,
       );
-      
+
       _addMessageToChat(_currentChatId!, message);
       _updateLastMessage(_currentChatId!, message);
-    } catch (e) {
+    } catch (e, stackTrace) {
       _error = e.toString();
-      debugPrint('Error sending media message: $e');
+      developer.log('Error sending media message: $e',
+          name: 'ChatProvider', stackTrace: stackTrace);
     }
   }
 
-  // Отправить аудио-сообщение
-  Future<void> sendAudioMessage(File audioFile, int duration) async {
-    if (_currentChatId == null) return;
-    
+  // Send audio message
+  Future<void> sendAudioMessage(
+      File audioFile, int duration, String token) async {
+    if (_currentChatId == null) {
+      _error = 'No chat selected';
+      developer.log('Error: No chat selected', name: 'ChatProvider');
+      notifyListeners();
+      return;
+    }
+
     try {
-      final message = await _chatService.sendAudioMessage(_currentChatId!, audioFile, duration);
+      final message = await _chatService.sendAudioMessage(
+          _currentChatId!, audioFile, duration, token);
       _addMessageToChat(_currentChatId!, message);
       _updateLastMessage(_currentChatId!, message);
-    } catch (e) {
+    } catch (e, stackTrace) {
       _error = e.toString();
-      debugPrint('Error sending audio message: $e');
+      developer.log('Error sending audio message: $e',
+          name: 'ChatProvider', stackTrace: stackTrace);
     }
   }
 
-  // Отправить файл
-  Future<void> sendFileMessage(File file) async {
-    if (_currentChatId == null) return;
-    
+  // Send file message
+  Future<void> sendFileMessage(File file, String token) async {
+    if (_currentChatId == null) {
+      _error = 'No chat selected';
+      developer.log('Error: No chat selected', name: 'ChatProvider');
+      notifyListeners();
+      return;
+    }
+
     try {
-      final message = await _chatService.sendFileMessage(_currentChatId!, file);
+      final message =
+          await _chatService.sendFileMessage(_currentChatId!, file, token);
       _addMessageToChat(_currentChatId!, message);
       _updateLastMessage(_currentChatId!, message);
-    } catch (e) {
+    } catch (e, stackTrace) {
       _error = e.toString();
-      debugPrint('Error sending file message: $e');
+      developer.log('Error sending file message: $e',
+          name: 'ChatProvider', stackTrace: stackTrace);
     }
   }
 
-  // Отправить локацию
+  // Send location message
   Future<void> sendLocationMessage(
-    double latitude, 
-    double longitude, 
-    {String? address, String? name}
-  ) async {
-    if (_currentChatId == null) return;
-    
+      double latitude, double longitude, String token,
+      {String? address, String? name}) async {
+    if (_currentChatId == null) {
+      _error = 'No chat selected';
+      developer.log('Error: No chat selected', name: 'ChatProvider');
+      notifyListeners();
+      return;
+    }
+
     try {
       final message = await _chatService.sendLocationMessage(
-        _currentChatId!, 
-        latitude, 
+        _currentChatId!,
+        latitude,
         longitude,
+        token,
         address: address,
         name: name,
       );
       _addMessageToChat(_currentChatId!, message);
       _updateLastMessage(_currentChatId!, message);
-    } catch (e) {
+    } catch (e, stackTrace) {
       _error = e.toString();
-      debugPrint('Error sending location message: $e');
+      developer.log('Error sending location message: $e',
+          name: 'ChatProvider', stackTrace: stackTrace);
     }
   }
 
-  // Отправить контакт
-  Future<void> sendContactMessage(
-    String name, 
-    {String? phoneNumber, String? email, String? avatar}
-  ) async {
-    if (_currentChatId == null) return;
-    
+  // Send contact message
+  Future<void> sendContactMessage(String name, String token,
+      {String? phoneNumber, String? email, String? avatar}) async {
+    if (_currentChatId == null) {
+      _error = 'No chat selected';
+      developer.log('Error: No chat selected', name: 'ChatProvider');
+      notifyListeners();
+      return;
+    }
+
     try {
       final message = await _chatService.sendContactMessage(
-        _currentChatId!, 
+        _currentChatId!,
         name,
+        token,
         phoneNumber: phoneNumber,
         email: email,
         avatar: avatar,
       );
       _addMessageToChat(_currentChatId!, message);
       _updateLastMessage(_currentChatId!, message);
-    } catch (e) {
+    } catch (e, stackTrace) {
       _error = e.toString();
-      debugPrint('Error sending contact message: $e');
+      developer.log('Error sending contact message: $e',
+          name: 'ChatProvider', stackTrace: stackTrace);
     }
   }
 
-  // Отправить GIF или стикер
-  Future<void> sendGifMessage(String gifUrl, MessageType type) async {
-    if (_currentChatId == null) return;
-    
+  // Send GIF or sticker
+  Future<void> sendGifMessage(
+      String gifUrl, MessageType type, String token) async {
+    if (_currentChatId == null) {
+      _error = 'No chat selected';
+      developer.log('Error: No chat selected', name: 'ChatProvider');
+      notifyListeners();
+      return;
+    }
+
     try {
-      final message = await _chatService.sendGifMessage(_currentChatId!, gifUrl, type);
+      final message = await _chatService.sendGifMessage(
+          _currentChatId!, gifUrl, type, token);
       _addMessageToChat(_currentChatId!, message);
       _updateLastMessage(_currentChatId!, message);
-    } catch (e) {
+    } catch (e, stackTrace) {
       _error = e.toString();
-      debugPrint('Error sending gif message: $e');
+      developer.log('Error sending gif message: $e',
+          name: 'ChatProvider', stackTrace: stackTrace);
     }
   }
 
-  // Создать новый чат
+  // Create a new chat
   Future<void> createChat(
-    String name, 
-    List<String> participants, 
-    ChatType type, 
-    {String? description, String? avatar}
-  ) async {
+      String name, List<String> participants, ChatType type, String token,
+      {String? description, String? avatar}) async {
     _setLoading(true);
     try {
       final chat = await _chatService.createChat(
-        name, 
-        participants, 
+        name,
+        participants,
         type,
+        token,
         description: description,
         avatar: avatar,
       );
       _chats.insert(0, chat);
       _error = null;
-    } catch (e) {
+    } catch (e, stackTrace) {
       _error = e.toString();
-      debugPrint('Error creating chat: $e');
+      developer.log('Error creating chat: $e',
+          name: 'ChatProvider', stackTrace: stackTrace);
     } finally {
       _setLoading(false);
     }
   }
 
-  // Присоединиться к чату
-  Future<void> joinChat(String chatId) async {
+  // Join a chat
+  Future<void> joinChat(String chatId, String token) async {
     try {
-      await _chatService.joinChat(chatId);
-      await loadChats(); // Обновить список чатов
-    } catch (e) {
+      await _chatService.joinChat(chatId, token);
+      await loadChats(token); // Refresh chat list
+    } catch (e, stackTrace) {
       _error = e.toString();
-      debugPrint('Error joining chat: $e');
+      developer.log('Error joining chat: $e',
+          name: 'ChatProvider', stackTrace: stackTrace);
     }
   }
 
-  // Покинуть чат
-  Future<void> leaveChat(String chatId) async {
+  // Leave a chat
+  Future<void> leaveChat(String chatId, String token) async {
     try {
-      await _chatService.leaveChat(chatId);
+      await _chatService.leaveChat(chatId, token);
       _chats.removeWhere((chat) => chat.id == chatId);
       _chatMessages.remove(chatId);
-      
+
       if (_currentChatId == chatId) {
         _currentChatId = null;
       }
-      
+
       notifyListeners();
-    } catch (e) {
+    } catch (e, stackTrace) {
       _error = e.toString();
-      debugPrint('Error leaving chat: $e');
+      developer.log('Error leaving chat: $e',
+          name: 'ChatProvider', stackTrace: stackTrace);
     }
   }
 
-  // Пометить сообщения как прочитанные
-  Future<void> markMessagesAsRead(List<String> messageIds) async {
-    if (_currentChatId == null) return;
-    
+  // Mark messages as read
+  Future<void> markMessagesAsRead(List<String> messageIds, String token) async {
+    if (_currentChatId == null) {
+      _error = 'No chat selected';
+      developer.log('Error: No chat selected', name: 'ChatProvider');
+      notifyListeners();
+      return;
+    }
+
     try {
-      await _chatService.markMessagesAsRead(_currentChatId!, messageIds);
-      
-      // Обновить статус сообщений локально
+      await _chatService.markMessagesAsRead(_currentChatId!, messageIds, token);
+
+      // Update message status locally
       final messages = _chatMessages[_currentChatId!];
       if (messages != null) {
         for (int i = 0; i < messages.length; i++) {
           if (messageIds.contains(messages[i].id)) {
-            _chatMessages[_currentChatId!]![i] = messages[i].copyWith(
-              status: MessageStatus.read
-            );
+            _chatMessages[_currentChatId!]![i] =
+                messages[i].copyWith(status: MessageStatus.read);
           }
         }
         notifyListeners();
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
       _error = e.toString();
-      debugPrint('Error marking messages as read: $e');
+      developer.log('Error marking messages as read: $e',
+          name: 'ChatProvider', stackTrace: stackTrace);
     }
   }
 
-  // Удалить сообщение
-  Future<void> deleteMessage(String messageId) async {
-    if (_currentChatId == null) return;
-    
+  // Delete a message
+  Future<void> deleteMessage(String messageId, String token) async {
+    if (_currentChatId == null) {
+      _error = 'No chat selected';
+      developer.log('Error: No chat selected', name: 'ChatProvider');
+      notifyListeners();
+      return;
+    }
+
     try {
-      await _chatService.deleteMessage(_currentChatId!, messageId);
+      await _chatService.deleteMessage(_currentChatId!, messageId, token);
       _chatMessages[_currentChatId!]?.removeWhere((msg) => msg.id == messageId);
       notifyListeners();
-    } catch (e) {
+    } catch (e, stackTrace) {
       _error = e.toString();
-      debugPrint('Error deleting message: $e');
+      developer.log('Error deleting message: $e',
+          name: 'ChatProvider', stackTrace: stackTrace);
     }
   }
 
-  // Редактировать сообщение
-  Future<void> editMessage(String messageId, String newContent) async {
+  // Edit a message
+  Future<void> editMessage(
+      String messageId, String newContent, String token) async {
     try {
-      final editedMessage = await _chatService.editMessage(messageId, newContent);
-      
-      // Обновить сообщение локально
+      final editedMessage =
+          await _chatService.editMessage(messageId, newContent, token);
+
+      // Update message locally
       if (_currentChatId != null) {
         final messages = _chatMessages[_currentChatId!];
         if (messages != null) {
@@ -312,86 +378,92 @@ class ChatProvider extends ChangeNotifier {
           notifyListeners();
         }
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
       _error = e.toString();
-      debugPrint('Error editing message: $e');
+      developer.log('Error editing message: $e',
+          name: 'ChatProvider', stackTrace: stackTrace);
     }
   }
 
-  // Начать звонок
+  // Start a call
   Future<void> startCall(String callType, {bool isGroup = false}) async {
-    if (_currentChatId == null) return;
-    
+    if (_currentChatId == null) {
+      _error = 'No chat selected';
+      developer.log('Error: No chat selected', name: 'ChatProvider');
+      notifyListeners();
+      return;
+    }
+
     try {
       await _chatService.startCall(_currentChatId!, callType, isGroup: isGroup);
-    } catch (e) {
+    } catch (e, stackTrace) {
       _error = e.toString();
-      debugPrint('Error starting call: $e');
+      developer.log('Error starting call: $e',
+          name: 'ChatProvider', stackTrace: stackTrace);
     }
   }
 
-  // Поиск чатов
+  // Search chats
   List<Chat> searchChats(String query) {
     if (query.isEmpty) return _chats;
-    
+
     return _chats.where((chat) {
       return chat.name.toLowerCase().contains(query.toLowerCase()) ||
-             (chat.description?.toLowerCase().contains(query.toLowerCase()) ?? false);
+          (chat.description?.toLowerCase().contains(query.toLowerCase()) ??
+              false);
     }).toList();
   }
 
-  // Поиск сообщений в текущем чате
+  // Search messages in current chat
   List<Message> searchMessages(String query) {
     if (_currentChatId == null || query.isEmpty) return [];
-    
+
     final messages = _chatMessages[_currentChatId!] ?? [];
     return messages.where((message) {
       return message.content.toLowerCase().contains(query.toLowerCase());
     }).toList();
   }
 
-  // Получить непрочитанные чаты
+  // Get unread chats
   List<Chat> getUnreadChats() {
     return _chats.where((chat) => chat.unreadCount > 0).toList();
   }
 
-  // Получить архивированные чаты
+  // Get archived chats
   List<Chat> getArchivedChats() {
     return _chats.where((chat) => chat.isArchived).toList();
   }
 
-  // Архивировать/разархивировать чат
+  // Archive/unarchive a chat
   void toggleChatArchive(String chatId) {
     final chatIndex = _chats.indexWhere((chat) => chat.id == chatId);
     if (chatIndex != -1) {
-      _chats[chatIndex] = _chats[chatIndex].copyWith(
-        isArchived: !_chats[chatIndex].isArchived
-      );
+      _chats[chatIndex] =
+          _chats[chatIndex].copyWith(isArchived: !_chats[chatIndex].isArchived);
       notifyListeners();
     }
   }
 
-  // Заглушить/включить уведомления для чата
+  // Mute/unmute chat notifications
   void toggleChatMute(String chatId) {
     final chatIndex = _chats.indexWhere((chat) => chat.id == chatId);
     if (chatIndex != -1) {
-      _chats[chatIndex] = _chats[chatIndex].copyWith(
-        isMuted: !_chats[chatIndex].isMuted
-      );
+      _chats[chatIndex] =
+          _chats[chatIndex].copyWith(isMuted: !_chats[chatIndex].isMuted);
       notifyListeners();
     }
   }
 
-  // Выбрать чат
-  void selectChat(String chatId) {
+  // Select a chat
+  void selectChat(String chatId, String token) {
     _currentChatId = chatId;
     if (!_chatMessages.containsKey(chatId)) {
-      loadChatMessages(chatId);
+      loadChatMessages(chatId, token);
     }
     notifyListeners();
   }
 
-  // Очистить выбранный чат
+  // Clear selected chat
   void clearCurrentChat() {
     if (_currentChatId != null) {
       _chatService.disconnectFromChat(_currentChatId!);
@@ -400,7 +472,7 @@ class ChatProvider extends ChangeNotifier {
     }
   }
 
-  // Приватные методы
+  // Private methods
   void _setLoading(bool loading) {
     _isLoading = loading;
     notifyListeners();
@@ -449,28 +521,27 @@ class ChatProvider extends ChangeNotifier {
         return '📞 Звонок';
       case MessageType.system:
         return message.content;
-      }
+    }
   }
 
-  // Метод для получения новых сообщений (для WebSocket)
+  // Handle new messages (for WebSocket)
   void onNewMessage(Message message) {
     _addMessageToChat(message.chatId, message);
     _updateLastMessage(message.chatId, message);
-    
-    // Увеличить счетчик непрочитанных, если чат не активен
+
+    // Increment unread count if chat is not active
     if (_currentChatId != message.chatId) {
       final chatIndex = _chats.indexWhere((chat) => chat.id == message.chatId);
       if (chatIndex != -1) {
-        _chats[chatIndex] = _chats[chatIndex].copyWith(
-          unreadCount: _chats[chatIndex].unreadCount + 1
-        );
+        _chats[chatIndex] = _chats[chatIndex]
+            .copyWith(unreadCount: _chats[chatIndex].unreadCount + 1);
       }
     }
-    
+
     notifyListeners();
   }
 
-  // Очистка при уничтожении провайдера
+  // Cleanup on provider disposal
   @override
   void dispose() {
     if (_currentChatId != null) {

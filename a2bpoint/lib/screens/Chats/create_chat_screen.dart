@@ -1,9 +1,9 @@
-// lib/screens/create_chat_screen.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../models/chat.dart';
 import '../../models/user.dart';
 import '../../providers/chat_provider.dart';
+import '../../providers/auth_provider.dart';
 
 class CreateChatScreen extends StatefulWidget {
   final ChatType chatType;
@@ -18,7 +18,7 @@ class _CreateChatScreenState extends State<CreateChatScreen> {
   final _nameController = TextEditingController();
   final _descriptionController = TextEditingController();
   final _searchController = TextEditingController();
-  
+
   List<User> _selectedUsers = [];
   List<User> _availableUsers = [];
   List<User> _filteredUsers = [];
@@ -27,7 +27,7 @@ class _CreateChatScreenState extends State<CreateChatScreen> {
   @override
   void initState() {
     super.initState();
-    _loadAvailableUsers();
+    _loadAvailableUsers(context.read<AuthProvider>().token!); // Pass token
   }
 
   @override
@@ -38,12 +38,12 @@ class _CreateChatScreenState extends State<CreateChatScreen> {
     super.dispose();
   }
 
-  void _loadAvailableUsers() {
+  void _loadAvailableUsers(String token) {
     setState(() {
       _isLoading = true;
     });
 
-    // Симуляция загрузки пользователей
+    // Simulate loading users (replace with real backend call)
     Future.delayed(Duration(seconds: 1), () {
       if (mounted) {
         setState(() {
@@ -60,6 +60,21 @@ class _CreateChatScreenState extends State<CreateChatScreen> {
         });
       }
     });
+    // TODO: Replace with real backend call, e.g.:
+    // context.read<ChatProvider>().getAvailableUsers(token).then((users) {
+    //   if (mounted) {
+    //     setState(() {
+    //       _availableUsers = users;
+    //       _filteredUsers = List.from(_availableUsers);
+    //       _isLoading = false;
+    //     });
+    //   }
+    // }).catchError((e) {
+    //   setState(() { _isLoading = false; });
+    //   ScaffoldMessenger.of(context).showSnackBar(
+    //     SnackBar(content: Text('Ошибка загрузки пользователей: $e'), backgroundColor: Colors.red),
+    //   );
+    // });
   }
 
   void _filterUsers(String query) {
@@ -102,11 +117,12 @@ class _CreateChatScreenState extends State<CreateChatScreen> {
     if (widget.chatType == ChatType.direct) {
       return _selectedUsers.length == 1;
     } else {
-      return _selectedUsers.isNotEmpty && _nameController.text.trim().isNotEmpty;
+      return _selectedUsers.isNotEmpty &&
+          _nameController.text.trim().isNotEmpty;
     }
   }
 
-  void _createChat() async {
+  void _createChat(String token) async {
     if (!_canCreateChat()) return;
 
     setState(() {
@@ -122,13 +138,14 @@ class _CreateChatScreenState extends State<CreateChatScreen> {
       }
 
       await context.read<ChatProvider>().createChat(
-        chatName,
-        _selectedUsers.map((user) => user.id).toList(),
-        widget.chatType,
-        description: _descriptionController.text.trim().isNotEmpty 
-          ? _descriptionController.text.trim() 
-          : null,
-      );
+            chatName,
+            _selectedUsers.map((user) => user.id).toList(),
+            widget.chatType,
+            token,
+            description: _descriptionController.text.trim().isNotEmpty
+                ? _descriptionController.text.trim()
+                : null,
+          );
 
       Navigator.pop(context);
       ScaffoldMessenger.of(context).showSnackBar(
@@ -157,7 +174,9 @@ class _CreateChatScreenState extends State<CreateChatScreen> {
         foregroundColor: Colors.white,
         actions: [
           TextButton(
-            onPressed: _canCreateChat() ? _createChat : null,
+            onPressed: _canCreateChat()
+                ? () => _createChat(context.read<AuthProvider>().token!)
+                : null,
             child: Text(
               'Создать',
               style: TextStyle(
@@ -192,14 +211,16 @@ class _CreateChatScreenState extends State<CreateChatScreen> {
           TextField(
             controller: _nameController,
             decoration: InputDecoration(
-              labelText: 'Название ${widget.chatType == ChatType.group ? 'группы' : 'чата'}',
+              labelText:
+                  'Название ${widget.chatType == ChatType.group ? 'группы' : 'чата'}',
               border: OutlineInputBorder(),
               prefixIcon: Icon(Icons.edit),
             ),
             textCapitalization: TextCapitalization.words,
             onChanged: (_) => setState(() {}),
           ),
-          if (widget.chatType == ChatType.group || widget.chatType == ChatType.conference) ...[
+          if (widget.chatType == ChatType.group ||
+              widget.chatType == ChatType.conference) ...[
             SizedBox(height: 16),
             TextField(
               controller: _descriptionController,
@@ -232,9 +253,9 @@ class _CreateChatScreenState extends State<CreateChatScreen> {
             child: Text(
               'Выбрано: ${_selectedUsers.length}',
               style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                color: Theme.of(context).primaryColor,
-                fontWeight: FontWeight.bold,
-              ),
+                    color: Theme.of(context).primaryColor,
+                    fontWeight: FontWeight.bold,
+                  ),
             ),
           ),
           SizedBox(height: 8),
@@ -254,12 +275,12 @@ class _CreateChatScreenState extends State<CreateChatScreen> {
                         children: [
                           CircleAvatar(
                             radius: 20,
-                            backgroundImage: user.profileImage.isNotEmpty 
-                              ? NetworkImage(user.profileImage) 
-                              : null,
-                            child: user.profileImage.isEmpty 
-                              ? Text(user.username[0].toUpperCase()) 
-                              : null,
+                            backgroundImage: user.profileImage.isNotEmpty
+                                ? NetworkImage(user.profileImage)
+                                : null,
+                            child: user.profileImage.isEmpty
+                                ? Text(user.username[0].toUpperCase())
+                                : null,
                           ),
                           Positioned(
                             top: -2,
@@ -283,7 +304,7 @@ class _CreateChatScreenState extends State<CreateChatScreen> {
                         ],
                       ),
                       SizedBox(height: 4),
-                        SizedBox(
+                      SizedBox(
                         width: 50,
                         child: Text(
                           user.username.split(' ')[0],
@@ -334,12 +355,12 @@ class _CreateChatScreenState extends State<CreateChatScreen> {
             ),
             SizedBox(height: 16),
             Text(
-              _searchController.text.isNotEmpty 
-                ? 'Пользователи не найдены'
-                : 'Нет доступных пользователей',
+              _searchController.text.isNotEmpty
+                  ? 'Пользователи не найдены'
+                  : 'Нет доступных пользователей',
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                color: Colors.grey,
-              ),
+                    color: Colors.grey,
+                  ),
             ),
           ],
         ),
@@ -356,12 +377,12 @@ class _CreateChatScreenState extends State<CreateChatScreen> {
           leading: Stack(
             children: [
               CircleAvatar(
-                backgroundImage: user.profileImage.isNotEmpty 
-                  ? NetworkImage(user.profileImage) 
-                  : null,
-                child: user.profileImage.isEmpty 
-                  ? Text(user.username[0].toUpperCase()) 
-                  : null,
+                backgroundImage: user.profileImage.isNotEmpty
+                    ? NetworkImage(user.profileImage)
+                    : null,
+                child: user.profileImage.isEmpty
+                    ? Text(user.username[0].toUpperCase())
+                    : null,
               ),
               if (isSelected)
                 Positioned(
@@ -385,21 +406,29 @@ class _CreateChatScreenState extends State<CreateChatScreen> {
           ),
           title: Text(user.username),
           subtitle: Text('ID: ${user.id}'),
-          trailing: widget.chatType == ChatType.direct && _selectedUsers.isNotEmpty && !isSelected
+          trailing: widget.chatType == ChatType.direct &&
+                  _selectedUsers.isNotEmpty &&
+                  !isSelected
               ? null
               : Checkbox(
                   value: isSelected,
-                  onChanged: widget.chatType == ChatType.direct && _selectedUsers.isNotEmpty && !isSelected
+                  onChanged: widget.chatType == ChatType.direct &&
+                          _selectedUsers.isNotEmpty &&
+                          !isSelected
                       ? null
                       : (_) => _toggleUserSelection(user),
                 ),
           onTap: () {
-            if (widget.chatType == ChatType.direct && _selectedUsers.isNotEmpty && !isSelected) {
+            if (widget.chatType == ChatType.direct &&
+                _selectedUsers.isNotEmpty &&
+                !isSelected) {
               return;
             }
             _toggleUserSelection(user);
           },
-          enabled: !(widget.chatType == ChatType.direct && _selectedUsers.isNotEmpty && !isSelected),
+          enabled: !(widget.chatType == ChatType.direct &&
+              _selectedUsers.isNotEmpty &&
+              !isSelected),
         );
       },
     );

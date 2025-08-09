@@ -1,7 +1,6 @@
-// lib/screens/chat_screen.dart
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 import 'dart:io';
+import 'package:provider/provider.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:location/location.dart';
@@ -9,6 +8,7 @@ import 'package:record/record.dart';
 import '../../models/chat.dart';
 import '../../models/message.dart';
 import '../../providers/chat_provider.dart';
+import '../../providers/auth_provider.dart'; // Import AuthProvider
 import '../../widgets/chat/message_bubble.dart';
 import '../../widgets/chat/chat_input.dart';
 import '../../widgets/chat/recording_overlay.dart' hide RecordingOverlay;
@@ -28,17 +28,19 @@ class _ChatScreenState extends State<ChatScreen> {
   final ScrollController _scrollController = ScrollController();
   final ImagePicker _imagePicker = ImagePicker();
   final AudioRecorder _audioRecorder = AudioRecorder();
-  
+
   bool _isRecording = false;
   bool _isTyping = false;
   String? _replyToMessageId;
   Message? _replyToMessage;
-  
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<ChatProvider>().loadChatMessages(widget.chatId);
+      context
+          .read<ChatProvider>()
+          .loadChatMessages(widget.chatId, context.read<AuthProvider>().token!);
     });
     _textController.addListener(_onTextChanged);
   }
@@ -93,14 +95,18 @@ class _ChatScreenState extends State<ChatScreen> {
               if (_replyToMessage != null) _buildReplyPreview(),
               ChatInput(
                 controller: _textController,
-                onSendText: _sendTextMessage,
-                onSendMedia: _showMediaPicker,
+                onSendText: () =>
+                    _sendTextMessage(context.read<AuthProvider>().token!),
+                onSendMedia: () =>
+                    _showMediaPicker(context.read<AuthProvider>().token!),
                 onStartRecording: _startRecording,
                 onStopRecording: _stopRecording,
                 isRecording: _isRecording,
                 isTyping: _isTyping,
-                onSendLocation: _sendLocation,
-                onSendFile: _pickAndSendFile,
+                onSendLocation: () =>
+                    _sendLocation(context.read<AuthProvider>().token!),
+                onSendFile: () =>
+                    _pickAndSendFile(context.read<AuthProvider>().token!),
               ),
             ],
           ),
@@ -117,10 +123,11 @@ class _ChatScreenState extends State<ChatScreen> {
         children: [
           CircleAvatar(
             radius: 18,
-            backgroundImage: chat.avatar != null ? NetworkImage(chat.avatar!) : null,
-            child: chat.avatar == null 
-              ? Text(chat.name.isNotEmpty ? chat.name[0].toUpperCase() : '?')
-              : null,
+            backgroundImage:
+                chat.avatar != null ? NetworkImage(chat.avatar!) : null,
+            child: chat.avatar == null
+                ? Text(chat.name.isNotEmpty ? chat.name[0].toUpperCase() : '?')
+                : null,
           ),
           SizedBox(width: 12),
           Expanded(
@@ -145,11 +152,13 @@ class _ChatScreenState extends State<ChatScreen> {
         if (chat.type == ChatType.mentorship || chat.type == ChatType.direct)
           IconButton(
             icon: Icon(Icons.call),
-            onPressed: () => _startCall('audio'),
+            onPressed: () =>
+                _startCall('audio', context.read<AuthProvider>().token!),
           ),
         IconButton(
           icon: Icon(Icons.videocam),
-          onPressed: () => _startCall('video'),
+          onPressed: () =>
+              _startCall('video', context.read<AuthProvider>().token!),
         ),
         PopupMenuButton<String>(
           onSelected: (value) {
@@ -236,8 +245,10 @@ class _ChatScreenState extends State<ChatScreen> {
             MessageBubble(
               message: message,
               onReply: () => _setReplyMessage(message),
-              onEdit: (newText) => _editMessage(message.id, newText),
-              onDelete: () => _deleteMessage(message.id),
+              onEdit: (newText) => _editMessage(
+                  message.id, newText, context.read<AuthProvider>().token!),
+              onDelete: () => _deleteMessage(
+                  message.id, context.read<AuthProvider>().token!),
               onTap: () => _onMessageTap(message),
             ),
             if (isLastMessage) SizedBox(height: 8),
@@ -336,22 +347,22 @@ class _ChatScreenState extends State<ChatScreen> {
 
   bool _shouldShowDateSeparator(List<Message> messages, int index) {
     if (index == 0) return true;
-    
+
     final currentMessage = messages[index];
     final previousMessage = messages[index - 1];
-    
+
     final currentDate = DateTime(
       currentMessage.timestamp.year,
       currentMessage.timestamp.month,
       currentMessage.timestamp.day,
     );
-    
+
     final previousDate = DateTime(
       previousMessage.timestamp.year,
       previousMessage.timestamp.month,
       previousMessage.timestamp.day,
     );
-    
+
     return currentDate != previousDate;
   }
 
@@ -374,44 +385,47 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
-  void _sendTextMessage() {
+  void _sendTextMessage(String token) {
     final text = _textController.text.trim();
     if (text.isEmpty) return;
 
-    context.read<ChatProvider>().sendTextMessage(text, replyToId: _replyToMessageId);
+    context
+        .read<ChatProvider>()
+        .sendTextMessage(text, token, replyToId: _replyToMessageId);
     _textController.clear();
     _clearReply();
-    
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _scrollToBottom();
     });
   }
 
-  void _showMediaPicker() {
+  void _showMediaPicker(String token) {
     showModalBottomSheet(
       context: context,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (context) => MediaPickerBottomSheet(
-        onImagePicked: (source) => _pickAndSendImage(source),
-        onVideoPicked: (source) => _pickAndSendVideo(source),
-        onGifPicked: (gifUrl) => _sendGif(gifUrl),
-        onStickerPicked: (stickerUrl) => _sendSticker(stickerUrl),
-        onContactPicked: _pickAndSendContact,
+        onImagePicked: (source) => _pickAndSendImage(source, token),
+        onVideoPicked: (source) => _pickAndSendVideo(source, token),
+        onGifPicked: (gifUrl) => _sendGif(gifUrl, token),
+        onStickerPicked: (stickerUrl) => _sendSticker(stickerUrl, token),
+        onContactPicked: () => _pickAndSendContact(token),
       ),
     );
   }
 
-  Future<void> _pickAndSendImage(ImageSource source) async {
+  Future<void> _pickAndSendImage(ImageSource source, String token) async {
     try {
       final XFile? image = await _imagePicker.pickImage(source: source);
       if (image != null) {
         final file = File(image.path);
         await context.read<ChatProvider>().sendMediaMessage(
-          file, 
-          MessageType.image,
-        );
+              file,
+              MessageType.image,
+              token,
+            );
         _scrollToBottom();
       }
     } catch (e) {
@@ -419,15 +433,16 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
-  Future<void> _pickAndSendVideo(ImageSource source) async {
+  Future<void> _pickAndSendVideo(ImageSource source, String token) async {
     try {
       final XFile? video = await _imagePicker.pickVideo(source: source);
       if (video != null) {
         final file = File(video.path);
         await context.read<ChatProvider>().sendMediaMessage(
-          file, 
-          MessageType.video,
-        );
+              file,
+              MessageType.video,
+              token,
+            );
         _scrollToBottom();
       }
     } catch (e) {
@@ -435,12 +450,12 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
-  Future<void> _pickAndSendFile() async {
+  Future<void> _pickAndSendFile(String token) async {
     try {
       FilePickerResult? result = await FilePicker.platform.pickFiles();
       if (result != null) {
         final file = File(result.files.single.path!);
-        await context.read<ChatProvider>().sendFileMessage(file);
+        await context.read<ChatProvider>().sendFileMessage(file, token);
         _scrollToBottom();
       }
     } catch (e) {
@@ -448,10 +463,10 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
-  Future<void> _sendLocation() async {
+  Future<void> _sendLocation(String token) async {
     try {
       Location location = Location();
-      
+
       bool serviceEnabled = await location.serviceEnabled();
       if (!serviceEnabled) {
         serviceEnabled = await location.requestService();
@@ -471,11 +486,12 @@ class _ChatScreenState extends State<ChatScreen> {
       }
 
       final locationData = await location.getLocation();
-      
+
       await context.read<ChatProvider>().sendLocationMessage(
-        locationData.latitude!,
-        locationData.longitude!,
-      );
+            locationData.latitude!,
+            locationData.longitude!,
+            token,
+          );
       _scrollToBottom();
     } catch (e) {
       _showErrorSnackBar('Ошибка при отправке местоположения: $e');
@@ -485,7 +501,8 @@ class _ChatScreenState extends State<ChatScreen> {
   Future<void> _startRecording() async {
     try {
       if (await _audioRecorder.hasPermission()) {
-        await _audioRecorder.start(const RecordConfig(), path: '/temp/audio_${DateTime.now().millisecondsSinceEpoch}.aac');
+        await _audioRecorder.start(const RecordConfig(),
+            path: '/temp/audio_${DateTime.now().millisecondsSinceEpoch}.aac');
         setState(() {
           _isRecording = true;
         });
@@ -508,7 +525,8 @@ class _ChatScreenState extends State<ChatScreen> {
         final file = File(path);
         // Получаем длительность аудио (здесь нужно использовать соответствующий пакет)
         const duration = 0; // Placeholder
-        await context.read<ChatProvider>().sendAudioMessage(file, duration);
+        await context.read<ChatProvider>().sendAudioMessage(
+            file, duration, context.read<AuthProvider>().token!);
         _scrollToBottom();
       }
     } catch (e) {
@@ -530,35 +548,37 @@ class _ChatScreenState extends State<ChatScreen> {
     await _stopRecording();
   }
 
-  void _sendGif(String gifUrl) {
-    context.read<ChatProvider>().sendGifMessage(gifUrl, MessageType.gif);
+  void _sendGif(String gifUrl, String token) {
+    context.read<ChatProvider>().sendGifMessage(gifUrl, MessageType.gif, token);
     _scrollToBottom();
   }
 
-  void _sendSticker(String stickerUrl) {
-    context.read<ChatProvider>().sendGifMessage(stickerUrl, MessageType.sticker);
+  void _sendSticker(String stickerUrl, String token) {
+    context
+        .read<ChatProvider>()
+        .sendGifMessage(stickerUrl, MessageType.sticker, token);
     _scrollToBottom();
   }
 
-  Future<void> _pickAndSendContact() async {
-    // Здесь можно использовать контакты или показать диалог для ввода контакта
+  Future<void> _pickAndSendContact(String token) async {
     final result = await showDialog<Map<String, String>>(
       context: context,
       builder: (context) => _ContactPickerDialog(),
     );
-    
+
     if (result != null) {
       await context.read<ChatProvider>().sendContactMessage(
-        result['name']!,
-        phoneNumber: result['phone'],
-        email: result['email'],
-      );
+            result['name']!,
+            token,
+            phoneNumber: result['phone'],
+            email: result['email'],
+          );
       _scrollToBottom();
     }
   }
 
-  void _startCall(String callType) {
-    context.read<ChatProvider>().startCall(callType);
+  void _startCall(String callType, String token) {
+    context.read<ChatProvider>().startCall(callType, isGroup: false);
     // Здесь можно открыть экран звонка
   }
 
@@ -576,11 +596,11 @@ class _ChatScreenState extends State<ChatScreen> {
     });
   }
 
-  void _editMessage(String messageId, String newText) {
-    context.read<ChatProvider>().editMessage(messageId, newText);
+  void _editMessage(String messageId, String newText, String token) {
+    context.read<ChatProvider>().editMessage(messageId, newText, token);
   }
 
-  void _deleteMessage(String messageId) {
+  void _deleteMessage(String messageId, String token) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -594,7 +614,7 @@ class _ChatScreenState extends State<ChatScreen> {
           TextButton(
             onPressed: () {
               Navigator.pop(context);
-              context.read<ChatProvider>().deleteMessage(messageId);
+              context.read<ChatProvider>().deleteMessage(messageId, token);
             },
             child: Text('Удалить', style: TextStyle(color: Colors.red)),
           ),
@@ -605,7 +625,8 @@ class _ChatScreenState extends State<ChatScreen> {
 
   void _onMessageTap(Message message) {
     // Обработка нажатия на сообщение (например, просмотр медиа)
-    if (message.type == MessageType.image || message.type == MessageType.video) {
+    if (message.type == MessageType.image ||
+        message.type == MessageType.video) {
       // Открыть просмотрщик медиа
     }
   }

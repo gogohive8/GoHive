@@ -1,5 +1,5 @@
-import 'dart:io';
 import 'dart:async';
+import 'dart:io';
 import 'dart:typed_data';
 import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -7,6 +7,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import '../models/chat.dart';
 import '../models/message.dart';
+import 'dart:developer' as developer;
 
 class ChatService {
   static final ChatService _instance = ChatService._internal();
@@ -14,18 +15,14 @@ class ChatService {
   ChatService._internal();
 
   final _supabase = Supabase.instance.client;
-  final _baseUrl =
-      'https://gohive-chat-service-91df19df1b1f.herokuapp.com/api'; // Replace with your backend URL
-  String? _authToken; // Set this via AuthProvider or similar
-
+  final _baseUrl = 'https://gohive-chat-service-91df19df1b1f.herokuapp.com/api';
   final List<Chat> _chats = [];
   final Map<String, List<Message>> _messages = {};
   RealtimeChannel? _messageChannel;
   final _messageStreamController = StreamController<Message>.broadcast();
 
-  // Initialize Supabase and auth token
-  void initialize(String authToken) {
-    _authToken = authToken;
+  // Initialize Supabase real-time subscription
+  void initialize() {
     _setupRealtime();
   }
 
@@ -42,22 +39,18 @@ class ChatService {
             final message = Message.fromJson(messageData);
             _messages[message.chatId] = _messages[message.chatId] ?? [];
             _messages[message.chatId]!.add(message);
-            _messageStreamController.add(message); // Emit to stream
+            _messageStreamController.add(message);
           },
         )
         .subscribe();
   }
 
-  Stream<Message> get messageStream {
-    return _messageStreamController.stream;
-  }
-
   // Get all chats for the user
-  Future<List<Chat>> getChats() async {
+  Future<List<Chat>> getChats(String token) async {
     try {
       final response = await http.get(
         Uri.parse('$_baseUrl/chats'),
-        headers: {'Authorization': 'Bearer $_authToken'},
+        headers: {'Authorization': 'Bearer $token'},
       );
 
       if (response.statusCode == 200) {
@@ -68,19 +61,21 @@ class ChatService {
       } else {
         throw Exception('Failed to fetch chats: ${response.body}');
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
+      developer.log('Error fetching chats: $e',
+          name: 'ChatService', stackTrace: stackTrace);
       throw Exception('Error fetching chats: $e');
     }
   }
 
   // Get messages for a specific chat
-  Future<List<Message>> getChatMessages(String chatId,
+  Future<List<Message>> getChatMessages(String chatId, String token,
       {int limit = 50, int offset = 0}) async {
     try {
       final response = await http.get(
         Uri.parse(
             '$_baseUrl/chats/$chatId/messages?limit=$limit&offset=$offset'),
-        headers: {'Authorization': 'Bearer $_authToken'},
+        headers: {'Authorization': 'Bearer $token'},
       );
 
       if (response.statusCode == 200) {
@@ -90,13 +85,15 @@ class ChatService {
       } else {
         throw Exception('Failed to fetch messages: ${response.body}');
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
+      developer.log('Error fetching messages: $e',
+          name: 'ChatService', stackTrace: stackTrace);
       throw Exception('Error fetching messages: $e');
     }
   }
 
   // Send text message
-  Future<Message> sendTextMessage(String chatId, String content,
+  Future<Message> sendTextMessage(String chatId, String content, String token,
       {String? replyToId}) async {
     final message = Message(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
@@ -112,7 +109,7 @@ class ChatService {
       final response = await http.post(
         Uri.parse('$_baseUrl/messages'),
         headers: {
-          'Authorization': 'Bearer $_authToken',
+          'Authorization': 'Bearer $token',
           'Content-Type': 'application/json',
         },
         body: jsonEncode({
@@ -130,15 +127,18 @@ class ChatService {
       } else {
         throw Exception('Failed to send message: ${response.body}');
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
+      developer.log('Error sending message: $e',
+          name: 'ChatService', stackTrace: stackTrace);
       throw Exception('Error sending message: $e');
     }
   }
 
   // Send media message (photo/video)
-  Future<Message> sendMediaMessage(String chatId, File file, MessageType type,
+  Future<Message> sendMediaMessage(
+      String chatId, File file, MessageType type, String token,
       {String? caption}) async {
-    final mediaUrl = await _uploadMedia(file, type);
+    final mediaUrl = await _uploadMedia(file, type, token);
 
     final metadata = MediaMetadata(
       fileName: file.path.split('/').last,
@@ -159,7 +159,7 @@ class ChatService {
       final response = await http.post(
         Uri.parse('$_baseUrl/messages'),
         headers: {
-          'Authorization': 'Bearer $_authToken',
+          'Authorization': 'Bearer $token',
           'Content-Type': 'application/json',
         },
         body: jsonEncode({
@@ -177,15 +177,17 @@ class ChatService {
       } else {
         throw Exception('Failed to send media message: ${response.body}');
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
+      developer.log('Error sending media message: $e',
+          name: 'ChatService', stackTrace: stackTrace);
       throw Exception('Error sending media message: $e');
     }
   }
 
   // Send audio message
   Future<Message> sendAudioMessage(
-      String chatId, File audioFile, int duration) async {
-    final audioUrl = await _uploadMedia(audioFile, MessageType.audio);
+      String chatId, File audioFile, int duration, String token) async {
+    final audioUrl = await _uploadMedia(audioFile, MessageType.audio, token);
 
     final metadata = MediaMetadata(
       fileName: audioFile.path.split('/').last,
@@ -207,7 +209,7 @@ class ChatService {
       final response = await http.post(
         Uri.parse('$_baseUrl/messages'),
         headers: {
-          'Authorization': 'Bearer $_authToken',
+          'Authorization': 'Bearer $token',
           'Content-Type': 'application/json',
         },
         body: jsonEncode({
@@ -225,14 +227,17 @@ class ChatService {
       } else {
         throw Exception('Failed to send audio message: ${response.body}');
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
+      developer.log('Error sending audio message: $e',
+          name: 'ChatService', stackTrace: stackTrace);
       throw Exception('Error sending audio message: $e');
     }
   }
 
   // Send file message
-  Future<Message> sendFileMessage(String chatId, File file) async {
-    final fileUrl = await _uploadMedia(file, MessageType.file);
+  Future<Message> sendFileMessage(
+      String chatId, File file, String token) async {
+    final fileUrl = await _uploadMedia(file, MessageType.file, token);
 
     final metadata = MediaMetadata(
       fileName: file.path.split('/').last,
@@ -253,7 +258,7 @@ class ChatService {
       final response = await http.post(
         Uri.parse('$_baseUrl/messages'),
         headers: {
-          'Authorization': 'Bearer $_authToken',
+          'Authorization': 'Bearer $token',
           'Content-Type': 'application/json',
         },
         body: jsonEncode({
@@ -271,14 +276,16 @@ class ChatService {
       } else {
         throw Exception('Failed to send file message: ${response.body}');
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
+      developer.log('Error sending file message: $e',
+          name: 'ChatService', stackTrace: stackTrace);
       throw Exception('Error sending file message: $e');
     }
   }
 
   // Send location message
   Future<Message> sendLocationMessage(
-      String chatId, double latitude, double longitude,
+      String chatId, double latitude, double longitude, String token,
       {String? address, String? name}) async {
     final metadata = LocationMetadata(
       latitude: latitude,
@@ -301,7 +308,7 @@ class ChatService {
       final response = await http.post(
         Uri.parse('$_baseUrl/messages'),
         headers: {
-          'Authorization': 'Bearer $_authToken',
+          'Authorization': 'Bearer $token',
           'Content-Type': 'application/json',
         },
         body: jsonEncode({
@@ -319,13 +326,15 @@ class ChatService {
       } else {
         throw Exception('Failed to send location message: ${response.body}');
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
+      developer.log('Error sending location message: $e',
+          name: 'ChatService', stackTrace: stackTrace);
       throw Exception('Error sending location message: $e');
     }
   }
 
   // Send contact message
-  Future<Message> sendContactMessage(String chatId, String name,
+  Future<Message> sendContactMessage(String chatId, String name, String token,
       {String? phoneNumber, String? email, String? avatar}) async {
     final metadata = ContactMetadata(
       name: name,
@@ -348,7 +357,7 @@ class ChatService {
       final response = await http.post(
         Uri.parse('$_baseUrl/messages'),
         headers: {
-          'Authorization': 'Bearer $_authToken',
+          'Authorization': 'Bearer $token',
           'Content-Type': 'application/json',
         },
         body: jsonEncode({
@@ -366,14 +375,16 @@ class ChatService {
       } else {
         throw Exception('Failed to send contact message: ${response.body}');
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
+      developer.log('Error sending contact message: $e',
+          name: 'ChatService', stackTrace: stackTrace);
       throw Exception('Error sending contact message: $e');
     }
   }
 
   // Send GIF or sticker
   Future<Message> sendGifMessage(
-      String chatId, String gifUrl, MessageType type) async {
+      String chatId, String gifUrl, MessageType type, String token) async {
     final message = Message(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
       chatId: chatId,
@@ -387,7 +398,7 @@ class ChatService {
       final response = await http.post(
         Uri.parse('$_baseUrl/messages'),
         headers: {
-          'Authorization': 'Bearer $_authToken',
+          'Authorization': 'Bearer $token',
           'Content-Type': 'application/json',
         },
         body: jsonEncode({
@@ -404,19 +415,22 @@ class ChatService {
       } else {
         throw Exception('Failed to send GIF/sticker message: ${response.body}');
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
+      developer.log('Error sending GIF/sticker message: $e',
+          name: 'ChatService', stackTrace: stackTrace);
       throw Exception('Error sending GIF/sticker message: $e');
     }
   }
 
   // Create a new chat
-  Future<Chat> createChat(String name, List<String> participants, ChatType type,
+  Future<Chat> createChat(
+      String name, List<String> participants, ChatType type, String token,
       {String? description, String? avatar}) async {
     try {
       final response = await http.post(
         Uri.parse('$_baseUrl/chats'),
         headers: {
-          'Authorization': 'Bearer $_authToken',
+          'Authorization': 'Bearer $token',
           'Content-Type': 'application/json',
         },
         body: jsonEncode({
@@ -436,33 +450,37 @@ class ChatService {
       } else {
         throw Exception('Failed to create chat: ${response.body}');
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
+      developer.log('Error creating chat: $e',
+          name: 'ChatService', stackTrace: stackTrace);
       throw Exception('Error creating chat: $e');
     }
   }
 
   // Join a chat
-  Future<void> joinChat(String chatId) async {
+  Future<void> joinChat(String chatId, String token) async {
     try {
       final response = await http.post(
         Uri.parse('$_baseUrl/chats/$chatId/join'),
-        headers: {'Authorization': 'Bearer $_authToken'},
+        headers: {'Authorization': 'Bearer $token'},
       );
 
       if (response.statusCode != 200) {
         throw Exception('Failed to join chat: ${response.body}');
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
+      developer.log('Error joining chat: $e',
+          name: 'ChatService', stackTrace: stackTrace);
       throw Exception('Error joining chat: $e');
     }
   }
 
   // Leave a chat
-  Future<void> leaveChat(String chatId) async {
+  Future<void> leaveChat(String chatId, String token) async {
     try {
       final response = await http.post(
         Uri.parse('$_baseUrl/chats/$chatId/leave'),
-        headers: {'Authorization': 'Bearer $_authToken'},
+        headers: {'Authorization': 'Bearer $token'},
       );
 
       if (response.statusCode == 200) {
@@ -471,19 +489,21 @@ class ChatService {
       } else {
         throw Exception('Failed to leave chat: ${response.body}');
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
+      developer.log('Error leaving chat: $e',
+          name: 'ChatService', stackTrace: stackTrace);
       throw Exception('Error leaving chat: $e');
     }
   }
 
   // Mark messages as read
   Future<void> markMessagesAsRead(
-      String chatId, List<String> messageIds) async {
+      String chatId, List<String> messageIds, String token) async {
     try {
       final response = await http.post(
         Uri.parse('$_baseUrl/chats/$chatId/mark-read'),
         headers: {
-          'Authorization': 'Bearer $_authToken',
+          'Authorization': 'Bearer $token',
           'Content-Type': 'application/json',
         },
         body: jsonEncode({'messageIds': messageIds}),
@@ -502,17 +522,20 @@ class ChatService {
       } else {
         throw Exception('Failed to mark messages as read: ${response.body}');
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
+      developer.log('Error marking messages as read: $e',
+          name: 'ChatService', stackTrace: stackTrace);
       throw Exception('Error marking messages as read: $e');
     }
   }
 
   // Delete a message
-  Future<void> deleteMessage(String chatId, String messageId) async {
+  Future<void> deleteMessage(
+      String chatId, String messageId, String token) async {
     try {
       final response = await http.delete(
         Uri.parse('$_baseUrl/messages/$messageId'),
-        headers: {'Authorization': 'Bearer $_authToken'},
+        headers: {'Authorization': 'Bearer $token'},
       );
 
       if (response.statusCode == 200) {
@@ -520,18 +543,21 @@ class ChatService {
       } else {
         throw Exception('Failed to delete message: ${response.body}');
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
+      developer.log('Error deleting message: $e',
+          name: 'ChatService', stackTrace: stackTrace);
       throw Exception('Error deleting message: $e');
     }
   }
 
   // Edit a message
-  Future<Message> editMessage(String messageId, String newContent) async {
+  Future<Message> editMessage(
+      String messageId, String newContent, String token) async {
     try {
       final response = await http.patch(
         Uri.parse('$_baseUrl/messages/$messageId'),
         headers: {
-          'Authorization': 'Bearer $_authToken',
+          'Authorization': 'Bearer $token',
           'Content-Type': 'application/json',
         },
         body: jsonEncode({'content': newContent}),
@@ -554,7 +580,9 @@ class ChatService {
       } else {
         throw Exception('Failed to edit message: ${response.body}');
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
+      developer.log('Error editing message: $e',
+          name: 'ChatService', stackTrace: stackTrace);
       throw Exception('Error editing message: $e');
     }
   }
@@ -562,12 +590,12 @@ class ChatService {
   // Start a call (placeholder, as call handling depends on WebRTC or similar)
   Future<void> startCall(String chatId, String callType,
       {bool isGroup = false}) async {
-    // Implement call initiation logic (e.g., WebRTC signaling)
-    print('Starting $callType call in chat: $chatId (group: $isGroup)');
+    developer.log('Starting $callType call in chat: $chatId (group: $isGroup)',
+        name: 'ChatService');
   }
 
   // Update _uploadMedia for more MIME type handling
-  Future<String> _uploadMedia(File file, MessageType type) async {
+  Future<String> _uploadMedia(File file, MessageType type, String token) async {
     try {
       final fileBytes = await file.readAsBytes();
       final base64File = base64Encode(fileBytes);
@@ -594,7 +622,7 @@ class ChatService {
       final response = await http.post(
         Uri.parse('$_baseUrl/upload'),
         headers: {
-          'Authorization': 'Bearer $_authToken',
+          'Authorization': 'Bearer $token',
           'Content-Type': 'application/json',
         },
         body: jsonEncode({
@@ -610,23 +638,29 @@ class ChatService {
       } else {
         throw Exception('Failed to upload media: ${response.body}');
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
+      developer.log('Error uploading media: $e',
+          name: 'ChatService', stackTrace: stackTrace);
       throw Exception('Error uploading media: $e');
     }
   }
 
   // Connect to chat for real-time updates
   void connectToChat(String chatId) {
-    // Real-time subscription is handled by _setupRealtime
-    print('Connecting to chat: $chatId');
+    developer.log('Connecting to chat: $chatId', name: 'ChatService');
   }
 
   // Disconnect from chat
   void disconnectFromChat(String chatId) {
-    // Unsubscribe if needed
-    print('Disconnecting from chat: $chatId');
+    developer.log('Disconnecting from chat: $chatId', name: 'ChatService');
   }
 
+  // Stream for new messages
+  Stream<Message> get messageStream {
+    return _messageStreamController.stream;
+  }
+
+  // Dispose method to clean up resources
   void dispose() {
     _messageChannel?.unsubscribe();
     _messageStreamController.close();

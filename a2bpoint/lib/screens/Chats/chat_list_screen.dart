@@ -1,8 +1,8 @@
-// lib/screens/chat_list_screen.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../models/chat.dart';
 import '../../providers/chat_provider.dart';
+import '../../providers/auth_provider.dart'; // Import AuthProvider
 import 'chat_screen.dart';
 import 'create_chat_screen.dart';
 
@@ -11,7 +11,8 @@ class ChatListScreen extends StatefulWidget {
   _ChatListScreenState createState() => _ChatListScreenState();
 }
 
-class _ChatListScreenState extends State<ChatListScreen> with SingleTickerProviderStateMixin {
+class _ChatListScreenState extends State<ChatListScreen>
+    with SingleTickerProviderStateMixin {
   late TabController _tabController;
   final TextEditingController _searchController = TextEditingController();
   bool _isSearching = false;
@@ -21,9 +22,19 @@ class _ChatListScreenState extends State<ChatListScreen> with SingleTickerProvid
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
-    
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<ChatProvider>().initialize();
+      final authProvider = context.read<AuthProvider>();
+      final token = authProvider.token;
+      if (token != null) {
+        context.read<ChatProvider>().initialize().then((_) {
+          context
+              .read<ChatProvider>()
+              .loadChats(token); // Load chats after init
+        });
+      } else {
+        Navigator.pushReplacementNamed(context, '/login');
+      }
     });
   }
 
@@ -57,21 +68,45 @@ class _ChatListScreenState extends State<ChatListScreen> with SingleTickerProvid
 
   @override
   Widget build(BuildContext context) {
+    final authProvider = context.watch<AuthProvider>();
+    final token = authProvider.token;
+
+    if (token == null) {
+      return Scaffold(
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.lock, size: 64, color: Colors.grey),
+              SizedBox(height: 16),
+              Text('Пожалуйста, войдите в систему'),
+              SizedBox(height: 16),
+              ElevatedButton(
+                onPressed: () =>
+                    Navigator.pushReplacementNamed(context, '/login'),
+                child: Text('Войти'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     return Scaffold(
       appBar: AppBar(
-        title: _isSearching 
-          ? TextField(
-              controller: _searchController,
-              autofocus: true,
-              decoration: InputDecoration(
-                hintText: 'Поиск чатов...',
-                border: InputBorder.none,
-                hintStyle: TextStyle(color: Colors.white70),
-              ),
-              style: TextStyle(color: Colors.white),
-              onChanged: _onSearchChanged,
-            )
-          : Text('Чаты'),
+        title: _isSearching
+            ? TextField(
+                controller: _searchController,
+                autofocus: true,
+                decoration: InputDecoration(
+                  hintText: 'Поиск чатов...',
+                  border: InputBorder.none,
+                  hintStyle: TextStyle(color: Colors.white70),
+                ),
+                style: TextStyle(color: Colors.white),
+                onChanged: _onSearchChanged,
+              )
+            : Text('Чаты'),
         backgroundColor: Theme.of(context).primaryColor,
         foregroundColor: Colors.white,
         actions: [
@@ -95,7 +130,7 @@ class _ChatListScreenState extends State<ChatListScreen> with SingleTickerProvid
                     _createNewChat(ChatType.conference);
                     break;
                   case 'settings':
-                    // Navigate to settings
+                    Navigator.pushNamed(context, '/settings');
                     break;
                 }
               },
@@ -134,17 +169,19 @@ class _ChatListScreenState extends State<ChatListScreen> with SingleTickerProvid
             ),
           ],
         ],
-        bottom: _isSearching ? null : TabBar(
-          controller: _tabController,
-          indicatorColor: Colors.white,
-          labelColor: Colors.white,
-          unselectedLabelColor: Colors.white70,
-          tabs: [
-            Tab(text: 'Все'),
-            Tab(text: 'Непрочитанные'),
-            Tab(text: 'Архив'),
-          ],
-        ),
+        bottom: _isSearching
+            ? null
+            : TabBar(
+                controller: _tabController,
+                indicatorColor: Colors.white,
+                labelColor: Colors.white,
+                unselectedLabelColor: Colors.white70,
+                tabs: [
+                  Tab(text: 'Все'),
+                  Tab(text: 'Непрочитанные'),
+                  Tab(text: 'Архив'),
+                ],
+              ),
       ),
       body: Consumer<ChatProvider>(
         builder: (context, chatProvider, child) {
@@ -167,7 +204,7 @@ class _ChatListScreenState extends State<ChatListScreen> with SingleTickerProvid
                   Text(chatProvider.error!),
                   SizedBox(height: 16),
                   ElevatedButton(
-                    onPressed: () => chatProvider.loadChats(),
+                    onPressed: () => chatProvider.loadChats(token),
                     child: Text('Повторить'),
                   ),
                 ],
@@ -243,6 +280,8 @@ class _ChatListScreenState extends State<ChatListScreen> with SingleTickerProvid
   }
 
   Widget _buildChatTile(Chat chat) {
+    final token = context.read<AuthProvider>().token!;
+
     return Dismissible(
       key: Key(chat.id),
       background: Container(
@@ -263,34 +302,37 @@ class _ChatListScreenState extends State<ChatListScreen> with SingleTickerProvid
           context.read<ChatProvider>().toggleChatArchive(chat.id);
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text(chat.isArchived ? 'Чат разархивирован' : 'Чат архивирован'),
+              content: Text(
+                  chat.isArchived ? 'Чат разархивирован' : 'Чат архивирован'),
             ),
           );
           return false;
         } else {
           // Delete
           return await showDialog<bool>(
-            context: context,
-            builder: (context) => AlertDialog(
-              title: Text('Удалить чат?'),
-              content: Text('Это действие нельзя отменить.'),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context, false),
-                  child: Text('Отмена'),
+                context: context,
+                builder: (context) => AlertDialog(
+                  title: Text('Удалить чат?'),
+                  content: Text('Это действие нельзя отменить.'),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context, false),
+                      child: Text('Отмена'),
+                    ),
+                    TextButton(
+                      onPressed: () => Navigator.pop(context, true),
+                      child:
+                          Text('Удалить', style: TextStyle(color: Colors.red)),
+                    ),
+                  ],
                 ),
-                TextButton(
-                  onPressed: () => Navigator.pop(context, true),
-                  child: Text('Удалить', style: TextStyle(color: Colors.red)),
-                ),
-              ],
-            ),
-          ) ?? false;
+              ) ??
+              false;
         }
       },
       onDismissed: (direction) {
         if (direction == DismissDirection.endToStart) {
-          context.read<ChatProvider>().leaveChat(chat.id);
+          context.read<ChatProvider>().leaveChat(chat.id, token);
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('Чат удален')),
           );
@@ -301,15 +343,15 @@ class _ChatListScreenState extends State<ChatListScreen> with SingleTickerProvid
           children: [
             CircleAvatar(
               radius: 25,
-              backgroundImage: chat.avatar != null 
-                ? NetworkImage(chat.avatar!) 
-                : null,
-              child: chat.avatar == null 
-                ? Text(
-                    _getChatInitials(chat.name),
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                  )
-                : null,
+              backgroundImage:
+                  chat.avatar != null ? NetworkImage(chat.avatar!) : null,
+              child: chat.avatar == null
+                  ? Text(
+                      _getChatInitials(chat.name),
+                      style:
+                          TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    )
+                  : null,
             ),
             if (chat.type == ChatType.group)
               Positioned(
@@ -360,9 +402,9 @@ class _ChatListScreenState extends State<ChatListScreen> with SingleTickerProvid
               child: Text(
                 chat.name,
                 style: TextStyle(
-                  fontWeight: chat.unreadCount > 0 
-                    ? FontWeight.bold 
-                    : FontWeight.normal,
+                  fontWeight: chat.unreadCount > 0
+                      ? FontWeight.bold
+                      : FontWeight.normal,
                 ),
                 overflow: TextOverflow.ellipsis,
               ),
@@ -381,10 +423,12 @@ class _ChatListScreenState extends State<ChatListScreen> with SingleTickerProvid
                 child: Text(
                   chat.lastMessage!,
                   style: TextStyle(
-                    color: chat.unreadCount > 0 ? Colors.black87 : Colors.grey[600],
-                    fontWeight: chat.unreadCount > 0 
-                      ? FontWeight.w500 
-                      : FontWeight.normal,
+                    color: chat.unreadCount > 0
+                        ? Colors.black87
+                        : Colors.grey[600],
+                    fontWeight: chat.unreadCount > 0
+                        ? FontWeight.w500
+                        : FontWeight.normal,
                   ),
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -407,13 +451,13 @@ class _ChatListScreenState extends State<ChatListScreen> with SingleTickerProvid
               Text(
                 _formatTime(chat.lastMessageTime!),
                 style: TextStyle(
-                  color: chat.unreadCount > 0 
-                    ? Theme.of(context).primaryColor
-                    : Colors.grey[600],
+                  color: chat.unreadCount > 0
+                      ? Theme.of(context).primaryColor
+                      : Colors.grey[600],
                   fontSize: 12,
-                  fontWeight: chat.unreadCount > 0 
-                    ? FontWeight.bold 
-                    : FontWeight.normal,
+                  fontWeight: chat.unreadCount > 0
+                      ? FontWeight.bold
+                      : FontWeight.normal,
                 ),
               ),
             SizedBox(height: 2),
@@ -422,6 +466,7 @@ class _ChatListScreenState extends State<ChatListScreen> with SingleTickerProvid
           ],
         ),
         onTap: () {
+          context.read<ChatProvider>().selectChat(chat.id, token);
           Navigator.push(
             context,
             MaterialPageRoute(
@@ -448,7 +493,7 @@ class _ChatListScreenState extends State<ChatListScreen> with SingleTickerProvid
   String _formatTime(DateTime dateTime) {
     final now = DateTime.now();
     final difference = now.difference(dateTime);
-    
+
     if (difference.inDays > 7) {
       return '${dateTime.day}/${dateTime.month}/${dateTime.year}';
     } else if (difference.inDays > 0) {
@@ -470,7 +515,9 @@ class _ChatListScreenState extends State<ChatListScreen> with SingleTickerProvid
         children: [
           ListTile(
             leading: Icon(chat.isMuted ? Icons.volume_up : Icons.volume_off),
-            title: Text(chat.isMuted ? 'Включить уведомления' : 'Отключить уведомления'),
+            title: Text(chat.isMuted
+                ? 'Включить уведомления'
+                : 'Отключить уведомления'),
             onTap: () {
               context.read<ChatProvider>().toggleChatMute(chat.id);
               Navigator.pop(context);
@@ -498,11 +545,13 @@ class _ChatListScreenState extends State<ChatListScreen> with SingleTickerProvid
   }
 
   void _confirmDeleteChat(Chat chat) async {
+    final token = context.read<AuthProvider>().token!;
     final result = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         title: Text('Удалить чат "${chat.name}"?'),
-        content: Text('Это действие нельзя отменить. Все сообщения будут потеряны.'),
+        content:
+            Text('Это действие нельзя отменить. Все сообщения будут потеряны.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -517,7 +566,7 @@ class _ChatListScreenState extends State<ChatListScreen> with SingleTickerProvid
     );
 
     if (result == true) {
-      context.read<ChatProvider>().leaveChat(chat.id);
+      context.read<ChatProvider>().leaveChat(chat.id, token);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Чат удален')),
       );
