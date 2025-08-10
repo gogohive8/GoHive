@@ -707,4 +707,23 @@ class ChatProvider extends ChangeNotifier {
     }
     super.dispose();
   }
+  // Добавьте эти методы в ваш ChatProvider класс
+
+Future<Chat> createDirectChat(String otherUserId, String token) async {
+  try {
+    developer.log('Creating direct chat with user: $otherUserId', 
+        name: 'ChatProvider');
+    
+    final chat = await _chatService.createDirectChat(otherUserId, token);
+    
+    // Добавляем новый чат в список
+    _chats.insert(0, chat);
+    notifyListeners();
+    
+    return chat;
+  } catch (e) {
+    developer.log('Error creating direct chat: $e', name: 'ChatProvider');
+    throw Exception('Failed to create chat: $e');
+  }
+}
 }

@@ -44,7 +44,36 @@ class ChatService {
         )
         .subscribe();
   }
+  // Добавьте этот метод в ваш ChatService класс
 
+Future<Chat> createDirectChat(String otherUserId, String token) async {
+  try {
+    developer.log('Creating direct chat via API with user: $otherUserId', 
+        name: 'ChatService');
+
+    final response = await http.post(
+      Uri.parse('$_baseUrl/chats/direct'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+      body: json.encode({
+        'participantId': otherUserId,
+      }),
+    );
+
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      final data = json.decode(response.body);
+      return Chat.fromJson(data);
+    } else {
+      final errorData = json.decode(response.body);
+      throw Exception('Failed to create direct chat: ${errorData['error']}');
+    }
+  } catch (e) {
+    developer.log('Error creating direct chat: $e', name: 'ChatService');
+    throw Exception('Failed to create direct chat: $e');
+  }
+}
   // Get all chats for the user - ИСПРАВЛЕНО
   Future<List<Chat>> getChats(String token) async {
     try {

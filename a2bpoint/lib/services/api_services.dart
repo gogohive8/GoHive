@@ -452,20 +452,64 @@ class ApiService {
 
   Future<void> followUser(String userId, String token) async {
     try {
+      developer.log('Following user: $userId', name: 'ApiService');
       final url = Uri.parse('$_baseUrl/profile/$userId/follow');
 
       final response = await http.post(
         url,
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token', // Include the JWT token
+          'Authorization': 'Bearer $token',
         },
       ).timeout(const Duration(seconds: 30));
+      
       await _handleResponse(response);
     } catch (e, stackTrace) {
-      developer.log('Update profile error: $e',
+      developer.log('Follow user error: $e',
           name: 'ApiService', stackTrace: stackTrace);
       rethrow;
+    }
+  }
+
+  Future<void> unfollowUser(String userId, String token) async {
+    try {
+      developer.log('Unfollowing user: $userId', name: 'ApiService');
+      final url = Uri.parse('$_baseUrl/profile/$userId/unfollow');
+
+      final response = await http.post(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      ).timeout(const Duration(seconds: 30));
+      
+      await _handleResponse(response);
+    } catch (e, stackTrace) {
+      developer.log('Unfollow user error: $e',
+          name: 'ApiService', stackTrace: stackTrace);
+      rethrow;
+    }
+  }
+
+  Future<bool> getFollowStatus(String userId, String token) async {
+    try {
+      developer.log('Getting follow status for user: $userId', name: 'ApiService');
+      
+      final response = await _client.get(
+        Uri.parse('$_baseUrl/profile/$userId/follow-status'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      ).timeout(const Duration(seconds: 10));
+      
+      final data = await _handleResponse(response);
+      return data['isFollowing'] ?? false;
+    } catch (e, stackTrace) {
+      developer.log('Get follow status error: $e',
+          name: 'ApiService', stackTrace: stackTrace);
+      return false; // По умолчанию не подписаны
     }
   }
 

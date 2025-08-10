@@ -11,6 +11,7 @@ import '../models/post.dart';
 import 'navbar.dart';
 import '../services/exceptions.dart';
 import 'Home/post_detail_screen.dart';
+import 'Profile/other_user_profile_screen.dart';
 
 class SearchScreen extends StatefulWidget {
   const SearchScreen({super.key});
@@ -663,38 +664,39 @@ class _SearchScreenState extends State<SearchScreen>
   }
 
   Widget _buildPeopleTab() {
-    if (_searchController.text.isEmpty) {
-      return const Center(
-        child: Text(
-          'Enter a search term to find people',
-          style: TextStyle(color: Color(0xFF333333), fontSize: 16),
-        ),
-      );
-    }
-    
-    if (_userResults.isEmpty) {
-      return const Center(
-        child: Text(
-          'No users found',
-          style: TextStyle(color: Color(0xFF333333)),
-        ),
-      );
-    }
-    
-    return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: _userResults.length,
-      itemBuilder: (context, index) {
-        final user = _userResults[index];
-        return _buildUserCard(
-          profileImage: user['profileImage'] ?? '',
-          username: user['username'] ?? 'Unknown',
-          biography: user['biography'] ?? 'No biography',
-          numOfFollowers: user['numOfFollowers'] ?? 0,
-        );
-      },
+  if (_searchController.text.isEmpty) {
+    return const Center(
+      child: Text(
+        'Enter a search term to find people',
+        style: TextStyle(color: Color(0xFF333333), fontSize: 16),
+      ),
     );
   }
+  
+  if (_userResults.isEmpty) {
+    return const Center(
+      child: Text(
+        'No users found',
+        style: TextStyle(color: Color(0xFF333333)),
+      ),
+    );
+  }
+  
+  return ListView.builder(
+    padding: const EdgeInsets.all(16),
+    itemCount: _userResults.length,
+    itemBuilder: (context, index) {
+      final user = _userResults[index];
+      return _buildUserCard(
+        profileImage: user['profileImage'] ?? '',
+        username: user['username'] ?? 'Unknown',
+        biography: user['biography'] ?? 'No biography',
+        numOfFollowers: user['numOfFollowers'] ?? 0,
+        userId: user['userId'] ?? user['id'], // Передаем userId
+      );
+    },
+  );
+}
 
   Widget _buildPostCard(Post post, String type) {
     return Card(
@@ -945,16 +947,40 @@ class _SearchScreenState extends State<SearchScreen>
   }
 
   Widget _buildUserCard({
-    required String profileImage,
-    required String username,
-    required String biography,
-    required int numOfFollowers,
-  }) {
-    return Card(
-      color: const Color(0xFFDDDDDD),
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      margin: const EdgeInsets.only(bottom: 16.0),
+  required String profileImage,
+  required String username,
+  required String biography,
+  required int numOfFollowers,
+  String? userId, // Добавляем userId параметр
+}) {
+  return Card(
+    color: const Color(0xFFDDDDDD),
+    elevation: 2,
+    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+    margin: const EdgeInsets.only(bottom: 16.0),
+    child: InkWell(
+      onTap: () {
+        // Навигация к профилю пользователя
+        if (userId != null && userId.isNotEmpty) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => OtherUserProfileScreen(
+                userId: userId,
+                username: username,
+              ),
+            ),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('User profile not available'),
+              backgroundColor: Colors.orange,
+            ),
+          );
+        }
+      },
+      borderRadius: BorderRadius.circular(12),
       child: Padding(
         padding: const EdgeInsets.all(12.0),
         child: Row(
@@ -1005,9 +1031,11 @@ class _SearchScreenState extends State<SearchScreen>
                 ],
               ),
             ),
+            // Иконка для быстрого добавления в друзья (опционально)
             IconButton(
               icon: const Icon(Icons.person_add, color: Color(0xFFAFCBEA)),
               onPressed: () {
+                // Здесь можно добавить функционал подписки
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(content: Text('Following $username')),
                 );
@@ -1016,6 +1044,7 @@ class _SearchScreenState extends State<SearchScreen>
           ],
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 }
