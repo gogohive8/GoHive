@@ -134,31 +134,31 @@ app.post('/api/generate-goal', verifyToken, async (req, res) => {
     const goalPattern = /\*\*Goal Description:\*\*|\bGoal Description:/i;
     if (goalPattern.test(aiMessage)) {
       // Parse the AI response to extract goal components
-      const goalMatch = aiMessage.match(/(?:\*\*Goal Description:\*\*|\bGoal Description:) (.*?)(?:\n|$)/i);
-      const pointAMatch = aiMessage.match(/(?:\*\*Point A:\*\*|\bPoint A:) (.*?)(?:\n|$)/i);
-      const pointBMatch = aiMessage.match(/(?:\*\*Point B:\*\*|\bPoint B:) (.*?)(?:\n|$)/i);
-      const stepsMatch = aiMessage.match(/(?:\*\*Steps:\*\*|\bSteps:) (.*?)(?:\n|$)/i);
-      const tipsMatch = aiMessage.match(/(?:\*\*Tips:\*\*|\bTips:) (.*?)(?:\n|$)/i);
+      const goalMatch = aiMessage.match(/(?:\*\*Goal Description:\*\*|\bGoal Description:) ((?:.|\n)*?)(?:\n\n|$)/i);
+      const pointAMatch = aiMessage.match(/(?:\*\*Point A.*?:\*\*|\bPoint A.*?:) ((?:.|\n)*?)(?:\n\n|$)/i);
+      const pointBMatch = aiMessage.match(/(?:\*\*Point B.*?:\*\*|\bPoint B.*?:) ((?:.|\n)*?)(?:\n\n|$)/i);
+      // Updated regex for steps and tips to capture multi-line content
+      const stepsMatch = aiMessage.match(/(?:\*\*Steps:\*\*|\bSteps:) ((?:.|\n)*?)(?:\n\n|$)/i);
+      const tipsMatch = aiMessage.match(/(?:\*\*Tips.*?:\*\*|\bTips.*?:) ((?:.|\n)*?)(?:\n\n|$)/i);
 
-      // Parse steps and tips as lists (handle semicolons, numbered lists, or plain text)
+      // Updated parseList function
       const parseList = (text) => {
-        if (!text) return [];
-        // Split by semicolons or newlines, or treat as single item
-        if (text.includes(';')) {
-          return text.split(';').map(s => s.trim()).filter(s => s);
-        }
-        if (text.match(/\d+\./)) {
-          return text.split(/\d+\.\s*/).map(s => s.trim()).filter(s => s);
-        }
-        return [text.trim()];
-      };
+      if (!text) return [];
+      // Handle numbered lists, newlines, or single items
+      if (text.match(/\d+\./)) {
+        return text.split(/\n/).map(s => s.replace(/^\d+\.\s*/, '').trim()).filter(s => s);
+      }
+      if (text.includes(';')) {
+        return text.split(';').map(s => s.trim()).filter(s => s);
+      }
+      return [text.trim()];
+    };
 
       const goalData = {
         description: goalMatch ? goalMatch[1].trim() : '',
         pointA: pointAMatch ? pointAMatch[1].trim() : '',
         pointB: pointBMatch ? pointBMatch[1].trim() : '',
         steps: stepsMatch ? stepsMatch[1].split(';').map(s => s.trim()) : [],
-        tips: tipsMatch ? tipsMatch[1].split(';').map(s => s.trim()) : [],
       };
 
       // Clear conversation history after goal is saved
@@ -237,14 +237,27 @@ app.post('/api/generate-event', verifyToken, async (req, res) => {
     const eventPattern = /\*\*Description:\*\*|\bDescription:/i;
     if (eventPattern.test(aiMessage)) {
       // Parse the AI response to extract event components
-      const descriptionMatch = aiMessage.match(/(?:\*\*Description:\*\*|\bDescription:) (.*?)(?:\n|$)/i);
-      const dateTimeMatch = aiMessage.match(/(?:\*\*Date and Time:\*\*|\bDate and Time:) (.*?)(?:\n|$)/i);
+      const descriptionMatch = aiMessage.match(/(?:\*\*Description:\*\*|\bDescription:) ((?:.|\n)*?)(?:\n\n|$)/i);
+      const dateTimeMatch = aiMessage.match(/(?:\*\*Date and Time:\*\*|\bDate and Time:) ((?:.|\n)*?)(?:\n\n|$)/i);
+      const stepsMatch = aiMessage.match(/(?:\*\*Steps:\*\*|\bSteps:) ((?:.|\n)*?)(?:\n\n|$)/i);
+      const tipsMatch = aiMessage.match(/(?:\*\*Tips.*?:\*\*|\bTips.*?:) ((?:.|\n)*?)(?:\n\n|$)/i);
 
-      const eventData = {
-        description: descriptionMatch ? descriptionMatch[1].trim() : '',
-        date_time: dateTimeMatch ? dateTimeMatch[1].trim() : '',
+      // Function to parse lists (handles numbered lists, semicolons, or single items)
+      const parseList = (text) => {
+        if (!text) return [];
+        if (text.match(/\d+\./)) {
+          return text.split(/\n/).map(s => s.replace(/^\d+\.\s*/, '').trim()).filter(s => s);
+        }
+        if (text.includes(';')) {
+          return text.split(';').map(s => s.trim()).filter(s => s);
+        }
+        return [text.trim()];
       };
 
+    const eventData = {
+      description: descriptionMatch ? descriptionMatch[1].trim() : '',
+      date_time: dateTimeMatch ? dateTimeMatch[1].trim() : '',
+    };
       // Clear conversation history after event is generated
       conversationHistory.delete(user_id);
 
