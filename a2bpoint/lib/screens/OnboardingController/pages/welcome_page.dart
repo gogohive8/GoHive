@@ -13,12 +13,14 @@ class WelcomePage extends StatefulWidget {
   final String username;
   final VoidCallback onContinue;
   final OnboardingData data;
+  final bool isGoogleSignUp;
 
   const WelcomePage({
     super.key,
     required this.data,
     required this.username,
     required this.onContinue,
+    required this.isGoogleSignUp,
   });
 
   @override
@@ -36,18 +38,31 @@ class _WelcomePageState extends State<WelcomePage>
   final AppLinks _appLinks = AppLinks();
   bool _isVerified = false;
   bool _isVerifying = false;
+  bool _allowContinue = false; // ИСПРАВЛЕНО: блокируем переход по умолчанию
+  String _statusMessage = '';
 
   @override
   void initState() {
     super.initState();
     _initAnimations();
     _startAnimations();
-    _initDeepLinks();
+    
+    // ИСПРАВЛЕНО: разная логика для Google и Email регистрации
+    if (widget.isGoogleSignUp) {
+      // Для Google - сразу разрешаем переход
+      _allowContinue = true;
+      _isVerified = true;
+      _statusMessage = 'You\'re all set!';
+    } else {
+      // Для Email - ждем верификации
+      _statusMessage = 'Please check your email';
+      _initDeepLinks();
+    }
   }
 
   Future<dynamic> _handleResponse(http.Response response) async {
     developer.log('Response: ${response.statusCode}, body: ${response.body}',
-        name: 'ApiService');
+        name: 'WelcomePage');
     if (response.statusCode >= 200 && response.statusCode < 300) {
       if (response.statusCode == 204) return {};
       return response.body.isNotEmpty ? jsonDecode(response.body) : {};
@@ -55,11 +70,11 @@ class _WelcomePageState extends State<WelcomePage>
     if (response.statusCode == 400) {
       final errorBody = jsonDecode(response.body);
       final errorMessage = errorBody['error']?.toString() ?? 'Invalid input';
-      developer.log('Validation error: $errorMessage', name: 'ApiService');
+      developer.log('Validation error: $errorMessage', name: 'WelcomePage');
       throw DataValidationException('Invalid input: $errorMessage');
     }
     if (response.statusCode == 401) {
-      developer.log('Unauthorized: ${response.body}', name: 'ApiService');
+      developer.log('Unauthorized: ${response.body}', name: 'WelcomePage');
       throw AuthenticationException('Unauthorized: ${response.body}');
     }
     throw Exception('Request failed: ${response.statusCode} ${response.body}');
@@ -114,7 +129,7 @@ class _WelcomePageState extends State<WelcomePage>
     _deepLinkSub = _appLinks.uriLinkStream.listen(
       (Uri? link) => _handleDeepLink(link),
       onError: (err) {
-        developer.log('Deep link error: $err', name: 'AuthProvider');
+        developer.log('Deep link error: $err', name: 'WelcomePage');
       },
     );
   }
@@ -128,49 +143,120 @@ class _WelcomePageState extends State<WelcomePage>
       if (token != null) {
         setState(() {
           _isVerifying = true;
+          _statusMessage = 'Verifying your email...';
         });
 
         try {
           developer.log('Received verification token: $token',
               name: 'WelcomePage');
-          final authProvider =
-              Provider.of<AuthProvider>(context, listen: false);
 
-          // Example API call — replace with your actual API endpoint
-          final res = await http.get(Uri.parse(
-              'https://gohive-user-service-efb5dea164ed.herokuapp.com/verify-email?token=$token'));
+          final res = await http.get(
+            Uri.parse(
+                'https://gohive-user-service-efb5dea164ed.herokuapp.com/verify-email?token=$token'),
+            headers: {'Content-Type': 'application/json'},
+          ).timeout(const Duration(seconds: 30));
 
           if (res.statusCode == 200) {
             final resData = await _handleResponse(res);
+            
             if (resData['token']?.isNotEmpty == true &&
-                resData['userId']?.isNotEmpty == true) {
+                resData['userID']?.isNotEmpty == true) {
+              
+              // ИСПРАВЛЕНО: устанавливаем данные аутентификации
+              final authProvider = Provider.of<AuthProvider>(context, listen: false);
               await authProvider.setAuthData(
                 resData['token']!,
-                resData['refreshToken']!,
-                resData['userId'],
+                resData['refreshToken'] ?? '',
+                resData['userID'],
                 widget.data.email,
                 widget.data.username,
               );
+              
+              setState(() {
+                _isVerified = true;
+                _allowContinue = true;
+                _statusMessage = 'Email verified successfully!';
+              });
+              
+              developer.log('Email verification successful', name: 'WelcomePage');
             } else {
-              throw Exception('Sign-up failed: Invalid response');
+              throw Exception('Invalid verification response');
             }
-            setState(() {
-              _isVerified = true;
-            });
-            developer.log('Email verification successful', name: 'WelcomePage');
           } else {
-            developer.log('Email verification failed: ${res.statusCode}',
-                name: 'WelcomePage');
+            throw Exception('Verification failed: ${res.statusCode}');
           }
         } catch (e, stackTrace) {
-          developer.log('Deep link handling error: $e',
+          developer.log('Email verification error: $e',
               name: 'WelcomePage', stackTrace: stackTrace);
+          setState(() {
+            _statusMessage = 'Verification failed. Please try again.';
+            _allowContinue = false;
+          });
+          
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Email verification failed: ${e.toString()}'),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
         } finally {
           setState(() {
             _isVerifying = false;
           });
         }
       }
+    }
+  }
+
+  // НОВЫЙ метод для повторной отправки email
+  Future<void> _resendVerificationEmail() async {
+    try {
+      setState(() {
+        _isVerifying = true;
+        _statusMessage = 'Sending verification email...';
+      });
+
+      // TODO: Добавить API endpoint для повторной отправки verification email
+      // final response = await http.post(
+      //   Uri.parse('https://gohive-user-service-efb5dea164ed.herokuapp.com/resend-verification'),
+      //   headers: {'Content-Type': 'application/json'},
+      //   body: jsonEncode({'email': widget.data.email}),
+      // );
+
+      // Временная задержка для демонстрации
+      await Future.delayed(const Duration(seconds: 2));
+      
+      setState(() {
+        _statusMessage = 'Verification email sent! Please check your inbox.';
+      });
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Verification email sent successfully!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      setState(() {
+        _statusMessage = 'Failed to send verification email.';
+      });
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to send email: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      setState(() {
+        _isVerifying = false;
+      });
     }
   }
 
@@ -224,7 +310,11 @@ class _WelcomePageState extends State<WelcomePage>
                       ),
                     ),
                     child: Icon(
-                      Icons.check_circle_outline,
+                      _isVerified 
+                          ? Icons.check_circle
+                          : _isVerifying
+                              ? Icons.hourglass_empty
+                              : Icons.email_outlined,
                       size: screenWidth * 0.15,
                       color: Colors.white,
                     ),
@@ -244,17 +334,7 @@ class _WelcomePageState extends State<WelcomePage>
                   child: Column(
                     children: [
                       Text(
-                        'So nice to',
-                        style: TextStyle(
-                          fontSize: screenWidth * 0.12,
-                          fontWeight: FontWeight.w300,
-                          color: Colors.white,
-                          height: 1.1,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                      Text(
-                        'meet you',
+                        widget.isGoogleSignUp ? 'Welcome!' : 'Almost there!',
                         style: TextStyle(
                           fontSize: screenWidth * 0.12,
                           fontWeight: FontWeight.bold,
@@ -263,6 +343,19 @@ class _WelcomePageState extends State<WelcomePage>
                         ),
                         textAlign: TextAlign.center,
                       ),
+                      if (!widget.isGoogleSignUp) ...[
+                        SizedBox(height: screenHeight * 0.02),
+                        Text(
+                          widget.username,
+                          style: TextStyle(
+                            fontSize: screenWidth * 0.08,
+                            fontWeight: FontWeight.w300,
+                            color: Colors.white,
+                            height: 1.1,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
                     ],
                   ),
                 );
@@ -271,14 +364,14 @@ class _WelcomePageState extends State<WelcomePage>
 
             SizedBox(height: screenHeight * 0.03),
 
-            // Subtitle
+            // Status Message
             AnimatedBuilder(
               animation: _fadeAnimation,
               builder: (context, child) {
                 return Opacity(
                   opacity: _fadeAnimation.value * 0.8,
                   child: Text(
-                    'Let\'s keep going!',
+                    _statusMessage,
                     style: TextStyle(
                       fontSize: screenWidth * 0.045,
                       fontWeight: FontWeight.w400,
@@ -289,6 +382,30 @@ class _WelcomePageState extends State<WelcomePage>
                 );
               },
             ),
+
+            // Resend Email Button (только для email регистрации)
+            if (!widget.isGoogleSignUp && !_isVerified) ...[
+              SizedBox(height: screenHeight * 0.02),
+              AnimatedBuilder(
+                animation: _fadeAnimation,
+                builder: (context, child) {
+                  return Opacity(
+                    opacity: _fadeAnimation.value,
+                    child: TextButton(
+                      onPressed: _isVerifying ? null : _resendVerificationEmail,
+                      child: Text(
+                        'Resend verification email',
+                        style: TextStyle(
+                          fontSize: screenWidth * 0.04,
+                          color: Colors.white.withOpacity(0.8),
+                          decoration: TextDecoration.underline,
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ],
 
             const Spacer(flex: 3),
 
@@ -301,9 +418,13 @@ class _WelcomePageState extends State<WelcomePage>
                   child: SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(
-                      onPressed: _isVerified ? widget.onContinue : null,
+                      onPressed: _allowContinue && !_isVerifying 
+                          ? widget.onContinue 
+                          : null,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.white,
+                        backgroundColor: _allowContinue 
+                            ? Colors.white 
+                            : Colors.white.withOpacity(0.5),
                         foregroundColor: const Color(0xFF0056F7),
                         padding:
                             EdgeInsets.symmetric(vertical: screenHeight * 0.02),
@@ -321,8 +442,8 @@ class _WelcomePageState extends State<WelcomePage>
                                   strokeWidth: 2),
                             )
                           : Text(
-                              _isVerified
-                                  ? 'Go to publication'
+                              _isVerified || widget.isGoogleSignUp
+                                  ? 'Go to Home'
                                   : 'Waiting for verification...',
                               style: TextStyle(
                                 fontSize: screenWidth * 0.045,

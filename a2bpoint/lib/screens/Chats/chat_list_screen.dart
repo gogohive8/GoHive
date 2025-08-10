@@ -53,45 +53,43 @@ class _ChatListScreenState extends State<ChatListScreen>
   }
 
   Future<void> _loadUserProfiles() async {
-    if (_isLoadingProfiles) return;
+  if (_isLoadingProfiles) return;
+  
+  setState(() => _isLoadingProfiles = true);
+  
+  try {
+    final authProvider = context.read<AuthProvider>();
+    final chatProvider = context.read<ChatProvider>();
     
-    setState(() => _isLoadingProfiles = true);
+    final Set<String> allParticipants = {};
+    for (final chat in chatProvider.chats) {
+      allParticipants.addAll(chat.participants);
+    }
     
-    try {
-      final authProvider = context.read<AuthProvider>();
-      final chatProvider = context.read<ChatProvider>();
-      
-      final Set<String> allParticipants = {};
-      for (final chat in chatProvider.chats) {
-        allParticipants.addAll(chat.participants);
-      }
-      
-      allParticipants.remove(authProvider.userId);
-      
-      for (final participantId in allParticipants) {
-        if (!_userProfiles.containsKey(participantId)) {
-          try {
-            final profile = await _apiService.getProfile(
-              participantId, 
-              authProvider.token!
-            );
-            _userProfiles[participantId] = profile;
-          } catch (e) {
-            print('Error loading profile for $participantId: $e');
-            _userProfiles[participantId] = {
-              'username': 'User',
-              'avatar': '',
-              'userId': participantId,
-            };
-          }
+    allParticipants.remove(authProvider.userId);
+    
+    for (final participantId in allParticipants) {
+      if (!_userProfiles.containsKey(participantId)) {
+        try {
+          // ИСПРАВЛЕНО: передаем только participantId как строку, не как объект
+          final profile = await _apiService.getProfile(participantId, authProvider.token!);
+          _userProfiles[participantId] = profile;
+        } catch (e) {
+          print('Error loading profile for $participantId: $e');
+          _userProfiles[participantId] = {
+            'username': 'User',
+            'avatar': '',
+            'userId': participantId,
+          };
         }
       }
-    } catch (e) {
-      print('Error loading user profiles: $e');
-    } finally {
-      setState(() => _isLoadingProfiles = false);
     }
+  } catch (e) {
+    print('Error loading user profiles: $e');
+  } finally {
+    setState(() => _isLoadingProfiles = false);
   }
+}
 
   void _startSearch() {
     setState(() {

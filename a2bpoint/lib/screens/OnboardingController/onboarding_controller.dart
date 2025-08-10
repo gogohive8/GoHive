@@ -99,7 +99,7 @@ class _OnboardingControllerState extends State<OnboardingController> {
           isGoogleLogin: true,
         );
       } else {
-        // Email Sign-Up: создаем нового пользователя
+        // Email Sign-Up: создаем нового пользователя БЕЗ ТОКЕНА
         final authData = await _apiService.signUp(
             _data.username, // username
             _data.email, // email
@@ -114,34 +114,30 @@ class _OnboardingControllerState extends State<OnboardingController> {
             _data.country);
 
         if (authData['userId']?.isNotEmpty == true) {
-          await authProvider.setAuthData(
-            '',
-            '',
-            authData['userId']!,
-            authData['email'] ?? _data.email,
-            authData['username'] ?? _data.username,
-          );
+          // ИСПРАВЛЕНО: НЕ устанавливаем токен сразу
+          // Токен будет установлен после верификации email на Welcome Page
+          developer.log('User registered successfully, userId: ${authData['userId']}', 
+              name: 'OnboardingController');
         } else {
           throw Exception('Sign-up failed: Invalid response');
         }
       }
 
-      await authProvider.updateProfile(
-        _data.username,
-        '', // bio
-        _data.email,
-        null, // newAvatar
-      );
-
       if (mounted) {
         Navigator.pop(context); // Закрываем loading dialog
-        _nextStep(); // Переходим к Welcome экрану
+        _nextStep(); // ВСЕГДА переходим к Welcome экрану
       }
     } catch (e, stackTrace) {
       developer.log('Sign-up error: $e',
           name: 'OnboardingController', stackTrace: stackTrace);
       if (mounted) {
         Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Registration failed: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -158,8 +154,22 @@ class _OnboardingControllerState extends State<OnboardingController> {
     );
   }
 
+  // ИСПРАВЛЕНО: переход в Home только после верификации
   void _goToHome() {
-    Navigator.pushReplacementNamed(context, '/home');
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    
+    // Проверяем что пользователь действительно аутентифицирован
+    if (authProvider.isAuthenticated && authProvider.token != null) {
+      Navigator.pushNamedAndRemoveUntil(context, '/home', (route) => false);
+    } else {
+      developer.log('Cannot go to home: user not authenticated', name: 'OnboardingController');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please verify your email first'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+    }
   }
 
   @override
@@ -178,7 +188,7 @@ class _OnboardingControllerState extends State<OnboardingController> {
         child: Column(
           children: [
             // Custom App Bar с кнопкой назад
-            if (_currentStep > 0)
+            if (_currentStep > 0 && _currentStep < 2) // НЕ показываем кнопку назад на Welcome Page
               Padding(
                 padding: const EdgeInsets.all(16.0),
                 child: Row(
@@ -253,6 +263,7 @@ class _OnboardingControllerState extends State<OnboardingController> {
                     data: _data,
                     username: _data.name,
                     onContinue: _goToHome,
+                    isGoogleSignUp: _isGoogleSignUp, // Передаем флаг
                   ),
                 ],
               ),
