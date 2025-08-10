@@ -1,11 +1,22 @@
+import 'dart:async';
+import 'dart:convert';
+import '../../../services/exceptions.dart';
+import 'dart:developer' as developer;
 import 'package:flutter/material.dart';
+import 'package:app_links/app_links.dart';
+import 'package:http/http.dart' as http;
+import '../onboarding_controller.dart';
+import '../../../providers/auth_provider.dart';
+import 'package:provider/provider.dart';
 
 class WelcomePage extends StatefulWidget {
   final String username;
   final VoidCallback onContinue;
+  final OnboardingData data;
 
   const WelcomePage({
     super.key,
+    required this.data,
     required this.username,
     required this.onContinue,
   });
@@ -14,17 +25,44 @@ class WelcomePage extends StatefulWidget {
   State<WelcomePage> createState() => _WelcomePageState();
 }
 
-class _WelcomePageState extends State<WelcomePage> with TickerProviderStateMixin {
+class _WelcomePageState extends State<WelcomePage>
+    with TickerProviderStateMixin {
   late AnimationController _fadeController;
   late AnimationController _scaleController;
   late Animation<double> _fadeAnimation;
   late Animation<double> _scaleAnimation;
+
+  StreamSubscription<Uri?>? _deepLinkSub;
+  final AppLinks _appLinks = AppLinks();
+  bool _isVerified = false;
+  bool _isVerifying = false;
 
   @override
   void initState() {
     super.initState();
     _initAnimations();
     _startAnimations();
+    _initDeepLinks();
+  }
+
+  Future<dynamic> _handleResponse(http.Response response) async {
+    developer.log('Response: ${response.statusCode}, body: ${response.body}',
+        name: 'ApiService');
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      if (response.statusCode == 204) return {};
+      return response.body.isNotEmpty ? jsonDecode(response.body) : {};
+    }
+    if (response.statusCode == 400) {
+      final errorBody = jsonDecode(response.body);
+      final errorMessage = errorBody['error']?.toString() ?? 'Invalid input';
+      developer.log('Validation error: $errorMessage', name: 'ApiService');
+      throw DataValidationException('Invalid input: $errorMessage');
+    }
+    if (response.statusCode == 401) {
+      developer.log('Unauthorized: ${response.body}', name: 'ApiService');
+      throw AuthenticationException('Unauthorized: ${response.body}');
+    }
+    throw Exception('Request failed: ${response.statusCode} ${response.body}');
   }
 
   void _initAnimations() {
@@ -32,7 +70,7 @@ class _WelcomePageState extends State<WelcomePage> with TickerProviderStateMixin
       duration: const Duration(milliseconds: 1000),
       vsync: this,
     );
-    
+
     _scaleController = AnimationController(
       duration: const Duration(milliseconds: 800),
       vsync: this,
@@ -59,10 +97,81 @@ class _WelcomePageState extends State<WelcomePage> with TickerProviderStateMixin
     Future.delayed(const Duration(milliseconds: 300), () {
       _fadeController.forward();
     });
-    
+
     Future.delayed(const Duration(milliseconds: 500), () {
       _scaleController.forward();
     });
+  }
+
+  Future<void> _initDeepLinks() async {
+    try {
+      final initialLink = await _appLinks.getInitialLink();
+      _handleDeepLink(initialLink);
+    } catch (e) {
+      developer.log('Initial deep link error: $e', name: 'WelcomePage');
+    }
+
+    _deepLinkSub = _appLinks.uriLinkStream.listen(
+      (Uri? link) => _handleDeepLink(link),
+      onError: (err) {
+        developer.log('Deep link error: $err', name: 'AuthProvider');
+      },
+    );
+  }
+
+  Future<void> _handleDeepLink(Uri? link) async {
+    if (link != null &&
+        link.toString().contains('https://g0hive.com/verify-email')) {
+      final uri = Uri.parse(link.toString());
+      final token = uri.queryParameters['token'];
+
+      if (token != null) {
+        setState(() {
+          _isVerifying = true;
+        });
+
+        try {
+          developer.log('Received verification token: $token',
+              name: 'WelcomePage');
+          final authProvider =
+              Provider.of<AuthProvider>(context, listen: false);
+
+          // Example API call — replace with your actual API endpoint
+          final res = await http.get(Uri.parse(
+              'https://gohive-user-service-efb5dea164ed.herokuapp.com/verify-email?token=$token'));
+
+          if (res.statusCode == 200) {
+            final resData = await _handleResponse(res);
+            if (resData['token']?.isNotEmpty == true &&
+                resData['userId']?.isNotEmpty == true) {
+              await authProvider.setAuthData(
+                resData['token']!,
+                resData['refreshToken']!,
+                resData['userId'],
+                widget.data.email,
+                widget.data.username,
+              );
+            } else {
+              throw Exception('Sign-up failed: Invalid response');
+            }
+            setState(() {
+              _isVerified = true;
+            });
+            developer.log('Email verification successful', name: 'WelcomePage');
+          } else {
+            developer.log('Email verification failed: ${res.statusCode}',
+                name: 'WelcomePage');
+          }
+        } catch (e, stackTrace) {
+          developer.log('Deep link handling error: $e',
+              name: 'WelcomePage', stackTrace: stackTrace);
+        } finally {
+          setState(() {
+            _isVerifying = false;
+          });
+        }
+      }
+    }
   }
 
   double _getResponsiveWidth(BuildContext context) {
@@ -96,7 +205,7 @@ class _WelcomePageState extends State<WelcomePage> with TickerProviderStateMixin
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             const Spacer(flex: 2),
-            
+
             // Animated Logo/Icon
             AnimatedBuilder(
               animation: _scaleAnimation,
@@ -123,7 +232,7 @@ class _WelcomePageState extends State<WelcomePage> with TickerProviderStateMixin
                 );
               },
             ),
-            
+
             SizedBox(height: screenHeight * 0.06),
 
             // Welcome Text
@@ -159,7 +268,7 @@ class _WelcomePageState extends State<WelcomePage> with TickerProviderStateMixin
                 );
               },
             ),
-            
+
             SizedBox(height: screenHeight * 0.03),
 
             // Subtitle
@@ -180,7 +289,7 @@ class _WelcomePageState extends State<WelcomePage> with TickerProviderStateMixin
                 );
               },
             ),
-            
+
             const Spacer(flex: 3),
 
             // Continue Button
@@ -192,30 +301,40 @@ class _WelcomePageState extends State<WelcomePage> with TickerProviderStateMixin
                   child: SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(
-                      onPressed: widget.onContinue,
+                      onPressed: _isVerified ? widget.onContinue : null,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.white,
                         foregroundColor: const Color(0xFF0056F7),
-                        padding: EdgeInsets.symmetric(vertical: screenHeight * 0.02),
+                        padding:
+                            EdgeInsets.symmetric(vertical: screenHeight * 0.02),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(25),
                         ),
                         elevation: 0,
                         shadowColor: Colors.transparent,
                       ),
-                      child: Text(
-                        'Go to publication',
-                        style: TextStyle(
-                          fontSize: screenWidth * 0.045,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
+                      child: _isVerifying
+                          ? SizedBox(
+                              height: screenHeight * 0.025,
+                              width: screenHeight * 0.025,
+                              child: const CircularProgressIndicator(
+                                  strokeWidth: 2),
+                            )
+                          : Text(
+                              _isVerified
+                                  ? 'Go to publication'
+                                  : 'Waiting for verification...',
+                              style: TextStyle(
+                                fontSize: screenWidth * 0.045,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
                     ),
                   ),
                 );
               },
             ),
-            
+
             SizedBox(height: screenHeight * 0.05),
           ],
         ),
@@ -227,6 +346,7 @@ class _WelcomePageState extends State<WelcomePage> with TickerProviderStateMixin
   void dispose() {
     _fadeController.dispose();
     _scaleController.dispose();
+    _deepLinkSub?.cancel();
     super.dispose();
   }
 }

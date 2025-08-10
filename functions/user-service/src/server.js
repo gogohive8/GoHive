@@ -2,6 +2,8 @@ const express = require('express');
 const { createClient } = require('@supabase/supabase-js');
 const jwt = require('jsonwebtoken');
 const cors = require('cors');
+const nodemailer = require('nodemailer');
+const { v4: uuidv4 } = require('uuid');
 
 require('dotenv').config({ path: __dirname + '/../.env'});
 
@@ -56,6 +58,21 @@ app.use((req, res, next) => {
 const supabase = createClient(process.env.SUPABASE_URL, 
   process.env.SUPABASE_SERVICE_KEY);
 
+// Configure Nodemailer for Google Workspace SMTP
+const transporter = nodemailer.createTransport({
+  host: 'smtp.gmail.com',
+  port: 587,
+  secure: false, // Use TLS
+  auth: {
+    user: process.env.SMTP_EMAIL, // Your Google Workspace email
+    pass: process.env.SMTP_APP_PASSWORD // App Password from Google Workspace
+  },
+  tls: {
+    ciphers: 'SSLv3',
+    rejectUnauthorized: false
+  }
+});
+
 
 // Middleware to verify JWT
 const verifyToken = async (req, res, next) => {
@@ -91,6 +108,32 @@ app.post('/refreshToken', async (req, res) => {
     return res.status(500).json({error: error});
   }
 })
+
+// Send verification email
+async function sendVerificationEmail(email, userId, token) {
+  const verificationUrl = `https://g0hive.com/verify-email?token=${token}`; // Update with your auth-service URL
+  const mailOptions = {
+    from: `"GoHive" <${process.env.SMTP_EMAIL}>`,
+    to: email,
+    subject: 'Verify Your Email Address',
+    html: `
+      <h2>Welcome to Your App!</h2>
+      <p>Please verify your email by clicking the link below:</p>
+      <a href="${verificationUrl}" style="color: #0056F7; text-decoration: underline;">Verify Email</a>
+      <p>Or copy and paste this link: ${verificationUrl}</p>
+      <p>This link will expire in 1 hour.</p>
+    `
+  };
+
+  try {
+    await transporter.sendMail(mailOptions);
+    console.log(`Verification email sent to ${email}`);
+  } catch (error) {
+    console.error('Error sending verification email:', error);
+    throw new Error('Failed to send verification email');
+  }
+}
+
 
 
 // email registration
@@ -133,6 +176,23 @@ app.post('/register/email', async (req, res) => {
       return res.status(400).json({error: authError.message});
     }
 
+
+        // Generate and store verification token
+    const verificationToken = uuidv4();
+    const { error: tokenError } = await supabase
+      .schema('public')
+      .from('email_verifications')
+      .insert({
+        user_id: authData.user.id,
+        token: verificationToken
+      });
+    if (tokenError) {
+      await supabase.auth.admin.deleteUser(authData.user.id);
+      console.error('Error storing verification token:', tokenError.message);
+      return res.status(400).json({ error: tokenError.message });
+    }
+
+
     // Insert additional information into public.users table
     const { data: user, error } = await supabase
     .schema('public')
@@ -170,22 +230,148 @@ app.post('/register/email', async (req, res) => {
       console.error('Error of insert new profile', createProfileError.message);
       return res.status(400).json({ error: createProfileError.message });
     }
-    // Generate JWT
-    const token = jwt.sign({ id: authData.user.id }, process.env.JWT_SECRET, {expiresIn: '1h'});
-    const refreshToken = jwt.sign({id: authData.user.id}, process.env.REFRESH_JWT_TOKEN, {expiresIn: '30d'})
+    // // Generate JWT
+    // const token = jwt.sign({ id: authData.user.id }, process.env.JWT_SECRET, {expiresIn: '1h'});
+    // const refreshToken = jwt.sign({id: authData.user.id}, process.env.REFRESH_JWT_TOKEN, {expiresIn: '30d'})
+
+    // Send verification email
+    await sendVerificationEmail(mail, authData.user.id, verificationToken);
 
    return res.status(200).json({
-      'token' : token,
-      'refreshToken': refreshToken,
       'userID' : authData.user.id,
     });
+
+    // return res.status(200).json({
+    //   message: 'Registration successful. Please verify your email.',
+    //   userID: authData.user.id
+    // });
   } catch (error) {
     console.error('Error in /register/email:', error.message);
     res.status(400).json({ error: error.message });
   }
 });
 
+// Verify email endpoint
+app.get('/verify-email', async (req, res) => {
+  const { token } = req.query;
+  if (!token) {
+    return res.status(400).json({ error: 'Missing verification token' });
+  }
 
+  try {
+    // Check verification token
+    const { data: verification, error: verificationError } = await supabase
+      .schema('public')
+      .from('email_verifications')
+      .select('user_id, created_at, expires_at')
+      .eq('token', token)
+      .single();
+    if (verificationError || !verification) {
+      console.error('token is: ', token);
+      return res.status(400).json({ error: verificationError });
+    }
+
+    // Check if token is expired
+    console.log('Verification data: ', verification);
+    const now = new Date();
+    if (now > new Date(verification.expires_at)) {
+      await supabase.auth.admin.deleteUser(verification.user_id);
+      await supabase.schema('public').from('email_verifications').delete().eq('token', token);
+      return res.status(400).json({ error: 'Verification token expired' });
+    }
+
+    // Confirm user email in Supabase
+    const { error: updateError } = await supabase.auth.admin.updateUserById(verification.user_id, {
+      email_confirmed_at: new Date()
+    });
+    if (updateError) {
+      console.error('Error confirming email:', updateError.message);
+      return res.status(400).json({ error: updateError.message });
+    }
+
+    // Delete verification token
+    await supabase.schema('public').from('email_verifications').delete().eq('token', token);
+
+    // Generate JWT
+    const tokenJwt = jwt.sign({ id: verification.user_id }, process.env.JWT_SECRET, { expiresIn: '1h' });
+    const refreshToken = jwt.sign({ id: verification.user_id }, process.env.REFRESH_JWT_TOKEN, { expiresIn: '30d' });
+
+    return res.status(200).json({
+      message: 'Email verified successfully',
+      token: token,
+      refreshToken: refreshToken,
+      userID: verification.user_id
+    });
+  } catch (error) {
+    console.error('Error in /verify-email:', error.message);
+    res.status(400).json({ error: error.message });
+  }
+});
+
+// // Complete registration endpoint
+// app.post('/register/complete', async (req, res) => {
+//   const { userID, name, surname, username, age, city, country, date_of_birthday, sex } = req.body;
+//   try {
+//     // Verify user exists and email is confirmed
+//     const { data: authUser, error: authError } = await supabase.auth.admin.getUserById(userID);
+//     if (authError || !authUser.user.email_confirmed_at) {
+//       return res.status(400).json({ error: 'User not found or email not verified' });
+//     }
+
+//     // Check if username exists
+//     if (username) {
+//       const { data: existingUsername } = await supabase
+//         .schema('public')
+//         .from('users')
+//         .select('username')
+//         .eq('username', username)
+//         .single();
+//       if (existingUsername) {
+//         return res.status(400).json({ error: 'Username already exists' });
+//       }
+//     }
+
+//     // Insert into public.users
+//     const { data: user, error: userError } = await supabase
+//       .schema('public')
+//       .from('users')
+//       .insert([
+//         {
+//           id: userID,
+//           name,
+//           surname,
+//           username,
+//           age,
+//           city,
+//           country,
+//           date_of_birthday,
+//           sex
+//         }
+//       ])
+//       .select()
+//       .single();
+//     if (userError) {
+//       console.error('Error inserting user:', userError.message);
+//       return res.status(400).json({ error: userError.message });
+//     }
+
+//     // Insert into public.profiles
+//     const { error: profileError } = await supabase
+//       .schema('public')
+//       .from('profiles')
+//       .insert([{ id: userID }]);
+//     if (profileError) {
+//       await supabase.schema('public').from('users').delete().eq('id', userID);
+//       console.error('Error inserting profile:', profileError.message);
+//       return res.status(400).json({ error: profileError.message });
+//     }
+
+//     return res.status(200).json({ message: 'Registration completed', user });
+//   } catch (error) {
+//     console.error('Error in /register/complete:', error.message);
+//     res.status(400).json({ error: error.message });
+//   }
+// });
 
 // OAuth registration/login (Google/Apple)
 app.post('/register/oauth/google', async (req, res) => {

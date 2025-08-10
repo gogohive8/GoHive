@@ -1,0 +1,8 @@
+[{
+  "relation": ["delegate_permission/common.handle_all_urls"],
+  "target": {
+    "namespace": "android_app",
+    "package_name": "com.example.a2bpoint",
+    "sha256_cert_fingerprints": ["3D:78:35:7E:FF:E2:91:93:21:91:72:4F:77:77:2B:B2:3C:9E:B0:88:9A:A0:AB:EA:01:BE:95:6B:57:B8:AA:6F", "24:BC:B9:F4:F0:7B:12:D2:C7:AC:90:E6:E3:E7:91:C2:A0:33:F7:CC:F7:FA:22:C8:43:94:ED:9A:7E:18:D3:73"]
+  }
+}]

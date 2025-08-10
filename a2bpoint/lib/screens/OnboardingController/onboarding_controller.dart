@@ -113,11 +113,10 @@ class _OnboardingControllerState extends State<OnboardingController> {
             _data.city,
             _data.country);
 
-        if (authData['token']?.isNotEmpty == true &&
-            authData['userId']?.isNotEmpty == true) {
+        if (authData['userId']?.isNotEmpty == true) {
           await authProvider.setAuthData(
-            authData['token']!,
-            authData['refreshToken']!,
+            '',
+            '',
             authData['userId']!,
             authData['email'] ?? _data.email,
             authData['username'] ?? _data.username,
@@ -251,6 +250,7 @@ class _OnboardingControllerState extends State<OnboardingController> {
                     isLoading: _isLoading,
                   ),
                   WelcomePage(
+                    data: _data,
                     username: _data.name,
                     onContinue: _goToHome,
                   ),

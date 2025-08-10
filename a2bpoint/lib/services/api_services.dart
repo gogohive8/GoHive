@@ -53,34 +53,39 @@ class ApiService {
     throw Exception('Request failed after $retries attempts');
   }
 
-  Future<Map<String, dynamic>?> refreshToken(String refreshToken, String s) async {
-  try {
-    developer.log('Refreshing token with refresh token: $refreshToken', name: 'ApiService');
-    
-    final response = await http.post(
-      Uri.parse('$_baseUrl/auth/refresh'), // Замените на ваш endpoint для обновления токена
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: json.encode({
-        'refresh_token': refreshToken,
-      }),
-    );
+  Future<Map<String, dynamic>?> refreshToken(
+      String refreshToken, String s) async {
+    try {
+      developer.log('Refreshing token with refresh token: $refreshToken',
+          name: 'ApiService');
 
-    developer.log('Refresh token response status: ${response.statusCode}', name: 'ApiService');
-    developer.log('Refresh token response body: ${response.body}', name: 'ApiService');
+      final response = await http.post(
+        Uri.parse(
+            '$_baseUrl/auth/refresh'), // Замените на ваш endpoint для обновления токена
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: json.encode({
+          'refresh_token': refreshToken,
+        }),
+      );
 
-    if (response.statusCode == 200) {
-      final data = json.decode(response.body);
-      return data;
-    } else {
-      throw Exception('Failed to refresh token: HTTP ${response.statusCode}');
+      developer.log('Refresh token response status: ${response.statusCode}',
+          name: 'ApiService');
+      developer.log('Refresh token response body: ${response.body}',
+          name: 'ApiService');
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        return data;
+      } else {
+        throw Exception('Failed to refresh token: HTTP ${response.statusCode}');
+      }
+    } catch (e) {
+      developer.log('Error refreshing token: $e', name: 'ApiService');
+      return null;
     }
-  } catch (e) {
-    developer.log('Error refreshing token: $e', name: 'ApiService');
-    return null;
   }
-}
 
   Future<Map<String, String>> login(String email, String password) async {
     try {
@@ -146,7 +151,7 @@ class ApiService {
           .timeout(const Duration(seconds: 30));
       final data = await _handleResponse(response);
       return {
-        'token': data['token']?.toString() ?? '',
+        // 'token': data['token']?.toString() ?? '',
         'userId': data['userID']?.toString() ?? '',
         'username': data['username']?.toString() ?? '',
         'email': email,
@@ -157,6 +162,68 @@ class ApiService {
       throw Exception('SignUp failed: $e');
     }
   }
+
+  Future<Map<String, String>> verifyEmail(String token) async {
+    try {
+      developer.log('Verifying email with token: $token', name: 'ApiService');
+      final response = await _client.get(
+        Uri.parse('$_baseUrl/verify-email?token=$token'),
+        headers: {'Content-Type': 'application/json'},
+      ).timeout(const Duration(seconds: 30));
+      final data = await _handleResponse(response);
+      return {
+        'token': data['token']?.toString() ?? '',
+        'refreshToken': data['refreshToken']?.toString() ?? '',
+        'userId': data['userID']?.toString() ?? '',
+      };
+    } catch (e, stackTrace) {
+      developer.log('Verify email error: $e',
+          name: 'ApiService', stackTrace: stackTrace);
+      throw Exception('Email verification failed: $e');
+    }
+  }
+
+  // Future<Map<String, dynamic>> completeRegistration(
+  //     String userId,
+  //     String name,
+  //     String surname,
+  //     String username,
+  //     int age,
+  //     String city,
+  //     String country,
+  //     String date_of_birthday,
+  //     String sex) async {
+  //   try {
+  //     developer.log('Completing registration for userId: $userId',
+  //         name: 'ApiService');
+  //     final response = await _client
+  //         .post(
+  //           Uri.parse('$_baseUrl/register/complete'),
+  //           headers: {'Content-Type': 'application/json'},
+  //           body: jsonEncode({
+  //             'userID': userId,
+  //             'name': name,
+  //             'surname': surname,
+  //             'username': username,
+  //             'age': age,
+  //             'city': city,
+  //             'country': country,
+  //             'date_of_birthday': date_of_birthday,
+  //             'sex': sex,
+  //           }),
+  //         )
+  //         .timeout(const Duration(seconds: 30));
+  //     final data = await _handleResponse(response);
+  //     return {
+  //       'userId': data['user']['id']?.toString() ?? userId,
+  //       'username': data['user']['username']?.toString() ?? username,
+  //     };
+  //   } catch (e, stackTrace) {
+  //     developer.log('Complete registration error: $e',
+  //         name: 'ApiService', stackTrace: stackTrace);
+  //     throw Exception('Registration completion failed: $e');
+  //   }
+  // }
 
   Future<Map<String, String>> signInWithGoogle() async {
     try {
