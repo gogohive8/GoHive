@@ -1,0 +1,704 @@
+const express = require('express');
+const { createClient } = require('@supabase/supabase-js');
+const jwt = require('jsonwebtoken');
+const cors = require('cors');
+const nodemailer = require('nodemailer');
+const { v4: uuidv4 } = require('uuid');
+
+require('dotenv').config({ path: __dirname + '/../.env'});
+
+const app = express();
+app.use(cors({
+  origin: [
+    'https://gohive-c253c.web.app',
+    'https://gohive-c253c.firebaseapp.com/',
+    'http://127.0.0.1:5000' // For local Firebase emulator
+  ],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true // If cookies or auth headers are used
+}));
+
+
+
+app.use(express.json({ limit: '10mb' }));
+app.use((err, req, res, next) => {
+  if (err instanceof SyntaxError && err.status === 400 && 'body' in err) {
+    console.error('JSON parsing error:', err.message, 'Request body:', req.body);
+    return res.status(400).json({ error: 'Invalid JSON payload' });
+  }
+  console.error('Unexpected error:', err.stack);
+  res.status(500).json({ error: 'Internal server error' });
+});
+
+
+// Log all incoming requests
+app.use((req, res, next) => {
+  console.log(`[${new Date().toISOString()}] Incoming request: ${req.method} ${req.path}`);
+  console.log(`Request headers: ${JSON.stringify(req.headers)}`);
+  console.log(`Request body: ${JSON.stringify(req.body)}\n`);
+  next();
+});
+
+// Log all responses
+app.use((req, res, next) => {
+  const originalSend = res.send;
+  res.send = function (body) {
+    console.log(`[${new Date().toISOString()}] Response for ${req.method} ${req.path}`);
+    console.log(`Response status: ${res.statusCode}`);
+    console.log(`Response headers: ${JSON.stringify(res.getHeaders())}`);
+    console.log(`Response body: ${typeof body === 'string' ? body : JSON.stringify(body)}\n`);
+    return originalSend.call(this, body);
+  };
+  next();
+});
+
+
+// Connect to supabase client
+const supabase = createClient(process.env.SUPABASE_URL, 
+  process.env.SUPABASE_SERVICE_KEY);
+
+// Configure Nodemailer for Google Workspace SMTP
+const transporter = nodemailer.createTransport({
+  host: 'smtp.gmail.com',
+  port: 587,
+  secure: false, // Use TLS
+  auth: {
+    user: process.env.SMTP_EMAIL, // Your Google Workspace email
+    pass: process.env.SMTP_APP_PASSWORD // App Password from Google Workspace
+  },
+  tls: {
+    ciphers: 'SSLv3',
+    rejectUnauthorized: false
+  }
+});
+
+
+// Middleware to verify JWT
+const verifyToken = async (req, res, next) => {
+  const token = req.headers['authorization']?.split(' ')[1];
+  if (!token) return res.status(401).json({ error: 'No token provided' });
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    req.userId = decoded.id;
+    next();
+  } catch (error) {
+    res.status(401).json({ error: 'Invalid token' });
+  }
+};
+
+// Routes
+
+app.post('/refreshToken', async (req, res) => {
+  try{
+    const {user_id} = req.body;
+    const refreshToken = req.headers['authorization']?.split(' ')[1];
+    if (!refreshToken) return res.status(401).json({ error: 'No token provided' });
+
+    const decoded = jwt.verify(refreshToken, process.env.REFRESH_JWT_TOKEN);
+    if (user_id == decoded.id) {
+      const token = jwt.sign({ id: user_id }, process.env.JWT_SECRET, { expiresIn: '1h' });
+      return res.status(200).json({'token': token});
+    } else {
+      return res.status(400).json({error: 'refresh token is not correct'});
+    }
+  }catch (error) {
+    console.error('Error of refresh access token', error);
+    return res.status(500).json({error: error});
+  }
+})
+
+// Send verification email
+async function sendVerificationEmail(email, userId, token) {
+  const verificationUrl = `https://gohive-web-redirect-ba78112bb5c7.herokuapp.com/verify-email?token=${token}`; // Update with your auth-service URL
+  const mailOptions = {
+    from: `"GoHive" <${process.env.SMTP_EMAIL}>`,
+    to: email,
+    subject: 'Verify Your Email Address',
+    html: `
+      <h2>Welcome to Your App!</h2>
+      <p>Please verify your email by clicking the link below:</p>
+      <a href="${verificationUrl}" style="color: #0056F7; text-decoration: underline;">Verify Email</a>
+      <p>Or copy and paste this link: ${verificationUrl}</p>
+      <p>This link will expire in 1 hour.</p>
+    `
+  };
+
+  try {
+    await transporter.sendMail(mailOptions);
+    console.log(`Verification email sent to ${email}`);
+  } catch (error) {
+    console.error('Error sending verification email:', error);
+    throw new Error('Failed to send verification email');
+  }
+}
+
+
+
+// email registration
+
+app.post('/register/email', async (req, res) => {
+  console.log('Received /register/email request:', req.body); // Log incoming request
+  try{
+    const { name, surname, username, age, mail, phone, password, city, country, date_of_birthday, sex} = req.body;
+
+    // check if email is exist
+    const { data: users, error: listError } = await supabase.auth.admin.listUsers();
+    if (listError) {
+      console.error('Error listing users:', listError);
+      return res.status(400).json({ error: listError.message });
+    }
+    const existingUser = users.users.find(user => user.email === mail);
+    if (existingUser) {
+      return res.status(400).json({ error: 'Email already exists' });
+    }
+
+    // Check if username is already exist
+    if (username) {
+      const { data: existingUsername } = await supabase.from('users').select('username').eq('username', username).single();
+
+      if (existingUsername){
+        return res.status(400).json({ error: 'Username already exist '});
+      }
+    }
+
+
+    // Create new user
+    const {data: authData, error: authError} = await supabase.auth.admin.createUser({
+      email: mail,
+      password: password,
+      phone: phone || null,
+      email_confirm: true,
+    });
+    if (authError) {
+      console.error('Error of create new user', authError.message);
+      return res.status(400).json({error: authError.message});
+    }
+
+
+        // Generate and store verification token
+    const verificationToken = uuidv4();
+    const { error: tokenError } = await supabase
+      .schema('public')
+      .from('email_verifications')
+      .insert({
+        user_id: authData.user.id,
+        token: verificationToken
+      });
+    if (tokenError) {
+      await supabase.auth.admin.deleteUser(authData.user.id);
+      console.error('Error storing verification token:', tokenError.message);
+      return res.status(400).json({ error: tokenError.message });
+    }
+
+
+    // Insert additional information into public.users table
+    const { data: user, error } = await supabase
+    .schema('public')
+    .from('users')
+    .insert([
+      {
+        id: authData.user.id,
+        name,
+        surname,
+        username,
+        age,
+        city,
+        country,
+        date_of_birthday,
+        sex
+      },
+    ]).select().single();
+    if (error){
+      await supabase.auth.admin.deleteUser(authData.user.id);
+      console.error('Error of insert new user', error.message);
+      return res.status(400).json({ error: error.message });
+    }
+
+
+    const {data: profile, error: createProfileError} = await supabase
+    .schema('public')
+    .from('profiles')
+    .insert([
+      {
+        id: authData.user.id
+      }
+    ]);
+    if (createProfileError){
+      await supabase.auth.admin.deleteUser(authData.user.id);
+      console.error('Error of insert new profile', createProfileError.message);
+      return res.status(400).json({ error: createProfileError.message });
+    }
+    // // Generate JWT
+    // const token = jwt.sign({ id: authData.user.id }, process.env.JWT_SECRET, {expiresIn: '1h'});
+    // const refreshToken = jwt.sign({id: authData.user.id}, process.env.REFRESH_JWT_TOKEN, {expiresIn: '30d'})
+
+    // Send verification email
+    await sendVerificationEmail(mail, authData.user.id, verificationToken);
+
+   return res.status(200).json({
+      'userID' : authData.user.id,
+    });
+
+    // return res.status(200).json({
+    //   message: 'Registration successful. Please verify your email.',
+    //   userID: authData.user.id
+    // });
+  } catch (error) {
+    console.error('Error in /register/email:', error.message);
+    res.status(400).json({ error: error.message });
+  }
+});
+
+// Verify email endpoint
+app.get('/verify-email', async (req, res) => {
+  const { token } = req.query;
+  if (!token) {
+    return res.status(400).json({ error: 'Missing verification token' });
+  }
+
+  try {
+    // Check verification token
+    const { data: verification, error: verificationError } = await supabase
+      .schema('public')
+      .from('email_verifications')
+      .select('user_id, created_at, expires_at')
+      .eq('token', token)
+      .single();
+    if (verificationError || !verification) {
+      console.error('token is: ', token);
+      return res.status(400).json({ error: verificationError });
+    }
+
+    // Check if token is expired
+    console.log('Verification data: ', verification);
+    const now = new Date();
+    if (now > new Date(verification.expires_at)) {
+      await supabase.auth.admin.deleteUser(verification.user_id);
+      await supabase.schema('public').from('email_verifications').delete().eq('token', token);
+      return res.status(400).json({ error: 'Verification token expired' });
+    }
+
+    // Confirm user email in Supabase
+    const { error: updateError } = await supabase.auth.admin.updateUserById(verification.user_id, {
+      email_confirmed_at: new Date()
+    });
+    if (updateError) {
+      console.error('Error confirming email:', updateError.message);
+      return res.status(400).json({ error: updateError.message });
+    }
+
+    // Delete verification token
+    await supabase.schema('public').from('email_verifications').delete().eq('token', token);
+
+    // Generate JWT
+    const tokenJwt = jwt.sign({ id: verification.user_id }, process.env.JWT_SECRET, { expiresIn: '1h' });
+    const refreshToken = jwt.sign({ id: verification.user_id }, process.env.REFRESH_JWT_TOKEN, { expiresIn: '30d' });
+
+    return res.status(200).json({
+      message: 'Email verified successfully',
+      token: token,
+      refreshToken: refreshToken,
+      userID: verification.user_id
+    });
+  } catch (error) {
+    console.error('Error in /verify-email:', error.message);
+    res.status(400).json({ error: error.message });
+  }
+});
+
+// // Complete registration endpoint
+// app.post('/register/complete', async (req, res) => {
+//   const { userID, name, surname, username, age, city, country, date_of_birthday, sex } = req.body;
+//   try {
+//     // Verify user exists and email is confirmed
+//     const { data: authUser, error: authError } = await supabase.auth.admin.getUserById(userID);
+//     if (authError || !authUser.user.email_confirmed_at) {
+//       return res.status(400).json({ error: 'User not found or email not verified' });
+//     }
+
+//     // Check if username exists
+//     if (username) {
+//       const { data: existingUsername } = await supabase
+//         .schema('public')
+//         .from('users')
+//         .select('username')
+//         .eq('username', username)
+//         .single();
+//       if (existingUsername) {
+//         return res.status(400).json({ error: 'Username already exists' });
+//       }
+//     }
+
+//     // Insert into public.users
+//     const { data: user, error: userError } = await supabase
+//       .schema('public')
+//       .from('users')
+//       .insert([
+//         {
+//           id: userID,
+//           name,
+//           surname,
+//           username,
+//           age,
+//           city,
+//           country,
+//           date_of_birthday,
+//           sex
+//         }
+//       ])
+//       .select()
+//       .single();
+//     if (userError) {
+//       console.error('Error inserting user:', userError.message);
+//       return res.status(400).json({ error: userError.message });
+//     }
+
+//     // Insert into public.profiles
+//     const { error: profileError } = await supabase
+//       .schema('public')
+//       .from('profiles')
+//       .insert([{ id: userID }]);
+//     if (profileError) {
+//       await supabase.schema('public').from('users').delete().eq('id', userID);
+//       console.error('Error inserting profile:', profileError.message);
+//       return res.status(400).json({ error: profileError.message });
+//     }
+
+//     return res.status(200).json({ message: 'Registration completed', user });
+//   } catch (error) {
+//     console.error('Error in /register/complete:', error.message);
+//     res.status(400).json({ error: error.message });
+//   }
+// });
+
+// OAuth registration/login (Google/Apple)
+app.post('/register/oauth/google', async (req, res) => {
+  try {
+    const { supabase_token } = req.body;
+    if (!supabase_token) {
+      return res.status(400).json({ error: 'Missing Supabase token' });
+    }
+
+    // Verify Supabase session token
+    const { data: userData, error: authError } = await supabase.auth.getUser(supabase_token);
+    if (authError) {
+      console.error('Error verifying Supabase token:', authError.message);
+      return res.status(400).json({ error: authError.message });
+    }
+
+    const authUser = userData.user;
+    if (!authUser) {
+      return res.status(400).json({ error: 'No user returned from Supabase' });
+    }
+
+    // Check if user exists in public.users
+    let { data: user, error: fetchError } = await supabase
+      .from('users')
+      .select('*')
+      .eq('id', authUser.id)
+      .single();
+
+    if (fetchError && fetchError.code === 'PGRST116') {
+      // User doesn't exist, create new user in public.users
+      const { data: newUser, error: insertError } = await supabase
+        .from('users')
+        .insert([
+          {
+            id: authUser.id,
+            name: authUser.user_metadata.full_name?.split(' ')[0] || 'Unknown',
+            surname: authUser.user_metadata.full_name?.split(' ')[1] || 'Unknown',
+            username: authUser.user_metadata.preferred_username || null,
+            age: null,
+          },
+        ])
+        .select()
+        .single();
+      if (insertError) {
+        await supabase.auth.admin.deleteUser(authUser.user.id);
+        console.error('Error inserting user:', insertError.message);
+        return res.status(400).json({ error: insertError.message });
+      }
+      const {data: profile, error: createProfileError} = await supabase
+        .schema('public')
+        .from('profiles')
+        .insert([
+      {
+        id: authUser.id,
+      }
+    ]);
+      if (createProfileError){
+        await supabase.auth.admin.deleteUser(authUser.user.id);
+        console.error('Error of insert new profile', createProfileError.message);
+        return res.status(400).json({ error: createProfileError.message });
+      }
+      user = newUser;
+    } else if (fetchError) {
+      console.error('Error fetching user:', fetchError.message);
+      return res.status(400).json({ error: fetchError.message });
+    }
+
+    // Generate JWT
+    const token = jwt.sign({ id: authUser.id }, process.env.JWT_SECRET, { expiresIn: '1h' });
+    const refreshToken = jwt.sign({id: authUser.id}, process.env.REFRESH_JWT_TOKEN, {expiresIn: '30d'})
+
+    return res.status(200).json({
+      token: token,
+      refreshToken: refreshToken,
+      userID: authUser.id,
+    });
+  } catch (error) {
+    console.error('Error in /register/oauth/google:', error.message);
+    res.status(400).json({ error: error.message });
+  }
+});
+
+
+
+// Email-based login
+app.post('/login', async (req, res) => {
+  try {
+    const { mail, password } = req.body;
+    if (!mail || !password) {
+      return res.status(400).json({ error: 'Missing email or password' });
+    }
+
+
+    // Authenticate with Supabase
+    const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+      email: mail,
+      password: password,
+    });
+    if (authError) {
+      return res.status(401).json({ error: authError.message });
+    }
+
+    const {data: userData, error: fetchUserDataError} = await supabase
+    .schema('public')
+    .from('users')
+    .select('username')
+    .eq('id', authData.user.id)
+
+    if(fetchUserDataError) console.error('Error of fetch username');
+    // Generate JWT
+    const token = jwt.sign({ id: authData.user.id }, process.env.JWT_SECRET, { expiresIn: '1h' });
+    const refreshToken = jwt.sign({id: authData.user.id}, process.env.REFRESH_JWT_TOKEN, {expiresIn: '30d'})
+
+    return res.status(200).json({
+      'token' : token,
+      'refreshToken': refreshToken,
+      'userID' : authData.user.id,
+      'username' : userData.username,
+      'email': mail,
+    });
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+// Logout
+app.post('/logout', verifyToken, async (req, res) => {
+  try {
+    const token = req.headers['authorization'].split(' ')[1];
+    return res.status(200).json({ message: 'Logged out' });
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+
+
+app.get('/profile/:id', verifyToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    console.log('ID is: ', id);
+    if (!id) {
+      return res.status(400).json({ error: 'Missing user ID' });
+    }
+
+    // Fetch user from public.users
+    const { data: user, error: userError } = await supabase
+      .schema('public')
+      .from('users')
+      .select('id, username')
+      .eq('id', id)
+      .single();
+
+    if (userError) {
+      if (userError.code === 'PGRST116') {
+        return res.status(404).json({ error: 'User not found' });
+      }
+      console.error('Error fetching user:', userError.message);
+      return res.status(400).json({ error: userError.message });
+    };
+
+    // Fetch user from public.profiles
+    const { data: profileInfo, error: profileInfoError } = await supabase
+      .schema('public')
+      .from('profiles')
+      .select()
+      .eq('id', id)
+      .single();
+
+    if (profileInfoError) {
+      if (profileInfoError.code === 'PGRST116') {
+        return res.status(404).json({ error: 'User not found' });
+      }
+      console.error('Error fetching user:', profileInfoError.message);
+      return res.status(400).json({ error: profileInfoError.message });
+    };
+
+    console.log('\n User data: ', user);
+    console.log('\n Profile data: ', profileInfo);
+
+
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    return res.status(200).json({
+      id: user.id,
+      username: user.username,
+      biography: profileInfo.biography,
+      numOfFollowers: profileInfo.numOfFollowers,
+      numOfFollowing: profileInfo.numOfFollowing,
+      profileImage: profileInfo.profileImage,
+
+    });
+  } catch (error) {
+    console.error('Error in /profile/:id:', error.message);
+    res.status(400).json({ error: error.message });
+  }
+});
+
+
+app.post('/profile/:userID', verifyToken, async (req, res) => {
+  try{
+    const {userId, photoURL, username, bio} = req.body;
+
+
+    const {error: updateUsernameError} = await supabase
+    .schema('public')
+    .from('users')
+    .update({username: username})
+    .eq('id', userId)
+
+    if (updateUsernameError){
+      console.error("Error of update username", updateUsernameError);
+      return res.status(400).json({error: updateUsernameError.message});
+    }
+
+
+    const { error: updateBioError } = await supabase
+      .schema('public')
+      .from('profiles')
+      .update({ biography: bio,
+        profileImage: photoURL
+       })
+      .eq('id', userId)
+
+    if (updateBioError) {
+      console.error('Error updating biography:', error.message, 'Code:', error.code);
+      if (error.code === 'PGRST116') {
+        return res.status(404).json({ error: 'Profile not found' });
+      }
+      return res.status(400).json({ error: error.message });
+    }
+
+    return res.status(200).json({message: 'profile update'})
+  } catch (updateProfileError) {
+    console.error('Error of update profile', updateProfileError);
+    return res.status(400).json({error: updateProfileError.message});
+  }
+});
+
+
+app.post('/profile/:userID/follow', verifyToken, async (req, res) => {
+  try{
+    const {user_id} = req.params;
+    const follower_id = req.userId;
+
+    const {error} = await supabase
+    .schema('public')
+    .from('follows')
+    .insert({
+      follower_id: follower_id,
+      following_id: user_id
+    })
+
+    if (error.code === '23505') {
+      console.error('User ', follower_id, ' is already follow to ', user_id);
+      res.status(400).json({message: 'user is already follow', error: error});
+    }
+
+    if (error){
+      res.status(400).json({error: error});
+    }
+
+    res.status(200).json({message: 'Follow is successful'});
+  } catch (e) {
+    console.error('Problem of follow', e);
+    return res.status(500).json({error: e});
+  } 
+})
+
+app.post('/search/users', verifyToken, async (req, res) => {
+  try {
+    const { query, filter, userID } = req.body;
+    if (!query) {
+      return res.status(400).json({ error: 'Missing search query' });
+    }
+
+    console.log(`Searching users with query: ${query}`);
+    const { data: users, error } = await supabase
+      .schema('public')
+      .from('users')
+      .select('id, username')
+      .ilike('username', `%${query}%`)
+      .limit(20); // Limit to prevent excessive results
+
+    if (error) {
+      console.error('Error searching users:', error.message, 'Code:', error.code);
+      return res.status(400).json({ error: error.message });
+    }
+
+    console.log('Found users:', users);
+    return res.status(200).json({ users });
+  } catch (error) {
+    console.error('Error in /search/users:', error.message);
+    res.status(400).json({ error: error.message });
+  }
+});
+
+app.post('/preorder', verifyToken, async (req, res) => {
+  try{
+    const { user_id } = req.body;
+    if (!user_id) {
+      return res.status(400).json({error: 'Missing user id'});
+    }
+
+    const {error} = await supabase
+    .schema('public')
+    .from('preorders')
+    .insert(
+      {
+        userID: user_id
+      }
+    )
+
+    if (error) {
+      return res.status(400).json({error: error});
+    }
+
+    return res.status(200).json({message: 'Preorder created'})
+  } catch (error) {
+    console.error('Error of create preorder', error.message);
+    return res.status(400).json({error: error.message});
+  }
+})
+
+const PORT = process.env.PORT || 3001; // Fallback for local testing
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+});

@@ -11,7 +11,7 @@ class ApiService {
   final http.Client _client = http.Client();
   final SupabaseClient _supabase = Supabase.instance.client;
   static const String _baseUrl =
-      'https://gohive-user-service-efb5dea164ed.herokuapp.com';
+      'https://gohive-user-service-76e7fec00e25.herokuapp.com';
   SupabaseClient get supabase => _supabase;
   final _tokenRefreshController = StreamController<String>.broadcast();
 
@@ -230,7 +230,7 @@ class ApiService {
       developer.log('Initiating Google Sign-In OAuth', name: 'ApiService');
       final authResponse = await _supabase.auth.signInWithOAuth(
         OAuthProvider.google,
-        redirectTo: 'com.example.a2bpoint://login-callback/',
+        redirectTo: 'com.example.a2bpoint://login-callback',
       );
 
       if (!authResponse) {
@@ -284,7 +284,7 @@ class ApiService {
       developer.log('Initiating Facebook Sign-In OAuth', name: 'ApiService');
       final authResponse = await _supabase.auth.signInWithOAuth(
         OAuthProvider.facebook,
-        redirectTo: 'com.example.a2bpoint://login-callback/',
+        redirectTo: 'com.example.a2bpoint://login-callback',
       );
 
       if (!authResponse) {
@@ -337,7 +337,7 @@ class ApiService {
       developer.log('Initiating Apple Sign-In OAuth', name: 'ApiService');
       final authResponse = await _supabase.auth.signInWithOAuth(
         OAuthProvider.apple,
-        redirectTo: 'com.example.a2bpoint://login-callback/',
+        redirectTo: 'com.example.a2bpoint://login-callback',
       );
 
       if (!authResponse) {

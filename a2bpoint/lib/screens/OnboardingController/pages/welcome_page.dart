@@ -136,7 +136,9 @@ class _WelcomePageState extends State<WelcomePage>
 
   Future<void> _handleDeepLink(Uri? link) async {
     if (link != null &&
-        link.toString().contains('https://gohive-web-redirect-ba78112bb5c7.herokuapp.com/verify-email')) {
+        (link.toString().contains(
+                'https://gohive-web-redirect-ba78112bb5c7.herokuapp.com/verify-email') ||
+            link.toString().contains('com.example.a2bpoint://login-callback'))) {
 
       final uri = Uri.parse(link.toString());
       final token = uri.queryParameters['token'];

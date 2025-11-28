@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:app_links/app_links.dart';
+import 'dart:async';
 import 'screens/Auth/sign_in_screen.dart';
 import 'screens/OnboardingController/onboarding_controller.dart';
 import 'screens/Home/home_screen.dart';
@@ -22,10 +24,37 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   print('Background message: ${message.notification?.title}, data: ${message.data}');
 }
 
+// Deep link handler
+void _handleDeepLink(Uri link, BuildContext? context) {
+  developer.log('Handling deep link: $link', name: 'DeepLink');
+  
+  // Handle the OAuth callback
+  if (link.host == 'login-callback') {
+    developer.log('Received OAuth callback', name: 'DeepLink');
+    
+    // Supabase will handle the OAuth session automatically
+    // We just need to ensure the app state is updated
+    if (context != null) {
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      authProvider.initialize(); // Refresh auth state
+    }
+  }
+}
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp();
   FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+
+  // Initialize app links for deep linking
+  final appLinks = AppLinks();
+  
+  // Handle deep links when app is opened from a link
+  final initialLink = await appLinks.getInitialLink();
+  if (initialLink != null) {
+    developer.log('Initial deep link: $initialLink', name: 'DeepLink');
+    // We'll handle this after the app is fully initialized
+  }
 
   try {
     await Supabase.initialize(
@@ -37,11 +66,18 @@ void main() async {
     developer.log('Supabase initialization error: $e', name: 'Main');
   }
 
-  runApp(MyApp());
+  runApp(MyApp(appLinks: appLinks, initialLink: initialLink));
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+  final AppLinks appLinks;
+  final Uri? initialLink;
+  
+  const MyApp({
+    super.key,
+    required this.appLinks,
+    this.initialLink,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -53,6 +89,23 @@ class MyApp extends StatelessWidget {
       ],
       child: Consumer<AuthProvider>(
         builder: (context, authProvider, child) {
+          // Initialize deep link listener here where authProvider is available
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            // Handle initial deep link if present
+            if (initialLink != null) {
+              _handleDeepLink(initialLink!, authProvider.navigatorKey.currentContext);
+            }
+            
+            // Listen for new deep links
+            appLinks.uriLinkStream.listen((uri) {
+              developer.log('New deep link: $uri', name: 'DeepLink');
+              final currentContext = authProvider.navigatorKey.currentContext;
+              if (currentContext != null) {
+                _handleDeepLink(uri, currentContext);
+              }
+            });
+          });
+          
           return MaterialApp(
             title: 'GoHive',
             navigatorKey: authProvider.navigatorKey, // КРИТИЧЕСКИ ВАЖНО!

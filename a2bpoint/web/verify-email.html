@@ -58,15 +58,66 @@
       font-size: 0.85rem;
       color: #94a3b8;
     }
+    .status {
+      margin-top: 1rem;
+      font-size: 0.95rem;
+      color: #cbd5f5;
+    }
   </style>
 </head>
 <body>
   <main class="card">
     <h1>Почта успешно подтверждена!</h1>
     <p>Вы можете закрыть эту страницу и вернуться в приложение GoHive.</p>
-    <p>Если приложение не открывается автоматически, перейдите назад вручную и выполните вход ещё раз.</p>
-    <a class="btn" href="https://g0hive.com">Перейти на GoHive</a>
+    <p>Если приложение не открывается автоматически, нажмите кнопку ниже.</p>
+    <a id="app-link" class="btn" href="#">Открыть приложение GoHive</a>
+    <div id="status" class="status"></div>
     <div class="footer">Спасибо, что выбрали GoHive 💛</div>
   </main>
+
+  <script>
+    (function () {
+      const params = new URLSearchParams(window.location.search);
+      const token = params.get('token');
+      const statusEl = document.getElementById('status');
+      const appLink = document.getElementById('app-link');
+      const deepLinkBase = 'com.example.a2bpoint://login-callback/';
+      const intentBase = 'intent://login-callback/';
+      const packageName = 'com.example.a2bpoint';
+
+      if (token) {
+        const encodedToken = encodeURIComponent(token);
+        const deepLink = `${deepLinkBase}?token=${encodedToken}`;
+        const intentLink = `${intentBase}?token=${encodedToken}#Intent;scheme=com.example.a2bpoint;package=${packageName};end`;
+
+        const openApp = () => {
+          statusEl.textContent = 'Пытаемся открыть приложение...';
+          // Первым делом пробуем Android intent-ссылку
+          window.location.href = intentLink;
+
+          // Через короткую паузу повторяем попытку обычным диплинком
+          setTimeout(() => {
+            window.location.href = deepLink;
+          }, 800);
+
+          // Показываем сообщение, если спустя время приложение не открылось
+          setTimeout(() => {
+            statusEl.textContent = 'Если приложение не открылось, нажмите кнопку ещё раз или вернитесь вручную.';
+          }, 4000);
+        };
+
+        appLink.addEventListener('click', (event) => {
+          event.preventDefault();
+          openApp();
+        });
+
+        // Автоматическая попытка при загрузке страницы
+        setTimeout(openApp, 1200);
+
+      } else {
+        statusEl.textContent = 'Токен подтверждения не найден. Откройте приложение вручную и войдите снова.';
+      }
+    })();
+  </script>
 </body>
 </html>
