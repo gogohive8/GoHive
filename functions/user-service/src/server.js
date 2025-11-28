@@ -111,7 +111,7 @@ app.post('/refreshToken', async (req, res) => {
 
 // Send verification email
 async function sendVerificationEmail(email, userId, token) {
-  const verificationUrl = `https://g0hive.com/verify-email?token=${token}`; // Update with your auth-service URL
+  const verificationUrl = `https://gohive-web-redirect-ba78112bb5c7.herokuapp.com/verify-email?token=${token}`; // Update with your auth-service URL
   const mailOptions = {
     from: `"GoHive" <${process.env.SMTP_EMAIL}>`,
     to: email,

@@ -230,7 +230,7 @@ class ApiService {
       developer.log('Initiating Google Sign-In OAuth', name: 'ApiService');
       final authResponse = await _supabase.auth.signInWithOAuth(
         OAuthProvider.google,
-        redirectTo: 'https://gohive-d4359.firebaseapp.com/',
+        redirectTo: 'com.example.a2bpoint://login-callback/',
       );
 
       if (!authResponse) {
@@ -266,6 +266,7 @@ class ApiService {
       final email = _supabase.auth.currentUser?.email ?? 'unknown';
       return {
         'token': data['token'].toString(),
+        'refreshToken': data['refreshToken']?.toString() ?? '',
         'userId': data['userID'].toString(),
         'username': data['username']?.toString() ?? '',
         'email': email,
@@ -283,7 +284,7 @@ class ApiService {
       developer.log('Initiating Facebook Sign-In OAuth', name: 'ApiService');
       final authResponse = await _supabase.auth.signInWithOAuth(
         OAuthProvider.facebook,
-        redirectTo: 'https://gohive-d4359.firebaseapp.com/',
+        redirectTo: 'com.example.a2bpoint://login-callback/',
       );
 
       if (!authResponse) {
@@ -336,7 +337,7 @@ class ApiService {
       developer.log('Initiating Apple Sign-In OAuth', name: 'ApiService');
       final authResponse = await _supabase.auth.signInWithOAuth(
         OAuthProvider.apple,
-        redirectTo: 'https://gohive-d4359.firebaseapp.com/',
+        redirectTo: 'com.example.a2bpoint://login-callback/',
       );
 
       if (!authResponse) {

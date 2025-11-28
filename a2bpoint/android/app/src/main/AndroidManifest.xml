@@ -31,9 +31,18 @@
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data
                     android:scheme="https"
-                    android:host="https://g0hive.com"
+                    android:host="g0hive.com"
                     android:pathPrefix="/verify-email" />
-                    </intent-filter>
+            </intent-filter>
+
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="com.example.a2bpoint"
+                    android:host="login-callback" />
+            </intent-filter>
         </activity>
         <meta-data
             android:name="flutterEmbedding"
