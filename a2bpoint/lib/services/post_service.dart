@@ -11,7 +11,7 @@ class PostService {
   final SupabaseClient _supabase = Supabase.instance.client;
 
   static const String _postsUrl =
-      'https://gohive-post-service-9ac288c0fa11.herokuapp.com';
+      'https://gohive-post-service-6d6642c2558d.herokuapp.com';
 
   SupabaseClient get supabase => _supabase;
 
